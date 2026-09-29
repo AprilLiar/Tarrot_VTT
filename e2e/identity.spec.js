@@ -6,7 +6,7 @@ const uid = () => Math.random().toString(36).slice(2, 8);
 async function createCharacter(page, name, type) {
   await page.getByTestId('new-character').click();
   await page.getByLabel('Name').fill(name);
-  await page.getByRole('radio', { name: type }).click();
+  await page.getByRole('radio', { name: type, exact: true }).click();
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 }

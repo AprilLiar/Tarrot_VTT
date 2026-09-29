@@ -370,6 +370,8 @@ Each phase ends in a deploy and playtest checkpoint.
    device memory, switch button, GM/PC/NPC types, nested folders (create, rename, move, delete),
    permanent delete with typed-name confirmation, server-side permissions, live updates.
    Check: two browser contexts, PC controlled from a player device, NPC never offered.
+   Covered by `e2e/identity.spec.js` (create PC/NPC, picker lists only PCs, identity survives a
+   reload, delete revokes the player) and `server/test/roster.test.js`.
    Decisions made without asking, open to change: one folder tree shared by PCs and NPCs; only
    empty folders can be deleted; the GM's own device has no PC/NPC "play as" option yet.
 3. **Character sheet**, mobile first then desktop. Blocked on the rules draft.
