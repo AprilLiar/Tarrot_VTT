@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { call, useApp } from '../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 
@@ -222,9 +223,14 @@ function DeleteFolderDialog({ target, onClose }) {
   );
 }
 
-function RowActions({ onRename, onMove, onDelete }) {
+function RowActions({ onOpen, onRename, onMove, onDelete }) {
   return (
-    <div className="flex gap-2 pb-2">
+    <div className="flex flex-wrap gap-2 pb-2">
+      {onOpen && (
+        <button className={btnPrimary} data-testid="open-sheet" onClick={onOpen}>
+          Open sheet
+        </button>
+      )}
       <button className={btn} onClick={onRename}>
         Rename
       </button>
@@ -240,6 +246,7 @@ function RowActions({ onRename, onMove, onDelete }) {
 
 export default function Roster() {
   const { roster } = useApp();
+  const navigate = useNavigate();
   const [dialog, setDialog] = useState(null);
   const [openRow, setOpenRow] = useState(null);
   const close = () => setDialog(null);
@@ -270,6 +277,7 @@ export default function Roster() {
             </button>
             {openRow === key && (
               <RowActions
+                onOpen={() => navigate(`/character/${c.id}`)}
                 onRename={() => setDialog({ kind: 'rename', target: { kind: 'character', id: c.id, name: c.name } })}
                 onMove={() =>
                   setDialog({

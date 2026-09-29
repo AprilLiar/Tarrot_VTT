@@ -41,11 +41,17 @@ Repository layout:
 | `server/app.js` | `createServer({ db })`: Express routes, Socket.io, static client. |
 | `server/handlers.js` | Per-socket handlers: identity and roster events, permission checks. |
 | `server/roster.js` | Roster schema and logic: characters and folders, validation, cycle checks. |
+| `server/sheet.js` | Sheet model: defaults, normalisation, field and list edits, item moves, per-character lock. |
+| `server/rolls.js` | Roll engine: builds a roll and its breakdown from a stored sheet. |
+| `server/chat.js` | In-memory chat log. |
+| `server/errors.js` | `AppError`, the error type whose message is safe to show users. |
+| `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
 | `server/db.js` | libSQL client, `initSchema` (idempotent, one batch). |
 | `server/index.js` | Boot: connect DB, init schema, listen on `$PORT` (default 3001). |
 | `server/test/` | Vitest tests (in-memory DB, ephemeral port). |
 | `client/src/` | React app. `socket.js` shared socket; `AppContext.jsx` identity, PC list, roster state. |
-| `client/src/components/` | `Picker`, `Shell` (top bar), `Roster` (GM), `PlayerHome`, `Dialog`. |
+| `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
+| `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
 | `.github/workflows/ci.yml` | lint, unit tests, e2e, README check. |
@@ -272,7 +278,7 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 
 ## Feature design
 
-### Character sheet (planned, mobile first)
+### Character sheet (implemented in Phase 3, mobile first)
 Fields are hard-coded in the repo as a schema. Characters are stored permanently in Turso. PCs and
 NPCs share one sheet. (decided)
 
@@ -293,6 +299,55 @@ Layout, top to bottom:
 7. **Resistances and Statuses** near the bottom.
 
 Experience Modifier, Physical/Mental Defence, X Defences and max HP are editable fields.
+
+Decided for the sheet:
+- **Item uses:** a Use button subtracts 1; the number can also be typed. At 0 the item stays,
+  marked empty, and can be refilled.
+- **Item State:** the drop-down starts empty; options are created per item.
+- **Edit rights:** the owner and the GM edit everything on a PC; only the GM edits an NPC.
+  Enforced server-side.
+- **Roll results:** go to the global chat log (next section), not a private popup.
+
+Implemented behaviour (Phase 3):
+- **Editing:** number fields save when they lose focus or on Enter; invalid or out-of-range input
+  reverts. Edits from any device appear live on the others (last write wins per field; each
+  character's writes are serialised on the server, so two devices editing at once never overwrite
+  each other's fields).
+- **Rolling:** tap a Roll or Save button to roll at once. Long-press (touch) or right-click
+  (mouse) opens options: Advantage / Normal / Disadvantage and a custom modifier (-99 to 99). The
+  result goes to the chat and the roller's chat panel opens. (decided)
+- **Group saves:** Physical Save is the better of (Strength + Strength Defence) and (Dexterity +
+  Dexterity Defence); Mental Save likewise for Intelligence and Spirit. (decided)
+- **Awareness** scales from the highest of all five stats, Luck included. (my reading of "Prime";
+  tell me if Luck should be excluded)
+- **Minion** can only be set on NPCs; it lowers max AP to 2 and clamps current AP.
+- **Resistances:** each damage type has a flat X, Half, Double, Immunity and Consumption. Empty rows
+  are dropped. The type icons are placeholder colored discs until real icons exist.
+- **Statuses:** all 38 are addable; stackable ones have a +/- counter, and rule text shows "X"
+  replaced by the stack count. Nothing is automated yet. The text lives in
+  `shared/rules-data.js` and a test fails if it drifts from the table above.
+- **Item State options** are added after the item is created (Edit).
+- **Who can see a sheet:** the GM and the PC's own player only. Other players cannot open or
+  receive updates for it. (decided by me, open to change)
+- **Trading:** a player offers an item to another PC; the recipient gets a confirm dialog on any of
+  their devices. Accept moves the item (it arrives as a distinct copy with a new id); decline does
+  nothing. Pending offers are held in server memory and are lost on restart. The GM's Send moves
+  an item between any two characters at once, with no confirmation.
+
+### Chat log (implemented in Phase 3)
+- A global log every identified person can read and write to. Every roll from any sheet is posted.
+- Held in server memory only: it clears itself whenever the server instance restarts. Only the GM
+  can clear it by hand (with a confirmation). Capped at 300 messages; text messages at 500
+  characters. (decided)
+- No hidden rolls, no whispers. (decided)
+- **Roll card:** the roll type is at the top, the result as a big number under it, and the
+  breakdown beneath in the form `1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills)`. Zero
+  bonuses are left out, except the stat itself. With advantage or disadvantage the card also shows
+  both dice and the one kept. A natural 20 shows "Critical" and a natural 1 shows "Critical
+  Failure" on every d20 roll (the Exposed status is not applied automatically). (decided)
+- Damage will get its own breakdown of the same shape when attacks arrive in Phase 6. (decided)
+- Author names come from the server-side identity: a player's messages carry the PC's name, the
+  GM's carry "GM". A GM rolling for an NPC posts as the GM with the NPC's name on the card.
 
 ### Scene mode (planned)
 Light-novel style, as in Dogfight: a fullscreen background with character art (transparent PNG)
@@ -336,15 +391,24 @@ Stored in Turso, served as cacheable URLs, re-encoded on upload to keep the data
 Implemented:
 - `meta(key, value)`: Phase 1 placeholder.
 - `character_folders(id, parent_id, name, created_at)`: nested tree, shared by PCs and NPCs.
-- `characters(id, name, type 'pc'|'npc', folder_id, created_at)`. Names are 1 to 60 characters
-  after trimming and need not be unique. Sheet contents are added in Phase 3.
+- `characters(id, name, type 'pc'|'npc', folder_id, sheet, created_at)`. Names are 1 to 60
+  characters after trimming and need not be unique. `sheet` is one JSON document per character.
+  It is added to existing databases at boot (`initSchema` checks `PRAGMA table_info`).
+- **Sheet JSON** (`server/sheet.js`): `ap {current, minion}`, `hp {current, max}`,
+  `defence {physical, mental}`, `experience`, `stats`, `xDefence` (four stats, no Luck),
+  `masteries` (magic, stances, manifestation), `skills` (tier 0-10 per skill), `features`,
+  `items` (`id, name, description, uses {current, max}, states[], state`), `resistances`
+  (per damage type), `statuses` (key to stacks). Every read and write passes through
+  `normalizeSheet`, which fills defaults and clamps, so new fields never need a migration.
+  Ranges: stats -2 to 7, masteries 1 to 10, Experience 1 to 10, item max uses 1 to 100.
+- The chat log and pending trade offers are not in the database (server memory only).
 - SQLite does not enforce foreign keys by default, so relationship rules are enforced in
   `server/roster.js`: a folder cannot move inside itself or a descendant, and only an empty folder
   (no subfolders, no characters) can be deleted. Character deletion is permanent and requires
   the exact name.
 
 Planned (not final): scenes, scene folders, scene state, scene pictures, summons, battle
-tokens/objects, audio playlists/tracks/state, character-local spells, character sheet data.
+tokens/objects, audio playlists/tracks/state, character-local spells.
 
 ## Real-time events
 
@@ -362,11 +426,26 @@ Implemented:
   `character:move` `{ id, folderId }`, `character:delete` `{ id, confirmName }` (all GM only).
 - `folder:create` `{ name, parentId? }`, `folder:rename` `{ id, name }`,
   `folder:move` `{ id, parentId }`, `folder:delete` `{ id }` (all GM only).
-- Error codes: `forbidden`, `bad_name`, `bad_type`, `bad_id`, `not_found`, `cycle`, `not_empty`,
-  `confirm_mismatch`, `gone`, `server_error`.
+- `sheet:get` `{ characterId }` returns `{ character, sheet }`. `sheet:set` `{ characterId, path,
+  value }` sets one field (paths such as `stats.dexterity`, `hp.max`, `statuses.bleeding`,
+  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items', action: 'add'|
+  'update'|'remove'|'copy'|'use', ... }`. Allowed for the GM, or for a player on their own PC only.
+- `roll:make` `{ characterId, kind: 'attribute'|'save'|'skill', key, mode?, modifier? }` rolls on
+  the server from the stored sheet and posts to the chat. Same permission as editing.
+- `chat:get` returns `{ messages }`; `chat:send` `{ text }`; `chat:clear` (GM only). Need an
+  identity.
+- `item:transfer` `{ fromId, toId, itemId }` (GM only, immediate). `trade:offer` `{ fromId, toId,
+  itemId }` (players only, recipient must be another PC). `trade:respond` `{ offerId, accept }`
+  (only the receiving player).
+- Error codes: `forbidden`, `bad_name`, `bad_type`, `bad_id`, `bad_value`, `bad_path`,
+  `bad_action`, `bad_list`, `bad_roll`, `bad_text`, `bad_transfer`, `npc_only`, `no_uses`, `limit`,
+  `not_found`, `cycle`, `not_empty`, `confirm_mismatch`, `gone`, `server_error`.
 - Server to clients: `pcs:updated` `[{ id, name }]` to everyone; `roster:updated`
   `{ folders, characters }` to the GM room only; `identity:revoked` `{ characterId, name }` to the
-  sockets playing a deleted character.
+  sockets playing a deleted character; `sheet:updated` `{ characterId, sheet }` to the GM and the
+  PC's own devices; `chat:message` and `chat:cleared` to everyone identified; `trade:offered`
+  `{ offerId, fromName, itemName, toId }` to the recipient's devices and `trade:resolved` `{
+  offerId, accepted, itemName, fromName, toName }` to both sides.
 
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker.
 
@@ -384,7 +463,13 @@ Each phase ends in a deploy and playtest checkpoint.
    reload, delete revokes the player) and `server/test/roster.test.js`.
    Decisions made without asking, open to change: one folder tree shared by PCs and NPCs; only
    empty folders can be deleted; the GM's own device has no PC/NPC "play as" option yet.
-3. **Character sheet**, mobile first then desktop. Blocked on the rules draft.
+3. **Character sheet and chat** (implemented, awaiting playtest): the full sheet described above,
+   server-side rolls with the breakdown card, the global chat log, item copy and trading.
+   Check: on a phone, edit stats, roll a skill, see the breakdown in the chat on the GM's screen;
+   trade an item between two players; GM clears the chat. Covered by `server/test/sheet.test.js`,
+   `rolls.test.js`, `sheetSockets.test.js`, `rulesData.test.js` and `e2e/sheet.spec.js`.
+   The layout is a single column that works on phone and desktop; a dedicated wide desktop layout
+   is not built yet.
 4. **Scene and Music**: Scene page, upload pipeline, folders, activation, summoning, Hidden flag
    and context window, Music player.
 5. **Battle**: Battle mode, grid, tokens, D-pad remote, targeting, templates, drawing, pings, ruler.
@@ -397,8 +482,10 @@ Asked one batch at a time; answers move into the sections above.
 
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Inventory uses: how uses are spent in the UI and what happens at 0.
+- Awareness and Luck: whether Luck counts toward "Prime".
+- Whether other players may view a PC's sheet (currently owner and GM only).
+- A wider desktop layout for the sheet and the icon set for damage types.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
-- Chat and roll log? Undo of applied results? Turn order and initiative tracker? Animation budget?
+- Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
 - Backups/export of characters from Turso.

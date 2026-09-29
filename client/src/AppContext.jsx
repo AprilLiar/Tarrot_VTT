@@ -29,6 +29,8 @@ export function call(event, payload) {
 const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
+let toastSeq = 0;
+
 export function AppProvider({ children }) {
   const [identity, setIdentity] = useState(loadSaved);
   const identityRef = useRef(identity);
@@ -37,12 +39,37 @@ export function AppProvider({ children }) {
   const [pcs, setPcs] = useState([]);
   const [roster, setRoster] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatOpenRef = useRef(false);
+  const [unread, setUnread] = useState(0);
+  const [offers, setOffers] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const toast = useCallback((text) => {
+    const id = ++toastSeq;
+    setToasts((list) => [...list, { id, text }]);
+    setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), 4500);
+  }, []);
+
+  const setChatOpenBoth = useCallback((open) => {
+    chatOpenRef.current = open;
+    setChatOpen(open);
+    if (open) setUnread(0);
+  }, []);
 
   const updateIdentity = useCallback((next) => {
     identityRef.current = next;
     persist(next);
     setIdentity(next);
     if (next?.role !== 'gm') setRoster(null);
+    if (!next) {
+      setMessages([]);
+      setOffers([]);
+      chatOpenRef.current = false;
+      setChatOpen(false);
+      setUnread(0);
+    }
   }, []);
 
   const loadRoster = useCallback(async () => {
@@ -57,6 +84,11 @@ export function AppProvider({ children }) {
     } catch {}
   }, []);
 
+  const loadChat = useCallback(async () => {
+    const r = await call('chat:get');
+    if (r.ok) setMessages(r.messages);
+  }, []);
+
   useEffect(() => {
     // Runs on every (re)connect: the server forgets identities when a socket dies.
     async function claim() {
@@ -68,8 +100,9 @@ export function AppProvider({ children }) {
         if (!r.ok && r.code === 'gone') {
           updateIdentity(null);
           setNotice('Your character is no longer available. Please choose again.');
-        } else if (r.ok && saved.role === 'gm') {
-          await loadRoster();
+        } else if (r.ok) {
+          if (saved.role === 'gm') await loadRoster();
+          await loadChat();
         }
       }
       setReady(true);
@@ -81,12 +114,35 @@ export function AppProvider({ children }) {
       updateIdentity(null);
       setNotice(`${name} was deleted by the GM. Please choose again.`);
     };
+    const onMessage = (m) => {
+      setMessages((list) => [...list, m]);
+      if (!chatOpenRef.current) setUnread((n) => n + 1);
+    };
+    const onCleared = () => {
+      setMessages([]);
+      setUnread(0);
+    };
+    const onOffered = (o) => setOffers((list) => [...list, o]);
+    const onResolved = (o) => {
+      setOffers((list) => list.filter((x) => x.offerId !== o.offerId));
+      const me = identityRef.current;
+      if (me?.role !== 'player') return;
+      toast(
+        o.accepted
+          ? `${o.toName} accepted ${o.itemName} from ${o.fromName}.`
+          : `${o.toName} declined ${o.itemName} from ${o.fromName}.`,
+      );
+    };
 
     socket.on('connect', claim);
     socket.on('disconnect', onDisconnect);
     socket.on('pcs:updated', onPcs);
     socket.on('roster:updated', onRoster);
     socket.on('identity:revoked', onRevoked);
+    socket.on('chat:message', onMessage);
+    socket.on('chat:cleared', onCleared);
+    socket.on('trade:offered', onOffered);
+    socket.on('trade:resolved', onResolved);
     if (socket.connected) claim();
     return () => {
       socket.off('connect', claim);
@@ -94,8 +150,12 @@ export function AppProvider({ children }) {
       socket.off('pcs:updated', onPcs);
       socket.off('roster:updated', onRoster);
       socket.off('identity:revoked', onRevoked);
+      socket.off('chat:message', onMessage);
+      socket.off('chat:cleared', onCleared);
+      socket.off('trade:offered', onOffered);
+      socket.off('trade:resolved', onResolved);
     };
-  }, [loadPcs, loadRoster, updateIdentity]);
+  }, [loadPcs, loadRoster, loadChat, updateIdentity, toast]);
 
   const choose = useCallback(
     async (next) => {
@@ -104,18 +164,25 @@ export function AppProvider({ children }) {
         setNotice(null);
         updateIdentity(next);
         if (next.role === 'gm') await loadRoster();
+        await loadChat();
       } else {
         setNotice('That character is not available any more.');
       }
       return r;
     },
-    [loadRoster, updateIdentity],
+    [loadRoster, loadChat, updateIdentity],
   );
 
   const switchIdentity = useCallback(async () => {
     await call('identity:clear');
     updateIdentity(null);
   }, [updateIdentity]);
+
+  const respondTrade = useCallback(async (offerId, accept) => {
+    setOffers((list) => list.filter((o) => o.offerId !== offerId));
+    const r = await call('trade:respond', { offerId, accept });
+    if (!r.ok) toast(r.error ?? 'That offer is no longer available.');
+  }, [toast]);
 
   const value = {
     identity,
@@ -127,6 +194,14 @@ export function AppProvider({ children }) {
     dismissNotice: () => setNotice(null),
     choose,
     switchIdentity,
+    messages,
+    chatOpen,
+    setChatOpen: setChatOpenBoth,
+    unread,
+    offers,
+    respondTrade,
+    toasts,
+    toast,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

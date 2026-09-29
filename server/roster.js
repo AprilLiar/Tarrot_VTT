@@ -4,15 +4,12 @@
 // SQLite does not enforce foreign keys by default, so every relationship
 // rule (no cycles, no deleting non-empty folders) is checked here.
 
+import { AppError } from './errors.js';
+
 export const NAME_MAX = 60;
 export const TYPES = ['pc', 'npc'];
 
-export class RosterError extends Error {
-  constructor(code, message) {
-    super(message);
-    this.code = code;
-  }
-}
+export class RosterError extends AppError {}
 
 export const ROSTER_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS character_folders (
