@@ -2,6 +2,31 @@ import { useEffect, useRef, useState } from 'react';
 import { call, useApp } from '../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 
+// A die is tinted green on a natural 20 and red on a natural 1.
+const dieTint = (v) => (v === 20 ? 'text-green-400' : v === 1 ? 'text-red-400' : '');
+
+// The die that counts comes first and is prominent; the others follow, greyed out.
+// Example: 12 | 1 | 20
+function DiceLine({ roll }) {
+  const others = [...roll.dice];
+  others.splice(others.indexOf(roll.natural), 1);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2" data-testid="roll-dice">
+      <span className={`text-lg font-bold ${dieTint(roll.natural)}`} data-testid="roll-kept">
+        {roll.natural}
+      </span>
+      {others.map((d, i) => (
+        <span key={i} className="flex items-baseline gap-2">
+          <span className="opacity-40">|</span>
+          <span className={`text-sm opacity-50 ${dieTint(d) || 'text-slate-400'}`} data-testid="roll-other">
+            {d}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function RollCard({ m }) {
   const { roll } = m;
   const crit = roll.flags.includes('critical');
@@ -9,7 +34,9 @@ function RollCard({ m }) {
   return (
     <div
       data-testid="roll-card"
-      className={`rounded-xl border p-3 ${crit ? 'border-amber-400' : fail ? 'border-red-500' : 'border-white/15'} bg-white/5`}
+      className={`rounded-xl border p-3 ${
+        crit ? 'border-green-500/70 bg-green-500/10' : fail ? 'border-red-500/70 bg-red-500/10' : 'border-white/15 bg-white/5'
+      }`}
     >
       <div className="flex items-center justify-between gap-2 text-xs opacity-70">
         <span className="truncate">
@@ -20,11 +47,14 @@ function RollCard({ m }) {
       <div className="text-sm font-medium uppercase tracking-wide" data-testid="roll-title">
         {roll.title}
       </div>
-      <div className="text-5xl font-bold leading-tight" data-testid="roll-total">
+      <div
+        className={`text-5xl font-bold leading-tight ${crit ? 'text-green-400' : fail ? 'text-red-400' : ''}`}
+        data-testid="roll-total"
+      >
         {roll.total}
       </div>
       {(crit || fail) && (
-        <div className={`text-sm font-semibold ${crit ? 'text-amber-300' : 'text-red-400'}`}>
+        <div className={`text-sm font-semibold ${crit ? 'text-green-400' : 'text-red-400'}`}>
           {crit ? 'Critical' : 'Critical Failure'}
         </div>
       )}
@@ -32,12 +62,12 @@ function RollCard({ m }) {
         {roll.expression}
       </div>
       {roll.dice.length > 1 && (
-        <div className="text-xs opacity-70" data-testid="roll-advantage">
-          {roll.advantage.net > 0 ? 'Advantage' : 'Disadvantage'} {Math.abs(roll.advantage.net)}
-          {' ('}
-          {roll.advantage.sources.map((x) => x.label).join(', ')}
-          {'): rolled '}
-          {roll.dice.join(', ')}, kept {roll.natural}
+        <div className="mt-1" data-testid="roll-advantage">
+          <div className="text-xs opacity-60">
+            {roll.advantage.net > 0 ? 'Advantage' : 'Disadvantage'} {Math.abs(roll.advantage.net)} (
+            {roll.advantage.sources.map((x) => x.label).join(', ')})
+          </div>
+          <DiceLine roll={roll} />
         </div>
       )}
     </div>

@@ -88,27 +88,63 @@ test('the roll dialog adds advantage levels and a custom modifier', async ({ bro
   await p.page.getByTestId('roll-confirm').click();
   const card = p.page.getByTestId('roll-card').last();
   await expect(card.getByTestId('roll-expression')).toHaveText('1d20 + 0(Strength) + 2(Custom)');
-  await expect(card.getByTestId('roll-advantage')).toContainText('Advantage 1 (Manual): rolled');
+  await expect(card.getByTestId('roll-advantage')).toContainText('Advantage 1 (Manual)');
 
   await p.context.close();
   await gm.context.close();
 });
 
-test('negative numbers can be entered with the +/- button (no minus key on iOS)', async ({ browser }) => {
+test('negative numbers are typed directly; anything else is not saved', async ({ browser }) => {
   const name = `Neg-${uid()}`;
   const gm = await gmPage(browser);
   await createPc(gm.page, name);
   const p = await playerPage(browser, name);
 
-  await setNumber(p.page, 'stat-value-luck', 2);
-  await p.page.getByTestId('stat-value-luck-sign').click();
-  await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('-2');
+  // Fields that can be negative use the full keyboard (no digit pad without a minus key).
+  await expect(p.page.getByTestId('stat-value-luck')).toHaveAttribute('inputmode', 'text');
+  await setNumber(p.page, 'stat-value-luck', -2);
   await p.page.reload();
   await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('-2');
-  // Out of range (-2 flipped is 2, fine; a 3 cannot flip below the minimum of -2).
-  await setNumber(p.page, 'stat-value-luck', 3);
-  await p.page.getByTestId('stat-value-luck-sign').click();
-  await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('3');
+
+  // Non-numbers and out-of-range values revert instead of saving.
+  for (const bad of ['abc', '1.5', '--1', '9', '-3', '']) {
+    const field = p.page.getByTestId('stat-value-luck');
+    await field.fill(bad);
+    await field.press('Enter');
+    await expect(field).toHaveValue('-2');
+  }
+  await expect(p.page.getByTestId('stat-value-luck-sign')).toHaveCount(0);
+
+  await p.context.close();
+  await gm.context.close();
+});
+
+test('the roll dialog previews the exact formula with every bonus source', async ({ browser }) => {
+  const name = `Prev-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+
+  await setNumber(p.page, 'stat-value-dexterity', 3);
+  await setNumber(p.page, 'tier-fine_motor_skills', 1);
+  await p.page.getByTestId('roll-skill-fine_motor_skills').click();
+  const preview = p.page.getByTestId('preview-expression');
+  await expect(preview).toHaveText('1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills)');
+  await expect(p.page.getByTestId('preview-terms')).toContainText('+3 Dexterity');
+  await expect(p.page.getByTestId('preview-terms')).toContainText('+1 Mastery: Fine Motor Skills');
+
+  // The preview follows the edits.
+  await p.page.getByRole('textbox', { name: 'Custom modifier' }).fill('-2');
+  await expect(preview).toHaveText('1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills) - 2(Custom)');
+  await p.page.getByRole('button', { name: 'Fewer levels' }).click();
+  await expect(p.page.getByTestId('net-mode')).toContainText('2d20, keep the lowest');
+
+  // What was previewed is what is rolled.
+  await p.page.getByTestId('roll-confirm').click();
+  const card = p.page.getByTestId('roll-card').last();
+  await expect(card.getByTestId('roll-expression')).toHaveText(
+    '1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills) - 2(Custom)',
+  );
 
   await p.context.close();
   await gm.context.close();
@@ -155,7 +191,11 @@ test('statuses apply to a roll automatically, and the status list is readable', 
   await expect(p.page.getByTestId('status-effects')).toContainText('Dazed 2: Disadvantage 2');
   await p.page.getByTestId('roll-confirm').click();
   const card = p.page.getByTestId('roll-card').last();
-  await expect(card.getByTestId('roll-advantage')).toContainText('Disadvantage 2 (Dazed 2): rolled');
+  await expect(card.getByTestId('roll-advantage')).toContainText('Disadvantage 2 (Dazed 2)');
+  // The die that counts comes first, then the others: "kept | other | other".
+  await expect(card.getByTestId('roll-dice')).toHaveText(/^\d+\|\d+\|\d+$/);
+  const kept = Number(await card.getByTestId('roll-kept').innerText());
+  for (const other of await card.getByTestId('roll-other').allInnerTexts()) expect(kept).toBeLessThanOrEqual(Number(other));
   // A physical roll is untouched.
   await p.page.getByTestId('chat-panel').getByRole('button', { name: 'Close' }).click();
   await rollNow(p.page, 'roll-attr-strength');

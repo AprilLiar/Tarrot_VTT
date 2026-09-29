@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { socket } from '../../socket.js';
 import { call, useApp } from '../../AppContext.jsx';
 import * as D from '../../../../shared/rules-data.js';
-import { resolveStat, statusEffects } from '../../../../shared/status-effects.js';
 import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
@@ -16,9 +15,6 @@ const MASTERY_GLOW = {
   stances: '0 0 22px 4px rgba(239,68,68,0.65)',
   manifestation: '0 0 22px 4px rgba(234,179,8,0.65)',
 };
-
-// The status effects that will apply to a roll, for the roll dialog.
-const effectsFor = (sheet, kind, key) => statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
 
 export default function SheetPage({ characterId }) {
   const { identity, toast, setChatOpen } = useApp();
@@ -191,7 +187,7 @@ function Stats({ s }) {
                   title={`${D.STAT_LABELS[stat]} Attribute Roll`}
                   testId={`roll-attr-${stat}`}
                   className="min-h-9 w-1/2"
-                  info={effectsFor(sheet, 'attribute', stat)}
+                  sheet={sheet} kind="attribute" rkey={stat}
                   onRoll={(o) => roll('attribute', stat, o)}
                 />
                 {hasSave ? (
@@ -200,7 +196,7 @@ function Stats({ s }) {
                     title={`${D.STAT_LABELS[stat]} Save`}
                     testId={`roll-save-${stat}`}
                     className="min-h-9 w-1/2"
-                    info={effectsFor(sheet, 'save', stat)}
+                  sheet={sheet} kind="save" rkey={stat}
                     onRoll={(o) => roll('save', stat, o)}
                   />
                 ) : (
@@ -233,7 +229,7 @@ function Stats({ s }) {
             label={`${g.label} Save`}
             testId={`roll-save-${key}`}
             className="min-h-11 flex-1 text-sm"
-            info={effectsFor(sheet, 'save', key)}
+                  sheet={sheet} kind="save" rkey={key}
             onRoll={(o) => roll('save', key, o)}
           />
         ))}
@@ -241,12 +237,6 @@ function Stats({ s }) {
     </section>
   );
 }
-
-const MASTERY_TINT = {
-  magic: 'bg-blue-600/80 border-blue-300/60 active:bg-blue-500',
-  stances: 'bg-red-600/80 border-red-300/60 active:bg-red-500',
-  manifestation: 'bg-yellow-600/80 border-yellow-200/60 active:bg-yellow-500',
-};
 
 function Masteries({ s }) {
   const { sheet, set, roll } = s;
@@ -258,10 +248,13 @@ function Masteries({ s }) {
       style={{ boxShadow: MASTERY_GLOW[m] }}
     >
       <RollButton
-        label={`${D.MASTERY_LABELS[m]} - Roll`}
+        label={D.MASTERY_LABELS[m]}
         title={`${D.MASTERY_LABELS[m]} (Combat Mastery Roll)`}
         testId={`roll-mastery-${m}`}
-        className={`min-h-10 w-full rounded-lg border text-xs font-semibold uppercase tracking-wide shadow-md ${MASTERY_TINT[m]}`}
+        className="min-h-10 w-full rounded-lg text-xs font-semibold uppercase tracking-wide"
+        sheet={sheet}
+        kind="mastery"
+        rkey={m}
         onRoll={(o) => roll('mastery', m, o)}
       />
       <div className="w-full text-3xl font-semibold">
@@ -280,7 +273,7 @@ function Masteries({ s }) {
   return (
     <section aria-label="Combat Masteries" className="py-3">
       <h2 className={heading}>Combat Masteries</h2>
-      <p className="mb-2 text-xs opacity-50">Roll = d20 + the Mastery + your Experience Modifier.</p>
+      <p className="mb-2 text-xs opacity-50">Tap a name to roll: d20 + the Mastery + your Experience Modifier.</p>
       <div className="flex flex-col items-center gap-4">
         {box('magic')}
         <div className="flex gap-4">
@@ -324,7 +317,7 @@ function Skills({ s }) {
                 title={skill.label}
                 testId={`roll-skill-${skill.key}`}
                 className="min-h-9 w-14"
-                info={effectsFor(sheet, 'skill', skill.key)}
+                  sheet={sheet} kind="skill" rkey={skill.key}
                 onRoll={(o) => roll('skill', skill.key, o)}
               />
             </div>

@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Dialog, { btn, btnPrimary, input } from '../Dialog.jsx';
-
-// iOS shows a digit pad with no minus key for numeric inputs, so anywhere a
-// value can be negative there is a +/- button next to it.
-const signButton =
-  'min-h-9 min-w-9 shrink-0 rounded-md bg-white/10 px-2 text-sm font-medium active:bg-white/25';
+import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 
 // A number that is edited in place and saved when the field loses focus or
 // Enter is pressed. While focused it ignores incoming updates so typing is
@@ -12,6 +8,7 @@ const signButton =
 export function NumField({ value, onCommit, min, max, disabled, className = '', label, testId }) {
   const [draft, setDraft] = useState(String(value));
   const focused = useRef(false);
+  // The digit pad on iOS has no minus key, so fields that can go negative open the full keyboard.
   const canBeNegative = min < 0;
 
   useEffect(() => {
@@ -21,7 +18,8 @@ export function NumField({ value, onCommit, min, max, disabled, className = '', 
   function commit() {
     focused.current = false;
     const n = Number(draft);
-    if (draft.trim() === '' || !Number.isInteger(n) || n < min || n > max) {
+    // Only whole numbers (optionally negative) within range are ever saved.
+    if (!/^-?\d+$/.test(draft.trim()) || n < min || n > max) {
       setDraft(String(value));
       return;
     }
@@ -29,20 +27,11 @@ export function NumField({ value, onCommit, min, max, disabled, className = '', 
     else setDraft(String(value));
   }
 
-  function flipSign() {
-    const n = Number(draft);
-    const current = draft.trim() !== '' && Number.isInteger(n) ? n : value;
-    const next = -current;
-    if (next < min || next > max || next === current) return;
-    setDraft(String(next));
-    onCommit(next);
-  }
-
   return (
     <div className="flex w-full items-center gap-1">
       <input
         type="text"
-        inputMode="numeric"
+        inputMode={canBeNegative ? 'text' : 'numeric'}
         aria-label={label}
         data-testid={testId}
         disabled={disabled}
@@ -62,45 +51,25 @@ export function NumField({ value, onCommit, min, max, disabled, className = '', 
           }
         }}
       />
-      {canBeNegative && !disabled && (
-        <button
-          type="button"
-          aria-label={`Flip sign of ${label}`}
-          data-testid={testId ? `${testId}-sign` : undefined}
-          className={signButton}
-          // Keep the field focused so tapping the button does not trigger a blur-commit first.
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={flipSign}
-        >
-          +/-
-        </button>
-      )}
     </div>
   );
 }
 
-// A text field for a whole number that may be negative, with a +/- button.
-export function SignedInput({ value, onChange, label, className = '' }) {
-  const n = Number(value);
-  const flip = () => {
-    if (value.trim() === '' || value.trim() === '-') onChange('-');
-    else if (Number.isInteger(n)) onChange(String(-n));
-  };
+// A text field for a whole number that may be negative. It uses the full
+// keyboard because the digit pad on iOS has no minus key. The parent validates.
+export function IntInput({ value, onChange, label, className = '' }) {
   return (
-    <div className="flex items-center gap-2">
-      <input
-        className={`${input} ${className}`}
-        inputMode="numeric"
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button type="button" aria-label={`Flip sign of ${label}`} className={`${signButton} min-h-11 min-w-12`} onClick={flip}>
-        +/-
-      </button>
-    </div>
+    <input
+      className={`${input} ${className}`}
+      type="text"
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   );
 }
+
+export const isWholeNumber = (v) => /^-?\d+$/.test(v.trim());
 
 // True on touch screens (phones and tablets).
 function useCoarsePointer() {
@@ -118,8 +87,8 @@ function useCoarsePointer() {
 
 // On a touch screen a tap always opens the roll dialog (long-press was not
 // reliable on iOS). With a mouse a click rolls at once and a right-click opens
-// the dialog. `info` is the status effects that will apply to this roll.
-export function RollButton({ label, title = label, onRoll, info, className = '', testId, disabled }) {
+// the dialog, which previews the exact formula (`sheet`, `kind` and `rkey` say what is being rolled).
+export function RollButton({ label, title = label, onRoll, sheet, kind, rkey, className = '', testId, disabled }) {
   const [options, setOptions] = useState(false);
   const coarse = useCoarsePointer();
 
@@ -139,7 +108,7 @@ export function RollButton({ label, title = label, onRoll, info, className = '',
       >
         {label}
       </button>
-      {options && <RollOptionsDialog title={title} info={info} onClose={() => setOptions(false)} onRoll={onRoll} />}
+      {options && <RollOptionsDialog title={title} sheet={sheet} kind={kind} rkey={rkey} onClose={() => setOptions(false)} onRoll={onRoll} />}
     </>
   );
 }
@@ -147,14 +116,14 @@ export function RollButton({ label, title = label, onRoll, info, className = '',
 const describeNet = (net) =>
   net === 0 ? 'Normal' : `${net > 0 ? 'Advantage' : 'Disadvantage'} ${Math.abs(net)}`;
 
-export function RollOptionsDialog({ title, info, onClose, onRoll }) {
+export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll }) {
   const [manual, setManual] = useState(0);
   const [modifier, setModifier] = useState('0');
-  const n = Number(modifier);
-  const valid = Number.isInteger(n) && Math.abs(n) <= 99;
-  const levels = info?.levels ?? [];
-  const modifiers = info?.modifiers ?? [];
-  const net = levels.reduce((sum, l) => sum + l.levels, 0) + manual;
+  const valid = isWholeNumber(modifier) && Math.abs(Number(modifier)) <= 99;
+
+  // The same plan the server will use, so the preview is exactly what gets rolled.
+  const plan = planRoll(sheet, { kind, key: rkey, advantage: manual, modifier: valid ? Number(modifier) : 0 });
+  const statusLevels = plan.ok ? plan.sources.filter((x) => x.label !== 'Manual') : [];
 
   return (
     <Dialog title={`Roll: ${title}`} onClose={onClose}>
@@ -163,22 +132,37 @@ export function RollOptionsDialog({ title, info, onClose, onRoll }) {
         onSubmit={(e) => {
           e.preventDefault();
           if (!valid) return;
-          onRoll({ advantage: manual, modifier: n });
+          onRoll({ advantage: manual, modifier: Number(modifier) });
           onClose();
         }}
       >
-        {(levels.length > 0 || modifiers.length > 0) && (
+        {plan.ok && (
+          <div className="rounded-lg bg-white/5 p-2 text-sm" data-testid="roll-preview">
+            <div className="mb-1 text-xs uppercase tracking-wide opacity-60">This will roll</div>
+            <div className="text-base font-medium" data-testid="preview-expression">
+              {plan.expression}
+            </div>
+            <ul className="mt-1 space-y-0.5 opacity-80" data-testid="preview-terms">
+              <li>1d20 (the die)</li>
+              {plan.terms.map((t, i) => (
+                <li key={`${t.label}-${i}`}>
+                  {t.value < 0 ? '-' : '+'}
+                  {Math.abs(t.value)} {t.label}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-1" data-testid="net-mode">
+              Dice: {plan.diceCount}d20, {plan.net > 0 ? 'keep the highest' : plan.net < 0 ? 'keep the lowest' : 'one die'} (
+              {describeNet(plan.net)})
+            </div>
+          </div>
+        )}
+        {statusLevels.length > 0 && (
           <div className="rounded-lg bg-white/5 p-2 text-sm" data-testid="status-effects">
             <div className="mb-1 text-xs uppercase tracking-wide opacity-60">Applied automatically by statuses</div>
-            {levels.map((l) => (
+            {statusLevels.map((l) => (
               <div key={l.label}>
                 {l.label}: {describeNet(l.levels)}
-              </div>
-            ))}
-            {modifiers.map((m) => (
-              <div key={m.label}>
-                {m.label}: {m.value > 0 ? '+' : '-'}
-                {Math.abs(m.value)}
               </div>
             ))}
           </div>
@@ -186,30 +170,27 @@ export function RollOptionsDialog({ title, info, onClose, onRoll }) {
         <div className="flex flex-col gap-1 text-sm">
           <span>Extra Advantage levels (negative for Disadvantage)</span>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Fewer levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.max(-5, manual - 1))}>
+            <button type="button" aria-label="Fewer levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.max(-MAX_MANUAL_LEVELS, manual - 1))}>
               -
             </button>
             <span className="w-8 text-center text-lg" data-testid="manual-levels">
               {manual}
             </span>
-            <button type="button" aria-label="More levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.min(5, manual + 1))}>
+            <button type="button" aria-label="More levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.min(MAX_MANUAL_LEVELS, manual + 1))}>
               +
             </button>
-            <span className="flex-1 text-right opacity-80" data-testid="net-mode">
-              Result: {describeNet(net)}
-            </span>
           </div>
         </div>
         <label className="flex flex-col gap-1 text-sm">
           Custom modifier
-          <SignedInput label="Custom modifier" value={modifier} onChange={setModifier} />
+          <IntInput label="Custom modifier" value={modifier} onChange={setModifier} />
         </label>
         {!valid && <p className="text-sm text-red-400">Use a whole number from -99 to 99.</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className={btn} onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className={btnPrimary} disabled={!valid} data-testid="roll-confirm">
+          <button type="submit" className={btnPrimary} disabled={!valid || !plan.ok} data-testid="roll-confirm">
             Roll
           </button>
         </div>

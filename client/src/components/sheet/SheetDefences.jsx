@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { btn, btnDanger, input } from '../Dialog.jsx';
 import { FormDialog } from './SheetLists.jsx';
-import { SignedInput } from './fields.jsx';
+import { IntInput, isWholeNumber } from './fields.jsx';
 import * as D from '../../../../shared/rules-data.js';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -47,7 +47,7 @@ function ResistanceDialog({ s, initialType, onClose }) {
     consumption: existing?.consumption ?? false,
   });
   const n = Number(flat);
-  const valid = Number.isInteger(n) && Math.abs(n) <= 99;
+  const valid = isWholeNumber(flat) && Math.abs(n) <= 99;
 
   function pickType(t) {
     const r = s.sheet.resistances[t];
@@ -81,7 +81,7 @@ function ResistanceDialog({ s, initialType, onClose }) {
       </label>
       <label className="flex flex-col gap-1 text-sm">
         Resistance (X): positive takes less damage, negative takes more
-        <SignedInput label="Resistance value" value={flat} onChange={setFlat} />
+        <IntInput label="Resistance value" value={flat} onChange={setFlat} />
       </label>
       {[
         ['half', 'Half (x0.5)'],
