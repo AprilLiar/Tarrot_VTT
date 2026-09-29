@@ -13,7 +13,7 @@ const rules = {
 export default [
   { ignores: ['client/dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'] },
   {
-    files: ['server/**/*.js', 'e2e/**/*.js', '*.js', '*.mjs'],
+    files: ['server/**/*.js', 'shared/**/*.js', 'e2e/**/*.js', '*.js', '*.mjs'],
     languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node } },
     rules,
   },

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import { registerHandlers } from './handlers.js';
 import { listPcs } from './roster.js';
+import { createChat } from './chat.js';
 
 const clientDist = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -51,7 +52,10 @@ export function createServer({ db }) {
   const httpServer = http.createServer(app);
   const io = new Server(httpServer);
 
-  io.on('connection', (socket) => registerHandlers(io, socket, db));
+  // Per-instance state that is deliberately not in the database: the chat log
+  // (clears on restart) and pending trade offers.
+  const shared = { chat: createChat(), offers: new Map() };
+  io.on('connection', (socket) => registerHandlers(io, socket, db, shared));
 
   return { app, httpServer, io };
 }

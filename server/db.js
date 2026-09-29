@@ -20,6 +20,16 @@ const SCHEMA = [
   ...ROSTER_SCHEMA,
 ];
 
+// New columns on existing tables cannot use IF NOT EXISTS, so each one is
+// added only when PRAGMA table_info shows it missing.
+const COLUMNS = [{ table: 'characters', column: 'sheet', ddl: 'sheet TEXT' }];
+
 export async function initSchema(db) {
   await db.batch(SCHEMA, 'write');
+  for (const { table, column, ddl } of COLUMNS) {
+    const info = await db.execute(`PRAGMA table_info(${table})`);
+    if (!info.rows.some((r) => r.name === column)) {
+      await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+    }
+  }
 }
