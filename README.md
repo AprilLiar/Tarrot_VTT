@@ -294,6 +294,18 @@ Layout, top to bottom:
 
 Experience Modifier, Physical/Mental Defence, X Defences and max HP are editable fields.
 
+Decided for the sheet:
+- **Item uses:** a Use button subtracts 1; the number can also be typed. At 0 the item stays,
+  marked empty, and can be refilled.
+- **Item State:** the drop-down starts empty; options are created per item.
+- **Edit rights:** the owner and the GM edit everything on a PC; only the GM edits an NPC.
+  Enforced server-side.
+- **Roll results:** go to the global chat log (next section), not a private popup.
+
+### Chat log (planned, decided in shape)
+A globally accessible chat log. Users can write messages, and every roll result is posted into it.
+Details (persistence, GM-hidden rolls, whispers, breakdown format) are open.
+
 ### Scene mode (planned)
 Light-novel style, as in Dogfight: a fullscreen background with character art (transparent PNG)
 sliding in. PCs on the left, GM/NPC characters on the right. Position, scale and picture swap
@@ -397,7 +409,8 @@ Asked one batch at a time; answers move into the sections above.
 
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Inventory uses: how uses are spent in the UI and what happens at 0.
+- Chat log: kept permanently or per session; can the GM roll hidden; whispers; roll breakdown
+  format; who can clear it; whether it is its own phase.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Chat and roll log? Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
