@@ -153,14 +153,15 @@ with Intelligence 2 rolls d20 + 2 + 3). Any skill can hold any tier. (decided)
 
 ### Hit severity and damage
 Damage is not rolled. It is calculated from the Hit Severity: attack total minus the target's
-relevant defence value. (decided)
+defence value. Which defence (Physical or Mental) is chosen by the ability or item being used; the
+GM's confirm card can change it. (decided)
 
 | Result | Severity | Damage |
 |---|---|---|
 | under 5 | Hit | base |
 | 5 to 9 | Heavy Hit | base + 1 |
 | 10 or more | Brutal Hit | base + 2 |
-| Natural 20 | Critical Hit | +2 (stacks per default rules; exact stacking open) |
+| Natural 20 | Critical Hit | +2, added on top of the severity bonus (Brutal + Crit = base + 4) |
 
 Base damage and damage type are numbers carried by the ability or item being used. The GM's confirm
 card can edit any value before it is applied.
@@ -187,8 +188,56 @@ Damage types: Fire, Cold, Acid, Poison, Lightning, Sound, Bludgeoning, Slashing,
 Decay, Psychic.
 
 ### Statuses
-Use the DC20 statuses and rules as implemented in the official Foundry system. The exact list and
-each rule, mapped to Tarrot's stats, is awaiting the user's confirmation. (open)
+All statuses from the DC20 Foundry system are used, remapped to Tarrot stats: Might is Strength,
+Agility is Dexterity, Charisma is Spirit. (decided) At first a status is a name, a stack count where
+it stacks, and rule text shown on the sheet; the GM applies the mechanical effects by hand through
+the confirm card. Automation comes later. (decided)
+
+**Draft rule text below was summarised from the Foundry system's `status-config.mjs`
+(`pazindorb/dc20rpg`) and is not yet verified against the official rules or Tarrot changes.**
+"X" is the stack count. Items marked FIX mention DC20 skills or terms Tarrot does not have (Martial,
+Athletics, Medicine, Agility Save, "Space") and need the user's wording. (open, review)
+
+| Status | Stacks | Draft rule |
+|---|---|---|
+| Bleeding | yes | X true damage at turn start. Ends when healed or by a Medicine check (FIX). |
+| Blinded | no | Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage. |
+| Burning | yes | X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack. |
+| Charmed | no | Charmer has Advantage on Spirit checks against you. You cannot target the charmer with harmful attacks or effects. |
+| Dazed | yes | Disadvantage X on mental checks (Intelligence, Spirit). |
+| Deafened | no | Cannot hear. Auto-fail hearing-based Awareness. Flanking melee attackers have Advantage. |
+| Disoriented | yes | Disadvantage X on mental saves. |
+| Doomed | yes | Current and max HP reduced by X. Healing received reduced by X. |
+| Exhaustion | yes | Penalty X on all checks and saves. Speed and Save DC reduced by X. Death at 6 stacks. |
+| Exposed | yes | Attacks against you have Advantage X. (Natural 1 gives one stack that ends after the first Attack roll against you.) |
+| Frightened | no | Cannot willingly move closer to the source. Disadvantage on all checks against the source. |
+| Fully Concealed | no | Creatures treat you as Blinded to see you. Attackers have Disadvantage; you have Advantage. Auto-fail Awareness to see you. |
+| Fully Stunned | no | Incapacitated. Attacks against you have Advantage. Auto-fail Physical Saves (except poison/disease). Cannot go below 0 AP. |
+| Grappled | no | Immobilized, Disadvantage on Dexterity Saves. Escape by contested check (FIX), 1 AP. |
+| Half Cover | no | All Attacks and Spell Checks against you have -2. |
+| Hidden | no | Unseen and Unheard. Attackers have Disadvantage; you have Advantage on attacks. |
+| Hindered | yes | Disadvantage X on attacks. |
+| Immobilized | no | Cannot move. Disadvantage on Dexterity Saves. |
+| Impaired | yes | Disadvantage X on physical checks (Strength, Dexterity, FIX). |
+| Incapacitated | no | Cannot move or speak. Cannot spend AP or use Minor Actions. Movement 0. |
+| Intimidated | no | Disadvantage on all checks against the source. |
+| Invisible | no | Creatures cannot see you unless they perceive invisibility. You have Advantage on attacks; attackers have Disadvantage. |
+| Paralyzed | no | Incapacitated. Auto-fail Physical Saves. Attacks against you have Advantage. Melee attacks within 1 Space are critical hits. |
+| Partially Concealed | no | Creatures have Disadvantage on Awareness to see you. |
+| Petrified | no | Incapacitated, 10x heavier, unaware. Auto-fail Physical Saves. Vulnerable to bludgeoning, resistant to other damage. Other statuses suspended; immune to new ones. |
+| Prone | no | Disadvantage on attacks. Ranged attacks against you have Disadvantage; melee have Advantage. Movement costs +1 per space. Standing costs 2 movement. |
+| Restrained | no | Immobilized, Disadvantage on Dexterity Saves. Attacks by you have Disadvantage; attackers have Advantage. |
+| Slowed | yes | Each space of movement costs X additional spaces. |
+| Stunned | yes | Current and max AP reduced by X. At 4 or more: Incapacitated, attacks against you have Advantage, auto-fail Physical Saves. |
+| Surprised | no | Current and max AP reduced by 2. |
+| Taunted | no | Disadvantage on attacks against targets other than the source. |
+| Terrified | no | Must spend turns moving away from the source. Only actions: Move to flee, or Dodge if cornered. |
+| Tethered | no | Cannot move farther than a set number of spaces from the tether point or creature. |
+| 3/4 Cover | no | All Attacks and Spell Checks against you have -5. |
+| Unconscious | no | Incapacitated and Prone. Unaware. Auto-fail Physical Saves. Attacks against you have Advantage; melee within 1 Space are critical hits. |
+| Unheard | no | Advantage on melee attacks against flanked enemies who cannot hear you. |
+| Unseen | no | Advantage on your attacks; attackers have Disadvantage. |
+| Weakened | yes | Disadvantage X on physical saves (Strength, Dexterity). |
 
 ## Feature design
 
@@ -283,10 +332,8 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Statuses: confirm the list, and how each DC20 rule maps to Tarrot stats (Might/Agility/Charisma
-  become Strength/Dexterity/Spirit).
-- Critical Hit stacking with Heavy/Brutal severity (does a natural 20 that is also Brutal give +4?).
-- Which defence value each attack is compared against (Physical vs Mental) and who decides.
+- Statuses: review the draft rule text and fill the FIX items (Medicine, Martial/Athletics, Agility
+  Save, Space, and which checks count as physical).
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Uses on inventory items: does using an item reduce uses, and what happens at 0?
