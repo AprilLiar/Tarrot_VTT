@@ -10,7 +10,7 @@ behavior, decision, or a rule the user states in conversation must update `READM
 committing. CI (`readme-updated` job) fails PRs that change code without touching it.
 
 **Never assume a design decision.** Ask the user (AskUserQuestion) for every open design choice
-and record the answer in the README's Decisions section. The user is a CS graduate who dislikes
+and record the answer in the relevant README section. The user is a CS graduate who dislikes
 writing code: explain options briefly, do not guess.
 
 ## Orientation

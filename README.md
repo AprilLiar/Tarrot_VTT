@@ -14,11 +14,12 @@ Statuses: `decided`, `open`, `implemented`.
 3. [Deploying](#deploying)
 4. [Roles and access model](#roles-and-access-model)
 5. [Experience variants](#experience-variants)
-6. [Feature design](#feature-design)
-7. [Data model](#data-model)
-8. [Real-time events](#real-time-events)
-9. [Phases](#phases)
-10. [Open questions](#open-questions)
+6. [Game rules](#game-rules)
+7. [Feature design](#feature-design)
+8. [Data model](#data-model)
+9. [Real-time events](#real-time-events)
+10. [Phases](#phases)
+11. [Open questions](#open-questions)
 
 ## Stack and workflow
 
@@ -95,11 +96,123 @@ Decided. The same identity behaves differently by device.
 - The GM marks tokens and objects Hidden through a Foundry-style context window per token/object.
 - Mobile is designed first (character sheet especially), then ported to desktop.
 
+## Game rules
+
+Source of truth for mechanics. Base is DC20 (as implemented in the official Foundry system); only
+the differences below are Tarrot-specific. Every value on a sheet can be edited by hand at any
+time (no character creator, no level-ups); anything calculated from it recalculates. (decided)
+
+### Rounding
+Anything that ends in .5 rounds up. Everything else uses standard rounding to the nearest whole
+number. (decided)
+
+### Rolls
+- Every roll is d20 + modifiers. (decided)
+- **Attribute Roll:** d20 + stat + custom modifiers.
+- **Save Roll:** d20 + stat + that stat's "X Defence" + custom modifiers. X Defence (for example
+  Strength Defence) is a hand-entered number per stat, default 0.
+- **Physical Save:** uses the higher of Strength or Dexterity. **Mental Save:** the higher of
+  Intelligence or Spirit.
+- **Skill Roll:** d20 + scaling stat + Mastery tier + custom modifiers.
+- **Attack and combat rolls:** also add the Experience Modifier (see below). Attribute, Save and
+  Skill rolls do not.
+- Natural 1: automatic Critical Failure; the roller gains **Exposed** (advantage on the first
+  Attack roll made against them, then it disappears).
+- Natural 20 (threshold can be changed by effects): Critical Hit, +2 damage by default.
+
+### Stats
+- Five stats: **Strength, Dexterity, Intelligence, Spirit, Luck**. Range -2 to 7. The stat value
+  is the modifier it adds to rolls.
+- Spirit replaces DC20's Charisma. Luck is a plain stat: it has no Save, no X Defence and no
+  Skills. It can be rolled as an Attribute Roll and Arcane abilities may reference it.
+- No class, ancestry or background.
+- **Experience Modifier:** replaces DC20's Combat Modifier. Range 1-10, hand-entered, can be
+  improved at any time.
+
+### Combat Masteries
+Three pseudo-stats, range 1-10, used for Combat rolls made from the Arcane tab:
+**Magic** (blue glow), **Stances** (red glow), **Manifestation** (gold glow). (decided)
+
+### Skills
+Each skill scales off a stat. Mastery has 10 tiers, +1 per tier, cumulative (Astrology at Mastery 3
+with Intelligence 2 rolls d20 + 2 + 3). Any skill can hold any tier. (decided)
+
+| Skill | Scaling stat |
+|---|---|
+| Awareness | Prime (the highest of all stats) |
+| Weight Manipulation | Strength |
+| Stamina | Strength |
+| Speed | Dexterity |
+| Fine Motor Skills | Dexterity |
+| Mental Resolve | Spirit |
+| Soul Control | Spirit |
+| Astrology | Intelligence |
+| Symbolism | Intelligence |
+| Body Movement | Max of Strength or Dexterity |
+| Likability | Max of Spirit or Intelligence |
+
+### Hit severity and damage
+Damage is not rolled. It is calculated from the Hit Severity: attack total minus the target's
+relevant defence value. (decided)
+
+| Result | Severity | Damage |
+|---|---|---|
+| under 5 | Hit | base |
+| 5 to 9 | Heavy Hit | base + 1 |
+| 10 or more | Brutal Hit | base + 2 |
+| Natural 20 | Critical Hit | +2 (stacks per default rules; exact stacking open) |
+
+Base damage and damage type are numbers carried by the ability or item being used. The GM's confirm
+card can edit any value before it is applied.
+
+### Action Points
+Every PC has 4 AP. NPCs have 4 AP, with an optional "Minion" checkbox that makes max AP 2. AP is
+required to take any action in combat. (decided)
+
+### Resources and defences
+Each character has current and max HP, Physical Defence and Mental Defence. All hand-entered.
+(decided)
+
+### Resistances
+Per damage type, with any combination of: (decided)
+- **Resistance (X)** with X positive: takes X less damage per instance. Negative X: takes more.
+- **Half** (x0.5) and **Double** (x2).
+- **Immunity:** takes 0 damage.
+- **Consumption:** takes 0 damage and heals for half of the raw damage attempted.
+- Order: flat (X) modifiers first, then Half/Double.
+- Sheet shows a table: icon and damage type, then value. Both kinds shown together, for example
+  `Cold | Resistance (3), Resistance (Half)`.
+
+Damage types: Fire, Cold, Acid, Poison, Lightning, Sound, Bludgeoning, Slashing, Piercing, Soul,
+Decay, Psychic.
+
+### Statuses
+Use the DC20 statuses and rules as implemented in the official Foundry system. The exact list and
+each rule, mapped to Tarrot's stats, is awaiting the user's confirmation. (open)
+
 ## Feature design
 
-### Character sheet (planned, decided in shape; fields open)
-Fields are hard-coded in the repo as a schema. Characters are permanently stored in Turso. Mobile
-first. The field list awaits the rules draft (see Open questions).
+### Character sheet (planned, mobile first)
+Fields are hard-coded in the repo as a schema. Characters are stored permanently in Turso. PCs and
+NPCs share one sheet. (decided)
+
+Layout, top to bottom:
+1. **AP** on top (Minion checkbox for NPCs), then HP.
+2. **Stats:** each a big number. Under each, two small rectangular buttons, each half the stat
+   box width: left rolls the Attribute Roll, right rolls the Save Roll. Luck has no Save button.
+   Physical Save and Mental Save shown as the two special saves.
+3. **Combat Masteries:** Magic, Stances, Manifestation as smaller boxes in a triangle under the
+   stats, each with its colored glow.
+4. **Skills** with Mastery tier.
+5. **Features:** free-form list, each with name and description.
+6. **Inventory:** each item has name, description, uses (max 1 to 100) and a State chosen from a
+   drop-down whose options are defined per item. Names need not be unique; same-named items are
+   distinct. Items can be copied (full copy, same name). Trading between PCs needs the receiving
+   player to accept a confirmation dialog: decline does nothing, accept moves the item. The GM can
+   move items between any PCs and NPCs without confirmation.
+7. **Resistances and Statuses** near the bottom.
+
+Experience Modifier, Physical/Mental Defence, X Defences and max HP are editable fields.
 
 ### Scene mode (planned)
 Light-novel style, as in Dogfight: a fullscreen background with character art (transparent PNG)
@@ -170,10 +283,14 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Tarrot rules draft: dice system, attributes/skills, resources, classes/ancestry, action economy
-  and movement budget, conditions, combat structure, Zodiac and Tarrot card magic, spontaneous
-  casting parameters. (user will paste a draft)
-- Hidden detail: hidden from players only or greyed for GM; whole tokens vs fields.
+- Statuses: confirm the list, and how each DC20 rule maps to Tarrot stats (Might/Agility/Charisma
+  become Strength/Dexterity/Spirit).
+- Critical Hit stacking with Heavy/Brutal severity (does a natural 20 that is also Brutal give +4?).
+- Which defence value each attack is compared against (Physical vs Mental) and who decides.
+- Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
+- Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
+- Uses on inventory items: does using an item reduce uses, and what happens at 0?
+- Hidden detail: hidden from players only or greyed for the GM; whole tokens vs fields.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Chat and roll log? Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
