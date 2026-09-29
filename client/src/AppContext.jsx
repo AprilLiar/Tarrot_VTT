@@ -9,6 +9,7 @@ function loadSaved() {
   try {
     const v = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (v?.role === 'gm') return { role: 'gm' };
+    if (v?.role === 'display') return { role: 'display' };
     if (v?.role === 'player' && Number.isInteger(v.characterId)) return v;
   } catch {}
   return null;
@@ -38,6 +39,8 @@ export function AppProvider({ children }) {
   const [connected, setConnected] = useState(socket.connected);
   const [pcs, setPcs] = useState([]);
   const [roster, setRoster] = useState(null);
+  const [stage, setStage] = useState({ scene: null, summons: [] });
+  const [library, setLibrary] = useState(null);
   const [notice, setNotice] = useState(null);
   const [messages, setMessages] = useState([]);
   const [chatOpen, setChatOpen] = useState(false);
@@ -62,7 +65,10 @@ export function AppProvider({ children }) {
     identityRef.current = next;
     persist(next);
     setIdentity(next);
-    if (next?.role !== 'gm') setRoster(null);
+    if (next?.role !== 'gm') {
+      setRoster(null);
+      setLibrary(null);
+    }
     if (!next) {
       setMessages([]);
       setOffers([]);
@@ -75,6 +81,16 @@ export function AppProvider({ children }) {
   const loadRoster = useCallback(async () => {
     const r = await call('roster:get');
     if (r.ok) setRoster(r.roster);
+  }, []);
+
+  const loadLibrary = useCallback(async () => {
+    const r = await call('library:get');
+    if (r.ok) setLibrary(r.library);
+  }, []);
+
+  const loadStage = useCallback(async () => {
+    const r = await call('stage:get');
+    if (r.ok) setStage(r.stage);
   }, []);
 
   const loadPcs = useCallback(async () => {
@@ -101,8 +117,11 @@ export function AppProvider({ children }) {
           updateIdentity(null);
           setNotice('Your character is no longer available. Please choose again.');
         } else if (r.ok) {
-          if (saved.role === 'gm') await loadRoster();
-          await loadChat();
+          if (saved.role === 'gm') {
+            await Promise.all([loadRoster(), loadLibrary()]);
+          }
+          if (saved.role !== 'display') await loadChat();
+          await loadStage();
         }
       }
       setReady(true);
@@ -110,6 +129,8 @@ export function AppProvider({ children }) {
     const onDisconnect = () => setConnected(false);
     const onPcs = (list) => setPcs(list);
     const onRoster = (r) => setRoster(r);
+    const onStage = (st) => setStage(st);
+    const onLibrary = (lib) => setLibrary(lib);
     const onRevoked = ({ name }) => {
       updateIdentity(null);
       setNotice(`${name} was deleted by the GM. Please choose again.`);
@@ -138,6 +159,8 @@ export function AppProvider({ children }) {
     socket.on('disconnect', onDisconnect);
     socket.on('pcs:updated', onPcs);
     socket.on('roster:updated', onRoster);
+    socket.on('stage:updated', onStage);
+    socket.on('library:updated', onLibrary);
     socket.on('identity:revoked', onRevoked);
     socket.on('chat:message', onMessage);
     socket.on('chat:cleared', onCleared);
@@ -149,13 +172,15 @@ export function AppProvider({ children }) {
       socket.off('disconnect', onDisconnect);
       socket.off('pcs:updated', onPcs);
       socket.off('roster:updated', onRoster);
+      socket.off('stage:updated', onStage);
+      socket.off('library:updated', onLibrary);
       socket.off('identity:revoked', onRevoked);
       socket.off('chat:message', onMessage);
       socket.off('chat:cleared', onCleared);
       socket.off('trade:offered', onOffered);
       socket.off('trade:resolved', onResolved);
     };
-  }, [loadPcs, loadRoster, loadChat, updateIdentity, toast]);
+  }, [loadPcs, loadRoster, loadLibrary, loadStage, loadChat, updateIdentity, toast]);
 
   const choose = useCallback(
     async (next) => {
@@ -163,14 +188,15 @@ export function AppProvider({ children }) {
       if (r.ok) {
         setNotice(null);
         updateIdentity(next);
-        if (next.role === 'gm') await loadRoster();
-        await loadChat();
+        if (next.role === 'gm') await Promise.all([loadRoster(), loadLibrary()]);
+        if (next.role !== 'display') await loadChat();
+        await loadStage();
       } else {
         setNotice('That character is not available any more.');
       }
       return r;
     },
-    [loadRoster, loadChat, updateIdentity],
+    [loadRoster, loadLibrary, loadStage, loadChat, updateIdentity],
   );
 
   const switchIdentity = useCallback(async () => {
@@ -190,6 +216,8 @@ export function AppProvider({ children }) {
     connected,
     pcs,
     roster,
+    stage,
+    library,
     notice,
     dismissNotice: () => setNotice(null),
     choose,

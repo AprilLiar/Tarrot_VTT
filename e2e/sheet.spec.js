@@ -130,14 +130,15 @@ test('the roll dialog previews the exact formula with every bonus source', async
   await p.page.getByTestId('roll-skill-fine_motor_skills').click();
   const preview = p.page.getByTestId('preview-expression');
   await expect(preview).toHaveText('1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills)');
-  await expect(p.page.getByTestId('preview-terms')).toContainText('+3 Dexterity');
-  await expect(p.page.getByTestId('preview-terms')).toContainText('+1 Mastery: Fine Motor Skills');
+  // One block only: the formula, with each bonus and where it comes from.
+  await expect(p.page.getByTestId('net-mode')).toHaveCount(0);
 
   // The preview follows the edits.
   await p.page.getByRole('textbox', { name: 'Custom modifier' }).fill('-2');
   await expect(preview).toHaveText('1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills) - 2(Custom)');
   await p.page.getByRole('button', { name: 'Fewer levels' }).click();
   await expect(p.page.getByTestId('net-mode')).toContainText('2d20, keep the lowest');
+  await expect(p.page.getByTestId('net-mode')).toContainText('Manual');
 
   // What was previewed is what is rolled.
   await p.page.getByTestId('roll-confirm').click();
@@ -188,7 +189,7 @@ test('statuses apply to a roll automatically, and the status list is readable', 
 
   // Dazed (2) means 2 levels of Disadvantage on an Intelligence check, even without touching the options.
   await p.page.getByTestId('roll-attr-intelligence').click();
-  await expect(p.page.getByTestId('status-effects')).toContainText('Dazed 2: Disadvantage 2');
+  await expect(p.page.getByTestId('net-mode')).toContainText('3d20, keep the lowest: Disadvantage 2 (Dazed 2)');
   await p.page.getByTestId('roll-confirm').click();
   const card = p.page.getByTestId('roll-card').last();
   await expect(card.getByTestId('roll-advantage')).toContainText('Disadvantage 2 (Dazed 2)');

@@ -43,8 +43,8 @@ export function registerSceneHandlers(ctx) {
   async function broadcastPictures(owner) {
     const pictures = await scenes.listPictures(db, owner);
     const payload = { ownerKind: owner.kind, ownerId: owner.id, pictures };
-    const target = io.to(GM_ROOM);
-    if (owner.kind === 'character') target.to(charRoom(owner.id));
+    // BroadcastOperators are immutable: `.to()` returns a new one.
+    const target = owner.kind === 'character' ? io.to(GM_ROOM).to(charRoom(owner.id)) : io.to(GM_ROOM);
     target.emit('pictures:updated', payload);
   }
 

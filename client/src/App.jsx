@@ -4,6 +4,8 @@ import Picker from './components/Picker.jsx';
 import Shell from './components/Shell.jsx';
 import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
+import ScenePage from './components/scene/ScenePage.jsx';
+import { useIsDesktop } from './lib/useMedia.js';
 
 function GmSheetRoute() {
   const { id } = useParams();
@@ -11,8 +13,16 @@ function GmSheetRoute() {
   return Number.isInteger(characterId) ? <SheetPage characterId={characterId} /> : <Navigate to="/" replace />;
 }
 
+// The scene fills the space under the top bar.
+const SceneFrame = () => (
+  <div className="h-[calc(100dvh-3.5rem)]">
+    <ScenePage />
+  </div>
+);
+
 function Screen() {
-  const { ready, identity } = useApp();
+  const { ready, identity, switchIdentity } = useApp();
+  const desktop = useIsDesktop();
 
   if (!ready) {
     return (
@@ -25,11 +35,24 @@ function Screen() {
   }
   if (!identity) return <Picker />;
 
-  // A player only ever sees their own sheet; the GM has the roster and any sheet.
+  // The Display Screen: only the scene, no menus, no chat.
+  if (identity.role === 'display') {
+    return (
+      <div className="h-[100dvh]">
+        <ScenePage chrome={false} onExit={switchIdentity} />
+      </div>
+    );
+  }
+
+  // A player sees their own sheet, and the scene on a desktop screen.
   if (identity.role === 'player') {
     return (
       <Shell>
-        <SheetPage characterId={identity.characterId} />
+        <Routes>
+          <Route path="/" element={<SheetPage characterId={identity.characterId} />} />
+          {desktop && <Route path="/scene" element={<SceneFrame />} />}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Shell>
     );
   }
@@ -38,6 +61,7 @@ function Screen() {
       <Routes>
         <Route path="/" element={<Roster />} />
         <Route path="/character/:id" element={<GmSheetRoute />} />
+        <Route path="/scene" element={<SceneFrame />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

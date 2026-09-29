@@ -137,6 +137,23 @@ describe('pictures and permissions', () => {
     expect((await g.call('picture:add', { tempNpcId: tn, data: png() })).ok).toBe(true);
   });
 
+  it('pushes picture changes to the owner and the GM, but not to other players', async () => {
+    const g = await gm();
+    const aria = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const bob = (await g.call('character:create', { name: 'Bob', type: 'pc' })).id;
+    const a = await player(aria);
+    const b = await player(bob);
+    const forA = new Promise((resolve) => a.once('pictures:updated', resolve));
+    const forG = new Promise((resolve) => g.once('pictures:updated', resolve));
+    let bobSaw = false;
+    b.on('pictures:updated', () => (bobSaw = true));
+    await a.call('picture:add', { characterId: aria, name: 'Me', data: png() });
+    expect((await forA).pictures).toHaveLength(1);
+    expect((await forG).ownerId).toBe(aria);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(bobSaw).toBe(false);
+  });
+
   it('removes a deleted picture from the stage, or swaps to another', async () => {
     const g = await gm();
     await setup(g);
