@@ -138,6 +138,16 @@ number. (decided)
   Attack roll made against them, then it disappears).
 - Natural 20 (threshold can be changed by effects): Critical Hit, +2 damage by default.
 
+### Distance
+1 Space = 1 square on the battle map. Rule text saying "Space" (for example within 1 Space) uses
+this unit. (decided)
+
+### Items
+Using an item reduces its uses. Items in the base rules cannot be rolled. (decided)
+
+### Magic
+The Zodiac and Tarrot card magic system is a placeholder for now; details come later. (decided)
+
 ### Stats
 - Five stats: **Strength, Dexterity, Intelligence, Spirit, Luck**. Range -2 to 7. The stat value
   is the modifier it adds to rolls.
@@ -234,7 +244,7 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 | Frightened | no | Cannot willingly move closer to the source. Disadvantage on all checks against the source. |
 | Fully Concealed | no | Creatures treat you as Blinded to see you. Attackers have Disadvantage; you have Advantage. Auto-fail Awareness to see you. |
 | Fully Stunned | no | Incapacitated. Attacks against you have Advantage. Auto-fail Physical Saves (except poison/disease). Cannot go below 0 AP. |
-| Grappled | no | Immobilized, Disadvantage on Dexterity Saves. Escape with a Body Movement roll, 1 AP (what it is rolled against is open). |
+| Grappled | no | Immobilized, Disadvantage on Dexterity Saves. Escape with a Body Movement roll against the grappler's Weight Manipulation, 1 AP. |
 | Half Cover | no | All Attacks and Spell Checks against you have -2. |
 | Hidden | no | Unseen and Unheard. Attackers have Disadvantage; you have Advantage on attacks. |
 | Hindered | yes | Disadvantage X on attacks. |
@@ -385,11 +395,9 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Grappled: what the Body Movement escape roll is rolled against.
-- Statuses that say "Space" (Paralyzed, Unconscious): what unit Tarrot uses for grid distance.
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Uses on inventory items: does using an item reduce uses, and what happens at 0?
+- Inventory uses: how uses are spent in the UI and what happens at 0.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Chat and roll log? Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
