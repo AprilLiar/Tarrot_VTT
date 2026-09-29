@@ -1,27 +1,30 @@
-import { useEffect, useState } from 'react';
-import { socket } from './socket.js';
+import { AppProvider, useApp } from './AppContext.jsx';
+import Picker from './components/Picker.jsx';
+import Shell from './components/Shell.jsx';
+import Roster from './components/Roster.jsx';
+import PlayerHome from './components/PlayerHome.jsx';
 
-// Phase 1 placeholder: proves client, server, socket and database are wired.
+function Screen() {
+  const { ready, identity } = useApp();
+
+  if (!ready) {
+    return (
+      <main className="flex h-full items-center justify-center">
+        <p data-testid="status" className="text-sm opacity-70">
+          Connecting...
+        </p>
+      </main>
+    );
+  }
+  if (!identity) return <Picker />;
+
+  return <Shell>{identity.role === 'gm' ? <Roster /> : <PlayerHome />}</Shell>;
+}
+
 export default function App() {
-  const [connected, setConnected] = useState(socket.connected);
-
-  useEffect(() => {
-    const on = () => setConnected(true);
-    const off = () => setConnected(false);
-    socket.on('connect', on);
-    socket.on('disconnect', off);
-    return () => {
-      socket.off('connect', on);
-      socket.off('disconnect', off);
-    };
-  }, []);
-
   return (
-    <main className="flex h-full flex-col items-center justify-center gap-2 p-4">
-      <h1 className="text-3xl font-semibold">Tarrot VTT</h1>
-      <p data-testid="status" className="text-sm opacity-70">
-        {connected ? 'Connected' : 'Connecting...'}
-      </p>
-    </main>
+    <AppProvider>
+      <Screen />
+    </AppProvider>
   );
 }

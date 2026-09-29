@@ -38,11 +38,14 @@ Repository layout:
 
 | Path | Purpose |
 |---|---|
-| `server/app.js` | `createServer({ db })`: Express routes, Socket.io handlers, static client. |
+| `server/app.js` | `createServer({ db })`: Express routes, Socket.io, static client. |
+| `server/handlers.js` | Per-socket handlers: identity and roster events, permission checks. |
+| `server/roster.js` | Roster schema and logic: characters and folders, validation, cycle checks. |
 | `server/db.js` | libSQL client, `initSchema` (idempotent, one batch). |
 | `server/index.js` | Boot: connect DB, init schema, listen on `$PORT` (default 3001). |
 | `server/test/` | Vitest tests (in-memory DB, ephemeral port). |
-| `client/src/` | React app. `socket.js` holds the shared socket. |
+| `client/src/` | React app. `socket.js` shared socket; `AppContext.jsx` identity, PC list, roster state. |
+| `client/src/components/` | `Picker`, `Shell` (top bar), `Roster` (GM), `PlayerHome`, `Dialog`. |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
 | `.github/workflows/ci.yml` | lint, unit tests, e2e, README check. |
@@ -81,6 +84,18 @@ All decided.
   or the player who picked them; NPCs by the GM only. Enforced server-side.
 - Several devices may control the same PC at once; last write wins.
 
+Implemented in Phase 2:
+- The picker shows a Game Master card and one card per PC (name with a colored initial; portraits
+  come with the image pipeline). NPCs are never listed. (decided)
+- Identity is stored in `localStorage` key `tarrot.identity` (`{ role: 'gm' }` or
+  `{ role: 'player', characterId }`) and re-validated by the server on every (re)connect. A saved
+  identity that no longer exists returns the device to the picker with a notice. (decided)
+- A socket's identity lives on the server (`socket.data.identity`). Every permission check uses it,
+  never a value in a payload. A socket that switches from GM to player loses GM rights and leaves
+  the `gm` room. (implemented)
+- When the GM deletes a character, every socket playing it is sent `identity:revoked` and returns
+  to the picker with a notice. (decided)
+
 ## Experience variants
 
 Decided. The same identity behaves differently by device.
@@ -93,7 +108,10 @@ Decided. The same identity behaves differently by device.
 | PC GM | Full power: create and change scenes, characters, Hidden flags, all tools. |
 
 - The GM's PC is the table display: fullscreen scene, tools in hideable drawers/overlays.
-- The GM marks tokens and objects Hidden through a Foundry-style context window per token/object.
+- **Hidden:** the GM right-clicks a token or object to open a Foundry-style context menu of
+  half-transparent circles at its side: **Token Settings** and **Hide/Reveal**. Hide makes the token
+  fully disappear for PC clients, including its name plaque; the GM still sees it, half-transparent.
+  Reveal undoes it. (decided)
 - Mobile is designed first (character sheet especially), then ported to desktop.
 
 ## Game rules
@@ -193,14 +211,17 @@ Agility is Dexterity, Charisma is Spirit. (decided) At first a status is a name,
 it stacks, and rule text shown on the sheet; the GM applies the mechanical effects by hand through
 the confirm card. Automation comes later. (decided)
 
-**Draft rule text below was summarised from the Foundry system's `status-config.mjs`
-(`pazindorb/dc20rpg`) and is not yet verified against the official rules or Tarrot changes.**
-"X" is the stack count. Items marked FIX mention DC20 skills or terms Tarrot does not have (Martial,
-Athletics, Medicine, Agility Save, "Space") and need the user's wording. (open, review)
+Rule text below was summarised from the Foundry system's `status-config.mjs`
+(`pazindorb/dc20rpg`) and adjusted by the user; remaining wording not yet verified against the
+official rules. "X" is the stack count.
+
+For status wording: **physical** means Strength and Dexterity, **mental** means Intelligence and
+Spirit. "Using an item" in rule text is wording only: items in the base rules cannot be rolled.
+(decided)
 
 | Status | Stacks | Draft rule |
 |---|---|---|
-| Bleeding | yes | X true damage at turn start. Ends when healed or by a Medicine check (FIX). |
+| Bleeding | yes | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). |
 | Blinded | no | Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage. |
 | Burning | yes | X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack. |
 | Charmed | no | Charmer has Advantage on Spirit checks against you. You cannot target the charmer with harmful attacks or effects. |
@@ -213,12 +234,12 @@ Athletics, Medicine, Agility Save, "Space") and need the user's wording. (open, 
 | Frightened | no | Cannot willingly move closer to the source. Disadvantage on all checks against the source. |
 | Fully Concealed | no | Creatures treat you as Blinded to see you. Attackers have Disadvantage; you have Advantage. Auto-fail Awareness to see you. |
 | Fully Stunned | no | Incapacitated. Attacks against you have Advantage. Auto-fail Physical Saves (except poison/disease). Cannot go below 0 AP. |
-| Grappled | no | Immobilized, Disadvantage on Dexterity Saves. Escape by contested check (FIX), 1 AP. |
+| Grappled | no | Immobilized, Disadvantage on Dexterity Saves. Escape with a Body Movement roll, 1 AP (what it is rolled against is open). |
 | Half Cover | no | All Attacks and Spell Checks against you have -2. |
 | Hidden | no | Unseen and Unheard. Attackers have Disadvantage; you have Advantage on attacks. |
 | Hindered | yes | Disadvantage X on attacks. |
 | Immobilized | no | Cannot move. Disadvantage on Dexterity Saves. |
-| Impaired | yes | Disadvantage X on physical checks (Strength, Dexterity, FIX). |
+| Impaired | yes | Disadvantage X on physical checks (Strength, Dexterity). |
 | Incapacitated | no | Cannot move or speak. Cannot spend AP or use Minor Actions. Movement 0. |
 | Intimidated | no | Disadvantage on all checks against the source. |
 | Invisible | no | Creatures cannot see you unless they perceive invisibility. You have Advantage on attacks; attackers have Disadvantage. |
@@ -302,16 +323,42 @@ Stored in Turso, served as cacheable URLs, re-encoded on upload to keep the data
 
 ## Data model
 
-Implemented: `meta(key, value)` only (Phase 1 placeholder).
+Implemented:
+- `meta(key, value)`: Phase 1 placeholder.
+- `character_folders(id, parent_id, name, created_at)`: nested tree, shared by PCs and NPCs.
+- `characters(id, name, type 'pc'|'npc', folder_id, created_at)`. Names are 1 to 60 characters
+  after trimming and need not be unique. Sheet contents are added in Phase 3.
+- SQLite does not enforce foreign keys by default, so relationship rules are enforced in
+  `server/roster.js`: a folder cannot move inside itself or a descendant, and only an empty folder
+  (no subfolders, no characters) can be deleted. Character deletion is permanent and requires
+  the exact name.
 
-Planned (not final): characters, character folders, scenes, scene folders, scene state, scene
-pictures, summons, battle tokens/objects, audio playlists/tracks/state, character-local spells.
+Planned (not final): scenes, scene folders, scene state, scene pictures, summons, battle
+tokens/objects, audio playlists/tracks/state, character-local spells, character sheet data.
 
 ## Real-time events
 
+All client-to-server events use an ack of the form `{ ok: true, ... }` or
+`{ ok: false, code, error }`.
+
 Implemented:
 
-- `ping:check` (client to server, with ack): replies `{ ok: true, echo }`. Connectivity check.
+- `ping:check`: replies `{ ok: true, echo }`. Connectivity check.
+- `identity:set` `{ role: 'gm' }` or `{ role: 'player', characterId }`: any socket. Fails with
+  code `gone` if the character does not exist or is an NPC.
+- `identity:clear`: drops identity and GM rights.
+- `roster:get` (GM): `{ roster: { folders, characters } }`.
+- `character:create` `{ name, type, folderId? }`, `character:rename` `{ id, name }`,
+  `character:move` `{ id, folderId }`, `character:delete` `{ id, confirmName }` (all GM only).
+- `folder:create` `{ name, parentId? }`, `folder:rename` `{ id, name }`,
+  `folder:move` `{ id, parentId }`, `folder:delete` `{ id }` (all GM only).
+- Error codes: `forbidden`, `bad_name`, `bad_type`, `bad_id`, `not_found`, `cycle`, `not_empty`,
+  `confirm_mismatch`, `gone`, `server_error`.
+- Server to clients: `pcs:updated` `[{ id, name }]` to everyone; `roster:updated`
+  `{ folders, characters }` to the GM room only; `identity:revoked` `{ characterId, name }` to the
+  sockets playing a deleted character.
+
+HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker.
 
 ## Phases
 
@@ -319,8 +366,12 @@ Each phase ends in a deploy and playtest checkpoint.
 
 1. **Platform** (implemented): server, client, Turso/local DB, Render blueprint, CI, tests, README
    and CLAUDE.md. Check: `/api/health`, socket round trip, mobile e2e smoke.
-2. **Identity and character roster** (next): picker, device memory, switch button, GM/PC/NPC,
-   roster with folders, server-side permissions.
+2. **Identity and character roster** (implemented, awaiting playtest): picker with name cards,
+   device memory, switch button, GM/PC/NPC types, nested folders (create, rename, move, delete),
+   permanent delete with typed-name confirmation, server-side permissions, live updates.
+   Check: two browser contexts, PC controlled from a player device, NPC never offered.
+   Decisions made without asking, open to change: one folder tree shared by PCs and NPCs; only
+   empty folders can be deleted; the GM's own device has no PC/NPC "play as" option yet.
 3. **Character sheet**, mobile first then desktop. Blocked on the rules draft.
 4. **Scene and Music**: Scene page, upload pipeline, folders, activation, summoning, Hidden flag
    and context window, Music player.
@@ -332,12 +383,11 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Statuses: review the draft rule text and fill the FIX items (Medicine, Martial/Athletics, Agility
-  Save, Space, and which checks count as physical).
+- Grappled: what the Body Movement escape roll is rolled against.
+- Statuses that say "Space" (Paralyzed, Unconscious): what unit Tarrot uses for grid distance.
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Uses on inventory items: does using an item reduce uses, and what happens at 0?
-- Hidden detail: hidden from players only or greyed for the GM; whole tokens vs fields.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Chat and roll log? Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.

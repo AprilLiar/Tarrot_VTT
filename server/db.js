@@ -1,4 +1,5 @@
 import { createClient } from '@libsql/client';
+import { ROSTER_SCHEMA } from './roster.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
 // file otherwise. Same client and same SQL either way.
@@ -16,6 +17,7 @@ const SCHEMA = [
      key TEXT PRIMARY KEY,
      value TEXT NOT NULL
    )`,
+  ...ROSTER_SCHEMA,
 ];
 
 export async function initSchema(db) {

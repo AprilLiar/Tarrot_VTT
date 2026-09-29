@@ -5,6 +5,8 @@ import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import { registerHandlers } from './handlers.js';
+import { listPcs } from './roster.js';
 
 const clientDist = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -29,6 +31,15 @@ export function createServer({ db }) {
     }
   });
 
+  // Public list for the identity picker: PCs only, never NPCs.
+  app.get('/api/pcs', async (_req, res) => {
+    try {
+      res.json(await listPcs(db));
+    } catch (err) {
+      res.status(503).json({ error: 'unavailable' });
+    }
+  });
+
   if (existsSync(clientDist)) {
     app.use(express.static(clientDist));
     // SPA fallback: any non-API route serves the client.
@@ -40,12 +51,7 @@ export function createServer({ db }) {
   const httpServer = http.createServer(app);
   const io = new Server(httpServer);
 
-  io.on('connection', (socket) => {
-    // Round-trip check used by the client's connection banner and by tests.
-    socket.on('ping:check', (payload, ack) => {
-      if (typeof ack === 'function') ack({ ok: true, echo: payload ?? null });
-    });
-  });
+  io.on('connection', (socket) => registerHandlers(io, socket, db));
 
   return { app, httpServer, io };
 }
