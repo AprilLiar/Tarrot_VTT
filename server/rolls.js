@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import * as D from '../shared/rules-data.js';
+import { resolveStat, statusEffects } from '../shared/status-effects.js';
 import { AppError } from './errors.js';
 
 // Rolls are made on the server from the stored sheet, so a result and its
@@ -8,7 +9,7 @@ import { AppError } from './errors.js';
 
 export const rollD20 = () => randomInt(1, 21);
 
-const MODES = ['normal', 'advantage', 'disadvantage'];
+const MAX_MANUAL_LEVELS = 5;
 
 const bad = (message, code = 'bad_roll') => new AppError(code, message);
 
@@ -18,12 +19,16 @@ export function formatExpression(terms) {
   return ['1d20', ...terms.map((t) => `${t.value < 0 ? '-' : '+'} ${Math.abs(t.value)}(${t.label})`)].join(' ');
 }
 
-// request: { kind: 'attribute'|'save'|'skill', key, mode?, modifier? }
+// request: { kind: 'attribute'|'save'|'skill'|'mastery', key, advantage?, modifier? }
+// `advantage` is the roller's own extra Advantage levels (negative = Disadvantage), on
+// top of whatever the character's statuses apply automatically.
 export function buildRoll(sheet, request, rng = rollD20) {
   const { kind, key } = request;
-  const mode = request.mode ?? 'normal';
+  const manual = request.advantage ?? 0;
   const modifier = request.modifier ?? 0;
-  if (!MODES.includes(mode)) throw bad('Unknown roll mode.');
+  if (!Number.isInteger(manual) || Math.abs(manual) > MAX_MANUAL_LEVELS) {
+    throw bad(`Advantage levels must be a whole number from -${MAX_MANUAL_LEVELS} to ${MAX_MANUAL_LEVELS}.`);
+  }
   if (!Number.isInteger(modifier) || Math.abs(modifier) > 99) {
     throw bad('The custom modifier must be a whole number from -99 to 99.');
   }
@@ -36,17 +41,9 @@ export function buildRoll(sheet, request, rng = rollD20) {
     title = `${D.STAT_LABELS[key]} Attribute Roll`;
     terms.push({ label: D.STAT_LABELS[key], value: sheet.stats[key] });
   } else if (kind === 'save') {
-    let stat = key;
-    if (D.GROUP_SAVES[key]) {
-      // Group saves use the better of (stat + that stat's X Defence).
-      const total = (s) => sheet.stats[s] + sheet.xDefence[s];
-      const options = D.GROUP_SAVES[key].stats;
-      stat = options.reduce((best, s) => (total(s) > total(best) ? s : best), options[0]);
-      title = `${D.GROUP_SAVES[key].label} Save`;
-    } else {
-      if (!D.SAVE_STATS.includes(key)) throw bad('That stat has no Save.');
-      title = `${D.STAT_LABELS[key]} Save`;
-    }
+    const stat = resolveStat(sheet, 'save', key);
+    if (!stat) throw bad('That stat has no Save.');
+    title = D.GROUP_SAVES[key] ? `${D.GROUP_SAVES[key].label} Save` : `${D.STAT_LABELS[key]} Save`;
     terms.push({ label: D.STAT_LABELS[stat], value: sheet.stats[stat] });
     if (sheet.xDefence[stat] !== 0) {
       terms.push({ label: `${D.STAT_LABELS[stat]} Defence`, value: sheet.xDefence[stat] });
@@ -58,18 +55,42 @@ export function buildRoll(sheet, request, rng = rollD20) {
     const st = D.skillStat(sheet.stats, skill);
     terms.push({ label: st.label, value: st.value });
     if (sheet.skills[key] !== 0) terms.push({ label: `Mastery: ${skill.label}`, value: sheet.skills[key] });
+  } else if (kind === 'mastery') {
+    // A combat roll: the Combat Mastery plus the Experience Modifier.
+    if (!D.MASTERIES.includes(key)) throw bad('Unknown Combat Mastery.');
+    title = `${D.MASTERY_LABELS[key]} (Combat Mastery Roll)`;
+    terms.push({ label: `Mastery: ${D.MASTERY_LABELS[key]}`, value: sheet.masteries[key] });
+    terms.push({ label: 'Experience Modifier', value: sheet.experience });
   } else {
     throw bad('Unknown roll type.');
   }
 
+  // Statuses apply on their own, even to a quick roll.
+  const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
+  for (const m of fx.modifiers) terms.push(m);
   if (modifier !== 0) terms.push({ label: 'Custom', value: modifier });
 
-  const dice = mode === 'normal' ? [rng()] : [rng(), rng()];
-  const natural = mode === 'disadvantage' ? Math.min(...dice) : Math.max(...dice);
+  const sources = [...fx.levels];
+  if (manual !== 0) sources.push({ label: 'Manual', levels: manual });
+  const net = sources.reduce((sum, s) => sum + s.levels, 0);
+  const mode = net > 0 ? 'advantage' : net < 0 ? 'disadvantage' : 'normal';
+
+  const dice = Array.from({ length: 1 + Math.abs(net) }, () => rng());
+  const natural = net < 0 ? Math.min(...dice) : Math.max(...dice);
   const total = natural + terms.reduce((sum, t) => sum + t.value, 0);
   const flags = [];
   if (natural === 20) flags.push('critical');
   if (natural === 1) flags.push('critical_failure');
 
-  return { title, mode, dice, natural, terms, total, expression: formatExpression(terms), flags };
+  return {
+    title,
+    mode,
+    advantage: { net, sources },
+    dice,
+    natural,
+    terms,
+    total,
+    expression: formatExpression(terms),
+    flags,
+  };
 }

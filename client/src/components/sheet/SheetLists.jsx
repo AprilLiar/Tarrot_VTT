@@ -252,6 +252,22 @@ function SendDialog({ s, item, onClose }) {
   );
 }
 
+// A fixed-size coloured tag: room for 7 characters on each of 2 lines, the rest is cut off with an ellipsis.
+function StateTag({ state }) {
+  let hue = 0;
+  for (const ch of state) hue = (hue * 31 + ch.codePointAt(0)) % 360;
+  return (
+    <span
+      data-testid="item-state"
+      title={state}
+      className="flex h-10 w-[5.25rem] shrink-0 items-center justify-center overflow-hidden rounded-md px-1 text-center text-xs font-medium leading-tight"
+      style={{ background: `hsl(${hue} 45% 32%)` }}
+    >
+      <span className="line-clamp-2 w-full break-all">{state}</span>
+    </span>
+  );
+}
+
 function ItemCard({ s, item }) {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState(null); // 'edit' | 'send' | 'delete'
@@ -259,9 +275,10 @@ function ItemCard({ s, item }) {
 
   return (
     <div className={card} data-testid="item">
-      <button className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setOpen(!open)}>
-        <span className={`truncate font-medium ${empty ? 'opacity-50' : ''}`}>{item.name}</span>
-        <span className="text-sm opacity-70">
+      <button className="flex w-full items-center gap-2 text-left" onClick={() => setOpen(!open)}>
+        <span className={`min-w-0 flex-1 truncate font-medium ${empty ? 'opacity-50' : ''}`}>{item.name}</span>
+        {item.state && <StateTag state={item.state} />}
+        <span className="shrink-0 text-sm opacity-70">
           {item.uses.current}/{item.uses.max}
           {empty ? ' (empty)' : ''}
         </span>

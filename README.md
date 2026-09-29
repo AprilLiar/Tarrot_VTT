@@ -313,22 +313,43 @@ Implemented behaviour (Phase 3):
   reverts. Edits from any device appear live on the others (last write wins per field; each
   character's writes are serialised on the server, so two devices editing at once never overwrite
   each other's fields).
-- **Rolling:** tap a Roll or Save button to roll at once. Long-press (touch) or right-click
-  (mouse) opens options: Advantage / Normal / Disadvantage and a custom modifier (-99 to 99). The
-  result goes to the chat and the roller's chat panel opens. (decided)
+- **Rolling:** on a touch screen a tap on any roll button always opens the roll dialog (long-press
+  was unreliable on iOS). With a mouse, a click rolls at once and a right-click opens the dialog. The
+  dialog shows the effects statuses will apply automatically, a stepper for extra Advantage levels
+  (negative for Disadvantage) and a custom modifier (-99 to 99). The result goes to the chat and the
+  roller's chat panel opens. (decided)
+- **Negative numbers:** iOS digit pads have no minus key, so every field that can be negative
+  (stats, X Defence, HP, resistance value, custom modifier) has a +/- button that flips the sign.
+  (decided)
+- **Advantage levels** work as in DC20: each level adds one d20; the roll keeps the highest (net
+  Advantage) or the lowest (net Disadvantage); Advantage and Disadvantage levels cancel. Dazed (2)
+  means 2 levels of Disadvantage, so 3d20 keep the lowest. (decided)
+- **Statuses apply to rolls automatically**, including quick rolls (`shared/status-effects.js`):
+  Dazed X, Impaired X (Disadvantage X on mental / physical checks: Attribute and Skill rolls whose
+  stat is Intelligence or Spirit / Strength or Dexterity), Disoriented X and Weakened X
+  (Disadvantage X on mental / physical saves), Grappled, Immobilized, Restrained (Disadvantage on
+  Dexterity saves), Exhaustion X (-X on every check and save). The roll dialog shows them and the
+  roller can add more levels on top. Not automated yet: auto-fail effects, effects "against the
+  source", and everything about attacks (Phase 6). (decided)
+- **Combat Mastery rolls:** each Combat Mastery nameplate is a button. A Mastery roll is
+  d20 + the Mastery + the Experience Modifier, shown as `1d20 + 4(Mastery: Magic) + 3(Experience
+  Modifier)`. Statuses do not change it yet. (provisional: confirm)
 - **Group saves:** Physical Save is the better of (Strength + Strength Defence) and (Dexterity +
   Dexterity Defence); Mental Save likewise for Intelligence and Spirit. (decided)
-- **Awareness** scales from the highest of all five stats, Luck included. (my reading of "Prime";
-  tell me if Luck should be excluded)
+- **Awareness** scales from the highest of all five stats, Luck included. (confirmed in playtest)
 - **Minion** can only be set on NPCs; it lowers max AP to 2 and clamps current AP.
 - **Resistances:** each damage type has a flat X, Half, Double, Immunity and Consumption. Empty rows
   are dropped. The type icons are placeholder colored discs until real icons exist.
 - **Statuses:** all 38 are addable; stackable ones have a +/- counter, and rule text shows "X"
   replaced by the stack count. Nothing is automated yet. The text lives in
   `shared/rules-data.js` and a test fails if it drifts from the table above.
-- **Item State options** are added after the item is created (Edit).
+- **Item State options** are added after the item is created (Edit). The chosen State shows on the
+  item's row in a coloured tag before the uses: fixed size, room for 7 characters on each of 2 lines,
+  the rest cut off with an ellipsis. (decided)
+- **Status list:** each status shows at most 2 lines of its description in the add list and on the
+  sheet; tapping an active status shows its full text.
 - **Who can see a sheet:** the GM and the PC's own player only. Other players cannot open or
-  receive updates for it. (decided by me, open to change)
+  receive updates for it. (confirmed in playtest)
 - **Trading:** a player offers an item to another PC; the recipient gets a confirm dialog on any of
   their devices. Accept moves the item (it arrives as a distinct copy with a new id); decline does
   nothing. Pending offers are held in server memory and are lost on restart. The GM's Send moves
@@ -482,8 +503,7 @@ Asked one batch at a time; answers move into the sections above.
 
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Awareness and Luck: whether Luck counts toward "Prime".
-- Whether other players may view a PC's sheet (currently owner and GM only).
+- Combat Mastery rolls: confirm d20 + Mastery + Experience Modifier, and whether statuses should affect them.
 - A wider desktop layout for the sheet and the icon set for damage types.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Undo of applied results? Turn order and initiative tracker? Animation budget?

@@ -225,9 +225,9 @@ export function registerHandlers(io, socket, db, shared) {
 
   // ---- Rolls and chat -----------------------------------------------------
 
-  on('roll:make', { needsIdentity: true }, async ({ characterId, kind, key, mode, modifier }) => {
+  on('roll:make', { needsIdentity: true }, async ({ characterId, kind, key, advantage, modifier }) => {
     const c = await requireControl(characterId);
-    const roll = buildRoll(await sheets.getSheet(db, c.id), { kind, key, mode, modifier });
+    const roll = buildRoll(await sheets.getSheet(db, c.id), { kind, key, advantage, modifier });
     const message = chat.add({
       type: 'roll',
       author: await authorName(),
