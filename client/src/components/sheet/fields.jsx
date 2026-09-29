@@ -123,7 +123,6 @@ export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll })
 
   // The same plan the server will use, so the preview is exactly what gets rolled.
   const plan = planRoll(sheet, { kind, key: rkey, advantage: manual, modifier: valid ? Number(modifier) : 0 });
-  const statusLevels = plan.ok ? plan.sources.filter((x) => x.label !== 'Manual') : [];
 
   return (
     <Dialog title={`Roll: ${title}`} onClose={onClose}>
@@ -137,34 +136,16 @@ export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll })
         }}
       >
         {plan.ok && (
-          <div className="rounded-lg bg-white/5 p-2 text-sm" data-testid="roll-preview">
-            <div className="mb-1 text-xs uppercase tracking-wide opacity-60">This will roll</div>
+          <div className="rounded-lg bg-white/5 p-3" data-testid="roll-preview">
             <div className="text-base font-medium" data-testid="preview-expression">
               {plan.expression}
             </div>
-            <ul className="mt-1 space-y-0.5 opacity-80" data-testid="preview-terms">
-              <li>1d20 (the die)</li>
-              {plan.terms.map((t, i) => (
-                <li key={`${t.label}-${i}`}>
-                  {t.value < 0 ? '-' : '+'}
-                  {Math.abs(t.value)} {t.label}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-1" data-testid="net-mode">
-              Dice: {plan.diceCount}d20, {plan.net > 0 ? 'keep the highest' : plan.net < 0 ? 'keep the lowest' : 'one die'} (
-              {describeNet(plan.net)})
-            </div>
-          </div>
-        )}
-        {statusLevels.length > 0 && (
-          <div className="rounded-lg bg-white/5 p-2 text-sm" data-testid="status-effects">
-            <div className="mb-1 text-xs uppercase tracking-wide opacity-60">Applied automatically by statuses</div>
-            {statusLevels.map((l) => (
-              <div key={l.label}>
-                {l.label}: {describeNet(l.levels)}
+            {plan.diceCount > 1 && (
+              <div className="mt-1 text-xs opacity-70" data-testid="net-mode">
+                {plan.diceCount}d20, keep the {plan.net > 0 ? 'highest' : 'lowest'}: {describeNet(plan.net)} (
+                {plan.sources.map((x) => x.label).join(', ')})
               </div>
-            ))}
+            )}
           </div>
         )}
         <div className="flex flex-col gap-1 text-sm">

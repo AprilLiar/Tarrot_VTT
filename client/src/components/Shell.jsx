@@ -1,4 +1,6 @@
+import { NavLink } from 'react-router-dom';
 import { useApp } from '../AppContext.jsx';
+import { useIsDesktop } from '../lib/useMedia.js';
 import { Initial } from './Picker.jsx';
 import ChatPanel from './ChatPanel.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
@@ -12,10 +14,17 @@ export default function Shell({ children }) {
   const pc = pcs.find((c) => c.id === identity.characterId);
   const label = isGm ? 'Game Master' : (pc?.name ?? '...');
   const offer = offers[0];
+  const desktop = useIsDesktop();
+  // The GM can view the scene on any device; players only on a desktop (phones stay on the controls).
+  const links = isGm
+    ? [['/', 'Characters'], ['/scene', 'Scene']]
+    : desktop
+      ? [['/', 'Sheet'], ['/scene', 'Scene']]
+      : [];
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#0f0d14] px-4 py-2">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-white/10 bg-[#0f0d14] px-4">
         {isGm ? (
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-700 text-sm font-semibold">
             GM
@@ -23,9 +32,26 @@ export default function Shell({ children }) {
         ) : (
           <Initial name={label} size="h-9 w-9 text-base" />
         )}
-        <span data-testid="whoami" className="flex-1 truncate font-medium">
+        <span data-testid="whoami" className="min-w-0 flex-1 truncate font-medium">
           {label}
         </span>
+        {links.length > 0 && (
+          <nav className="flex gap-1" aria-label="Sections">
+            {links.map(([to, text]) => (
+              <NavLink
+                key={to}
+                to={to}
+                end
+                data-testid={`nav-${text.toLowerCase()}`}
+                className={({ isActive }) =>
+                  `flex min-h-10 items-center rounded-lg px-3 text-sm ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
+                }
+              >
+                {text}
+              </NavLink>
+            ))}
+          </nav>
+        )}
         {!connected && (
           <span data-testid="offline" className="text-xs text-amber-400">
             Reconnecting...

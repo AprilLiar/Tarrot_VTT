@@ -6,7 +6,9 @@ import { resolveStat, statusEffects } from './status-effects.js';
 // the roll; the client uses it to preview the formula in the roll dialog, so
 // what you see is what gets rolled.
 
-export const MAX_MANUAL_LEVELS = 5;
+export const MAX_MANUAL_LEVELS = 10;
+// The total of all Advantage / Disadvantage levels is capped, so no roll ever exceeds 11 dice.
+export const MAX_NET_LEVELS = 10;
 
 // "1d20 + 3(Dexterity) - 1(Custom)"
 export function formatExpression(terms) {
@@ -69,7 +71,7 @@ export function planRoll(sheet, request) {
 
   const sources = [...fx.levels];
   if (manual !== 0) sources.push({ label: 'Manual', levels: manual });
-  const net = sources.reduce((sum, s) => sum + s.levels, 0);
+  const net = Math.max(-MAX_NET_LEVELS, Math.min(MAX_NET_LEVELS, sources.reduce((sum, s) => sum + s.levels, 0)));
   const mode = net > 0 ? 'advantage' : net < 0 ? 'disadvantage' : 'normal';
 
   return {

@@ -49,6 +49,16 @@ export default function Picker() {
         <span className="text-lg">Game Master</span>
       </button>
 
+      <button className={card} data-testid="pick-display" onClick={() => choose({ role: 'display' })}>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-600 text-sm font-semibold">
+          TV
+        </span>
+        <span className="flex flex-col">
+          <span className="text-lg">Display Screen</span>
+          <span className="text-xs opacity-60">Shows the current scene on the table screen</span>
+        </span>
+      </button>
+
       <h2 className="mt-2 text-sm uppercase tracking-wide opacity-60">Player characters</h2>
       {pcs.length === 0 && <p className="text-sm opacity-60">No characters yet. Ask the GM to create one.</p>}
       {pcs.map((pc) => (

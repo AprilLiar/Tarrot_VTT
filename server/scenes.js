@@ -1,0 +1,379 @@
+import { AppError } from './errors.js';
+import { cleanName } from './roster.js';
+import { makeFolders } from './folders.js';
+import { deleteImageIfUnused } from './images.js';
+
+// Scenes, the stage (who is summoned onto the active scene), temp NPCs and
+// character pictures. Pictures are one collection per character or temp NPC,
+// used both as Scene art and (Phase 5) as Battle tokens.
+
+export const MAX_PICTURES = 20;
+export const SCALE_MIN = 0.3;
+export const SCALE_MAX = 2;
+
+export const SCENE_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS scene_folders (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     parent_id INTEGER REFERENCES scene_folders(id),
+     name TEXT NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS scenes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     folder_id INTEGER REFERENCES scene_folders(id),
+     scene_image_id TEXT,
+     battle_image_id TEXT,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   )`,
+  `CREATE TABLE IF NOT EXISTS scene_state (
+     id INTEGER PRIMARY KEY CHECK (id = 1),
+     active_scene_id INTEGER
+   )`,
+  'INSERT OR IGNORE INTO scene_state (id, active_scene_id) VALUES (1, NULL)',
+  `CREATE TABLE IF NOT EXISTS temp_npc_folders (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     parent_id INTEGER REFERENCES temp_npc_folders(id),
+     name TEXT NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS temp_npcs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     folder_id INTEGER REFERENCES temp_npc_folders(id),
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   )`,
+  `CREATE TABLE IF NOT EXISTS pictures (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     character_id INTEGER,
+     temp_npc_id INTEGER,
+     image_id TEXT NOT NULL,
+     name TEXT NOT NULL DEFAULT '',
+     position INTEGER NOT NULL DEFAULT 0,
+     CHECK ((character_id IS NULL) != (temp_npc_id IS NULL))
+   )`,
+  `CREATE TABLE IF NOT EXISTS stage_summons (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     scene_id INTEGER NOT NULL,
+     character_id INTEGER,
+     temp_npc_id INTEGER,
+     picture_id INTEGER,
+     position INTEGER NOT NULL DEFAULT 0,
+     scale REAL NOT NULL DEFAULT 1,
+     hidden INTEGER NOT NULL DEFAULT 0,
+     CHECK ((character_id IS NULL) != (temp_npc_id IS NULL))
+   )`,
+];
+
+export const sceneFolders = makeFolders({ folderTable: 'scene_folders', itemTable: 'scenes', label: 'folder' });
+export const tempNpcFolders = makeFolders({ folderTable: 'temp_npc_folders', itemTable: 'temp_npcs', label: 'folder' });
+
+const n = (v) => (v == null ? null : Number(v));
+
+// An owner is { characterId } or { tempNpcId }.
+export function ownerOf(p) {
+  const hasC = Number.isInteger(p?.characterId);
+  const hasT = Number.isInteger(p?.tempNpcId);
+  if (hasC === hasT) throw new AppError('bad_id', 'Choose a character or a temp NPC.');
+  return hasC ? { kind: 'character', id: p.characterId } : { kind: 'temp_npc', id: p.tempNpcId };
+}
+
+const ownerColumn = (o) => (o.kind === 'character' ? 'character_id' : 'temp_npc_id');
+
+export async function requireOwner(db, o) {
+  const table = o.kind === 'character' ? 'characters' : 'temp_npcs';
+  const r = await db.execute({ sql: `SELECT id, name FROM ${table} WHERE id = ?`, args: [o.id] });
+  if (!r.rows.length) throw new AppError('not_found', 'That character no longer exists.');
+  return { ...o, name: r.rows[0].name };
+}
+
+// ---- Pictures ---------------------------------------------------------------
+
+const toPicture = (r) => ({
+  id: Number(r.id),
+  ownerKind: r.character_id != null ? 'character' : 'temp_npc',
+  ownerId: n(r.character_id ?? r.temp_npc_id),
+  imageId: r.image_id,
+  name: r.name,
+});
+
+export async function listPictures(db, owner) {
+  const r = await db.execute({
+    sql: `SELECT * FROM pictures WHERE ${ownerColumn(owner)} = ? ORDER BY position, id`,
+    args: [owner.id],
+  });
+  return r.rows.map(toPicture);
+}
+
+export async function getPicture(db, id) {
+  if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid picture.');
+  const r = await db.execute({ sql: 'SELECT * FROM pictures WHERE id = ?', args: [id] });
+  if (!r.rows.length) throw new AppError('not_found', 'That picture no longer exists.');
+  return toPicture(r.rows[0]);
+}
+
+export async function addPicture(db, owner, imageId, name) {
+  await requireOwner(db, owner);
+  const count = Number((await db.execute({
+    sql: `SELECT COUNT(*) AS n FROM pictures WHERE ${ownerColumn(owner)} = ?`,
+    args: [owner.id],
+  })).rows[0].n);
+  if (count >= MAX_PICTURES) throw new AppError('limit', `At most ${MAX_PICTURES} pictures each.`);
+  const label = typeof name === 'string' ? name.trim().slice(0, 60) : '';
+  const r = await db.execute({
+    sql: `INSERT INTO pictures (${ownerColumn(owner)}, image_id, name, position) VALUES (?, ?, ?, ?)`,
+    args: [owner.id, imageId, label, count],
+  });
+  return Number(r.lastInsertRowid);
+}
+
+export async function renamePicture(db, id, name) {
+  await getPicture(db, id);
+  const label = typeof name === 'string' ? name.trim().slice(0, 60) : '';
+  await db.execute({ sql: 'UPDATE pictures SET name = ? WHERE id = ?', args: [label, id] });
+}
+
+// Deleting a picture that is on stage swaps the summon to the owner's first
+// remaining picture, or takes the summon off stage when there is none.
+export async function deletePicture(db, id) {
+  const pic = await getPicture(db, id);
+  await db.execute({ sql: 'DELETE FROM pictures WHERE id = ?', args: [id] });
+  const remaining = await listPictures(db, { kind: pic.ownerKind, id: pic.ownerId });
+  if (remaining.length) {
+    await db.execute({ sql: 'UPDATE stage_summons SET picture_id = ? WHERE picture_id = ?', args: [remaining[0].id, id] });
+  } else {
+    await db.execute({ sql: 'DELETE FROM stage_summons WHERE picture_id = ?', args: [id] });
+  }
+  await deleteImageIfUnused(db, pic.imageId);
+  return pic;
+}
+
+// Everything belonging to an owner that is going away.
+export async function removeOwnerArt(db, owner) {
+  const pics = await listPictures(db, owner);
+  await db.execute({ sql: `DELETE FROM stage_summons WHERE ${ownerColumn(owner)} = ?`, args: [owner.id] });
+  await db.execute({ sql: `DELETE FROM pictures WHERE ${ownerColumn(owner)} = ?`, args: [owner.id] });
+  for (const p of pics) await deleteImageIfUnused(db, p.imageId);
+}
+
+// ---- Temp NPCs ----------------------------------------------------------------
+
+const toTempNpc = (r) => ({ id: Number(r.id), name: r.name, folderId: n(r.folder_id) });
+
+export async function listTempNpcs(db) {
+  const r = await db.execute('SELECT id, name, folder_id FROM temp_npcs ORDER BY name COLLATE NOCASE');
+  return r.rows.map(toTempNpc);
+}
+
+export async function createTempNpc(db, { name, folderId = null }) {
+  const clean = cleanName(name);
+  const folder = await tempNpcFolders.orRoot(db, folderId);
+  const r = await db.execute({ sql: 'INSERT INTO temp_npcs (name, folder_id) VALUES (?, ?)', args: [clean, folder] });
+  return Number(r.lastInsertRowid);
+}
+
+export async function renameTempNpc(db, id, name) {
+  await requireOwner(db, { kind: 'temp_npc', id });
+  await db.execute({ sql: 'UPDATE temp_npcs SET name = ? WHERE id = ?', args: [cleanName(name), id] });
+}
+
+export async function moveTempNpc(db, id, folderId) {
+  await requireOwner(db, { kind: 'temp_npc', id });
+  const folder = await tempNpcFolders.orRoot(db, folderId);
+  await db.execute({ sql: 'UPDATE temp_npcs SET folder_id = ? WHERE id = ?', args: [folder, id] });
+}
+
+export async function deleteTempNpc(db, id) {
+  await requireOwner(db, { kind: 'temp_npc', id });
+  await removeOwnerArt(db, { kind: 'temp_npc', id });
+  await db.execute({ sql: 'DELETE FROM temp_npcs WHERE id = ?', args: [id] });
+}
+
+// ---- Scenes -------------------------------------------------------------------
+
+const toScene = (r) => ({
+  id: Number(r.id),
+  name: r.name,
+  folderId: n(r.folder_id),
+  imageId: r.scene_image_id ?? null,
+});
+
+export async function listScenes(db) {
+  const r = await db.execute('SELECT id, name, folder_id, scene_image_id FROM scenes ORDER BY name COLLATE NOCASE');
+  return r.rows.map(toScene);
+}
+
+export async function getScene(db, id) {
+  if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid scene.');
+  const r = await db.execute({ sql: 'SELECT id, name, folder_id, scene_image_id FROM scenes WHERE id = ?', args: [id] });
+  if (!r.rows.length) throw new AppError('not_found', 'That scene no longer exists.');
+  return toScene(r.rows[0]);
+}
+
+export async function createScene(db, { name, folderId = null, imageId = null }) {
+  const clean = cleanName(name);
+  const folder = await sceneFolders.orRoot(db, folderId);
+  const r = await db.execute({
+    sql: 'INSERT INTO scenes (name, folder_id, scene_image_id) VALUES (?, ?, ?)',
+    args: [clean, folder, imageId],
+  });
+  return Number(r.lastInsertRowid);
+}
+
+export async function renameScene(db, id, name) {
+  await getScene(db, id);
+  await db.execute({ sql: 'UPDATE scenes SET name = ? WHERE id = ?', args: [cleanName(name), id] });
+}
+
+export async function moveScene(db, id, folderId) {
+  await getScene(db, id);
+  const folder = await sceneFolders.orRoot(db, folderId);
+  await db.execute({ sql: 'UPDATE scenes SET folder_id = ? WHERE id = ?', args: [folder, id] });
+}
+
+export async function setSceneImage(db, id, imageId) {
+  const scene = await getScene(db, id);
+  await db.execute({ sql: 'UPDATE scenes SET scene_image_id = ? WHERE id = ?', args: [imageId, id] });
+  await deleteImageIfUnused(db, scene.imageId);
+}
+
+export async function deleteScene(db, id) {
+  const scene = await getScene(db, id);
+  await db.execute({ sql: 'DELETE FROM stage_summons WHERE scene_id = ?', args: [id] });
+  await db.execute({ sql: 'UPDATE scene_state SET active_scene_id = NULL WHERE active_scene_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM scenes WHERE id = ?', args: [id] });
+  await deleteImageIfUnused(db, scene.imageId);
+}
+
+export async function getActiveSceneId(db) {
+  const r = await db.execute('SELECT active_scene_id FROM scene_state WHERE id = 1');
+  return r.rows.length ? n(r.rows[0].active_scene_id) : null;
+}
+
+export async function setActiveScene(db, id) {
+  if (id != null) await getScene(db, id);
+  await db.execute({ sql: 'UPDATE scene_state SET active_scene_id = ? WHERE id = 1', args: [id] });
+}
+
+// ---- Stage --------------------------------------------------------------------
+
+// PCs stand on the left; NPCs and temp NPCs on the right.
+const sideOf = (r) => (r.character_id != null && r.ctype === 'pc' ? 'left' : 'right');
+
+// The stage as one audience sees it. Hidden summons are removed for everyone
+// but the GM, on the server, so they are never sent to a player's screen.
+export async function buildStage(db, { forGm }) {
+  const sceneId = await getActiveSceneId(db);
+  if (sceneId == null) return { scene: null, summons: [] };
+  const scene = await getScene(db, sceneId).catch(() => null);
+  if (!scene) return { scene: null, summons: [] };
+  const r = await db.execute({
+    sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.scale, s.hidden,
+                 c.name AS cname, c.type AS ctype, t.name AS tname, p.image_id AS image_id
+          FROM stage_summons s
+          LEFT JOIN characters c ON c.id = s.character_id
+          LEFT JOIN temp_npcs t ON t.id = s.temp_npc_id
+          LEFT JOIN pictures p ON p.id = s.picture_id
+          WHERE s.scene_id = ?
+          ORDER BY s.position, s.id`,
+    args: [sceneId],
+  });
+  const summons = r.rows
+    .map((row) => ({
+      id: Number(row.id),
+      ownerKind: row.character_id != null ? 'character' : 'temp_npc',
+      ownerId: n(row.character_id ?? row.temp_npc_id),
+      name: row.cname ?? row.tname ?? '?',
+      side: sideOf(row),
+      pictureId: n(row.picture_id),
+      imageId: row.image_id ?? null,
+      scale: Number(row.scale),
+      hidden: Number(row.hidden) === 1,
+    }))
+    .filter((s) => forGm || !s.hidden);
+  return { scene: { id: scene.id, name: scene.name, imageId: scene.imageId }, summons };
+}
+
+async function getSummon(db, id) {
+  if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid stage entry.');
+  const r = await db.execute({ sql: 'SELECT * FROM stage_summons WHERE id = ?', args: [id] });
+  if (!r.rows.length) throw new AppError('not_found', 'That character is no longer on stage.');
+  return r.rows[0];
+}
+
+export async function summon(db, owner, pictureId) {
+  const sceneId = await getActiveSceneId(db);
+  if (sceneId == null) throw new AppError('no_scene', 'There is no active scene.');
+  await requireOwner(db, owner);
+  const pictures = await listPictures(db, owner);
+  if (!pictures.length) throw new AppError('no_picture', 'Add a picture first.');
+  let picture = pictures[0];
+  if (pictureId != null) {
+    picture = pictures.find((p) => p.id === pictureId);
+    if (!picture) throw new AppError('bad_id', 'That picture does not belong to this character.');
+  }
+  const existing = await db.execute({
+    sql: `SELECT id FROM stage_summons WHERE scene_id = ? AND ${ownerColumn(owner)} = ?`,
+    args: [sceneId, owner.id],
+  });
+  if (existing.rows.length) throw new AppError('already_on_stage', 'Already on stage.');
+  const pos = Number((await db.execute({
+    sql: 'SELECT COALESCE(MAX(position), -1) + 1 AS p FROM stage_summons WHERE scene_id = ?',
+    args: [sceneId],
+  })).rows[0].p);
+  const r = await db.execute({
+    sql: `INSERT INTO stage_summons (scene_id, ${ownerColumn(owner)}, picture_id, position) VALUES (?, ?, ?, ?)`,
+    args: [sceneId, owner.id, picture.id, pos],
+  });
+  return Number(r.lastInsertRowid);
+}
+
+export async function summonOwner(db, id) {
+  const row = await getSummon(db, id);
+  return row.character_id != null
+    ? { kind: 'character', id: Number(row.character_id) }
+    : { kind: 'temp_npc', id: Number(row.temp_npc_id) };
+}
+
+export async function dismiss(db, id) {
+  await getSummon(db, id);
+  await db.execute({ sql: 'DELETE FROM stage_summons WHERE id = ?', args: [id] });
+}
+
+export async function updateSummon(db, id, { pictureId, scale, hidden }) {
+  const row = await getSummon(db, id);
+  if (pictureId !== undefined) {
+    const owner = await summonOwner(db, id);
+    const pictures = await listPictures(db, owner);
+    if (!pictures.some((p) => p.id === pictureId)) throw new AppError('bad_id', 'That picture does not belong to this character.');
+    await db.execute({ sql: 'UPDATE stage_summons SET picture_id = ? WHERE id = ?', args: [pictureId, id] });
+  }
+  if (scale !== undefined) {
+    if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < SCALE_MIN || scale > SCALE_MAX) {
+      throw new AppError('bad_value', `Size must be between ${SCALE_MIN} and ${SCALE_MAX}.`);
+    }
+    await db.execute({ sql: 'UPDATE stage_summons SET scale = ? WHERE id = ?', args: [scale, id] });
+  }
+  if (hidden !== undefined) {
+    if (typeof hidden !== 'boolean') throw new AppError('bad_value', 'Hidden must be true or false.');
+    await db.execute({ sql: 'UPDATE stage_summons SET hidden = ? WHERE id = ?', args: [hidden ? 1 : 0, id] });
+  }
+  return row;
+}
+
+// Puts one side's summons into `ids` order. Only entries already on that side
+// of the active scene count; the other side keeps its slots.
+export async function reorderSide(db, side, ids) {
+  if (side !== 'left' && side !== 'right') throw new AppError('bad_value', 'Unknown side.');
+  if (!Array.isArray(ids) || ids.some((i) => !Number.isInteger(i))) throw new AppError('bad_id', 'Invalid order.');
+  const stage = await buildStage(db, { forGm: true });
+  if (!stage.scene) throw new AppError('no_scene', 'There is no active scene.');
+  const all = stage.summons; // already in position order
+  const sideIds = all.filter((s) => s.side === side).map((s) => s.id);
+  const wanted = ids.filter((i, idx) => sideIds.includes(i) && ids.indexOf(i) === idx);
+  const order = [...wanted, ...sideIds.filter((i) => !wanted.includes(i))];
+  let k = 0;
+  const merged = all.map((s) => (s.side === side ? order[k++] : s.id));
+  await db.batch(
+    merged.map((id, position) => ({ sql: 'UPDATE stage_summons SET position = ? WHERE id = ?', args: [position, id] })),
+    'write',
+  );
+}

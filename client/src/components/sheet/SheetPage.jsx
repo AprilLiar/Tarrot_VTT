@@ -6,6 +6,7 @@ import * as D from '../../../../shared/rules-data.js';
 import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
+import { PicturesSection, StageSection } from './SheetStage.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
@@ -154,6 +155,8 @@ export default function SheetPage({ characterId }) {
       <Inventory s={s} />
       <Resistances s={s} />
       <Statuses s={s} />
+      <StageSection s={s} />
+      <PicturesSection s={s} />
     </main>
   );
 }

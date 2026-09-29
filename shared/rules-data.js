@@ -22,7 +22,7 @@ export const GROUP_SAVES = {
 };
 
 export const MASTERIES = ['magic', 'stances', 'manifestation'];
-export const MASTERY_LABELS = { magic: 'Magic', stances: 'Stances', manifestation: 'Manifestation' };
+export const MASTERY_LABELS = { magic: 'Magic', stances: 'Stances', manifestation: 'Manifest' };
 export const MASTERY_MIN = 1;
 export const MASTERY_MAX = 10;
 export const EXPERIENCE_MIN = 1;

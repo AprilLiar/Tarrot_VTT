@@ -45,12 +45,14 @@ Repository layout:
 | `server/rolls.js` | Roll engine: builds a roll and its breakdown from a stored sheet. |
 | `server/chat.js` | In-memory chat log. |
 | `server/errors.js` | `AppError`, the error type whose message is safe to show users. |
+| `server/scenes.js`, `server/sceneHandlers.js`, `server/images.js`, `server/folders.js` | Scenes, stage, temp NPCs, pictures, image storage, generic folder trees. |
 | `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
 | `server/db.js` | libSQL client, `initSchema` (idempotent, one batch). |
 | `server/index.js` | Boot: connect DB, init schema, listen on `$PORT` (default 3001). |
 | `server/test/` | Vitest tests (in-memory DB, ephemeral port). |
 | `client/src/` | React app. `socket.js` shared socket; `AppContext.jsx` identity, PC list, roster state. |
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
+| `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
@@ -82,8 +84,8 @@ Health check: `GET /api/health` returns `{ ok, db }`.
 
 All decided.
 
-- No login. On opening the site a person picks **GM** or any created **PC**. NPCs are never
-  selectable by players.
+- No login. On opening the site a person picks **GM**, the **Display Screen**, or any created **PC**.
+  NPCs are never selectable by players.
 - The choice is remembered on that device (browser storage) and a menu item switches identity.
 - GM role is open and trust-based: anyone with the link can pick it. No passphrase.
 - The GM creates all PCs and NPCs. They share one character sheet. PCs are controllable by the GM
@@ -102,22 +104,31 @@ Implemented in Phase 2:
 - When the GM deletes a character, every socket playing it is sent `identity:revoked` and returns
   to the picker with a notice. (decided)
 
+Implemented in Phase 4a:
+- **Display Screen** is a third identity (`{ role: 'display' }`), meant for the desktop that faces
+  the table. It shows only the active scene: no top bar, no chat, no sheets, no roster. It can zoom
+  and pan its own view and drag characters to reorder them for everyone, but cannot summon,
+  dismiss, hide or change anything else. A faint "Switch" button in the corner returns to the
+  picker. (decided)
+
 ## Experience variants
 
 Decided. The same identity behaves differently by device.
 
 | Variant | Gets |
 |---|---|
-| Mobile Player | Controls only: character sheet, D-pad "TV remote", targeting, ability use. Never renders Scenes. |
-| PC Player | Scene and Battle rendering. Anything marked Hidden is not shown. |
-| Mobile GM | Controls for any PC or NPC only. |
-| PC GM | Full power: create and change scenes, characters, Hidden flags, all tools. |
+| Display Screen | Desktop only. The active scene (and later Battle) with hidden things left out. Zoom, pan, drag to reorder. No menus. |
+| Mobile Player | Controls only: sheet, D-pad "TV remote", targeting, ability use. Never renders Scenes. Can put their own PC on the stage or take it off from the sheet. |
+| Desktop Player | The sheet and a Scene tab (view only, own zoom and pan). Hidden things stay hidden. |
+| Mobile GM | Sees the scene too, can reorder, hide, reveal and summon, and can open any character's sheet to play as an NPC. |
+| Desktop GM | Full power: create and change scenes, characters, Hidden flags, all tools. |
 
-- The GM's PC is the table display: fullscreen scene, tools in hideable drawers/overlays.
+- The scene fills the screen under the top bar. The GM's tools are two side drawers (Cast on the left, Scenes on the right); the Display Screen has none.
 - **Hidden:** the GM right-clicks a token or object to open a Foundry-style context menu of
   half-transparent circles at its side: **Token Settings** and **Hide/Reveal**. Hide makes the token
-  fully disappear for PC clients, including its name plaque; the GM still sees it, half-transparent.
-  Reveal undoes it. (decided)
+  fully disappear for players and the Display, including its name plaque; the GM still sees it,
+  half-transparent. Reveal undoes it. On a touch screen a tap on a character opens the circles.
+  (decided, implemented for the Scene)
 - Mobile is designed first (character sheet especially), then ported to desktop.
 
 ## Game rules
@@ -165,7 +176,7 @@ The Zodiac and Tarrot card magic system is a placeholder for now; details come l
 
 ### Combat Masteries
 Three pseudo-stats, range 1-10, used for Combat rolls made from the Arcane tab:
-**Magic** (blue glow), **Stances** (red glow), **Manifestation** (gold glow). (decided)
+**Magic** (blue glow), **Stances** (red glow), **Manifest** (gold glow). "Manifest" is the shortened name of the third one so the nameplate fits on a phone. (decided)
 
 ### Skills
 Each skill scales off a stat. Mastery has 10 tiers, +1 per tier, cumulative (Astrology at Mastery 3
@@ -287,7 +298,7 @@ Layout, top to bottom:
 2. **Stats:** each a big number. Under each, two small rectangular buttons, each half the stat
    box width: left rolls the Attribute Roll, right rolls the Save Roll. Luck has no Save button.
    Physical Save and Mental Save shown as the two special saves.
-3. **Combat Masteries:** Magic, Stances, Manifestation as smaller boxes in a triangle under the
+3. **Combat Masteries:** Magic, Stances, Manifest as smaller boxes in a triangle under the
    stats, each with its colored glow.
 4. **Skills** with Mastery tier.
 5. **Features:** free-form list, each with name and description.
@@ -315,10 +326,13 @@ Implemented behaviour (Phase 3):
   each other's fields).
 - **Rolling:** on a touch screen a tap on any roll button always opens the roll dialog (long-press
   was unreliable on iOS). With a mouse, a click rolls at once and a right-click opens the dialog. The
-  dialog previews the exact formula about to be rolled, with every bonus and its source (the same
-  plan the server uses, `shared/roll-plan.js`), the dice count, the effects statuses apply
-  automatically, a stepper for extra Advantage levels (negative for Disadvantage) and a custom
-  modifier (-99 to 99); the preview updates as you edit. The result goes to the chat and the
+  dialog shows one live formula about to be rolled, with the dice count and every bonus and its
+  source (the same plan the server uses, `shared/roll-plan.js`), for example `1d20 + 3(Dexterity)
+  - 2(Custom)`; when statuses or extra levels add dice it also says why (`3d20, keep the lowest:
+  Disadvantage 2 (Dazed 2)`). Below it are a stepper for extra Advantage levels (up to 10 either
+  way; negative for Disadvantage) and a custom modifier (-99 to 99, labelled Custom); the formula
+  updates as you edit. The total of all levels (statuses plus manual) is capped at 10, so a roll
+  never exceeds 11 dice. The result goes to the chat and the
   roller's chat panel opens. (decided)
 - **Negative numbers:** iOS digit pads have no minus key, so every field that can be negative
   (stats, X Defence, HP, resistance value, custom modifier) opens the full keyboard and the minus
@@ -377,11 +391,30 @@ Implemented behaviour (Phase 3):
 - Author names come from the server-side identity: a player's messages carry the PC's name, the
   GM's carry "GM". A GM rolling for an NPC posts as the GM with the NPC's name on the card.
 
-### Scene mode (planned)
-Light-novel style, as in Dogfight: a fullscreen background with character art (transparent PNG)
-sliding in. PCs on the left, GM/NPC characters on the right. Position, scale and picture swap
-supported. Scenes are foldered. Activating a scene force-navigates all connected PC clients.
-Summons are per scene. (decided; details per the Dogfight design)
+### Scene mode (implemented in Phase 4a)
+Light-novel style: a fullscreen background with character art standing along the bottom. Decided:
+- **Placement:** lineup order and size, not free placement. PCs stand on the left, NPCs and temp
+  NPCs on the right; the first summoned stands nearest its screen edge. The GM and the Display drag
+  a character to reorder its side; the GM sets each one's size (0.3 to 2) in Token Settings.
+- **Who is on the stage:** real characters (PC and NPC) and lightweight **temp NPCs**. A temp NPC
+  is just a name and pictures, kept in its own folder tree, for narrative extras.
+- **Pictures:** each character or temp NPC has one collection of pictures (up to 20), used as Scene
+  art and later as Battle tokens. A picture is chosen at summon and can be swapped in Token Settings.
+  Deleting a picture that is on stage swaps to another, or removes the character from the stage if
+  none is left.
+- **Summoning:** the GM can summon or dismiss anyone; a player can summon or dismiss only their own
+  PC (from the sheet, on any device). Summons belong to a scene: each scene keeps its own cast, and
+  the GM can only summon into the active scene.
+- **Scenes** are foldered (nested folders, like the roster) and each has a background picture. The
+  GM activates one at a time; the Display and desktop players see the change live. Nobody is
+  force-navigated. With no active scene the Display shows a waiting message.
+- **Name plaque** under each character; it is hidden with the character.
+- **Hidden** characters are filtered out on the server: they are never sent to players or the
+  Display, so they cannot be found by inspecting the page. The GM sees them half-transparent.
+- **Zoom and pan** are local to each screen (wheel, drag, pinch, buttons); the zoomed view is never
+  shared. Overlays stay fixed.
+- **Motion:** characters slide in from their side when they appear.
+- Battle mode reuses this page in Phase 5; the Display will follow the active mode.
 
 ### Battle mode (planned)
 Toggle from Scene to Battle: alternate artwork per scene, square grid, characters as tokens,
@@ -410,9 +443,15 @@ Base building blocks (Zodiacs, Tarrot cards and effects, spontaneous-casting tab
 parameters, sheet schema, classes, items) are hard-coded in the repo as data files. Character-local
 combinations and calculations live in Turso. (decided)
 
-### Images (planned)
-Stored in Turso, served as cacheable URLs, re-encoded on upload to keep the database small.
-(decided)
+### Images (implemented in Phase 4a)
+Stored in Turso and served as immutable, cacheable URLs (`GET /api/images/:id`). Ids are random, so
+a hidden character's picture cannot be guessed. The browser resizes and re-encodes every upload
+before sending it (`client/src/lib/image.js`): backgrounds fit 1920x1200 as JPEG; character art
+fits 1200x1400 and keeps transparency as WebP, or PNG on browsers that cannot encode WebP (Safari).
+The server accepts PNG, JPEG or WebP (checked by their first bytes) up to 3 MB and never decodes
+them. Uploads travel over the socket so the sender's permission is checked; the socket limit is
+5 MB. Images nothing points to any more are deleted. These limits are my defaults; tell me if you
+want different ones. (decided by me, open to change)
 
 ## Data model
 
@@ -435,8 +474,17 @@ Implemented:
   (no subfolders, no characters) can be deleted. Character deletion is permanent and requires
   the exact name.
 
-Planned (not final): scenes, scene folders, scene state, scene pictures, summons, battle
-tokens/objects, audio playlists/tracks/state, character-local spells.
+- `images(id, mime, data, bytes)`: random 32-hex id, stored as a BLOB.
+- `scene_folders`, `scenes(id, name, folder_id, scene_image_id, battle_image_id)` (the Battle
+  image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.
+- `temp_npc_folders`, `temp_npcs(id, name, folder_id)`.
+- `pictures(id, character_id | temp_npc_id, image_id, name, position)`: exactly one owner.
+- `stage_summons(id, scene_id, character_id | temp_npc_id, picture_id, position, scale, hidden)`.
+  A character or temp NPC appears once per scene. Side is derived: PCs left, everyone else right.
+- Deleting a character, temp NPC, scene or picture removes what depended on it by code, and
+  deletes images that nothing uses.
+
+Planned (not final): battle tokens/objects, audio playlists/tracks/state, character-local spells.
 
 ## Real-time events
 
@@ -475,7 +523,27 @@ Implemented:
   `{ offerId, fromName, itemName, toId }` to the recipient's devices and `trade:resolved` `{
   offerId, accepted, itemName, fromName, toName }` to both sides.
 
-HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker.
+Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`:
+- `identity:set` also accepts `{ role: 'display' }`.
+- `library:get` (GM) returns `{ library: { sceneFolders, scenes, tempNpcFolders, tempNpcs } }`;
+  `library:updated` pushes it to the GM after any change.
+- `stage:get` returns `{ stage: { scene: { id, name, imageId } | null, summons: [{ id, ownerKind,
+  ownerId, name, side, pictureId, imageId, scale, hidden }] } }`, hidden summons removed unless the
+  caller is the GM. `stage:updated` pushes it: the full stage to the GM room, the filtered stage to
+  the `view` room (players and Displays).
+- GM only: `scene:create` `{ name, folderId?, data? }`, `scene:rename`, `scene:move`,
+  `scene:set_image` `{ id, data }`, `scene:delete`, `scene:activate` `{ id | null }`,
+  `scene_folder:*` and `temp_npc_folder:*` (create, rename, move, delete), `temp_npc:*` (create,
+  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }`.
+- `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
+  for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
+- `stage:summon` `{ owner, pictureId? }` and `stage:dismiss` `{ id }`: the GM for anyone; a player
+  for their own PC only. `stage:reorder` `{ side, ids }`: the GM and the Display.
+- Display sockets get no chat, sheets, roster or rolls.
+- Error codes added: `no_scene`, `no_picture`, `already_on_stage`, `bad_image`, `image_too_large`.
+
+HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
+serves an image with a one-year immutable cache header.
 
 ## Phases
 
@@ -498,8 +566,13 @@ Each phase ends in a deploy and playtest checkpoint.
    `rolls.test.js`, `sheetSockets.test.js`, `rulesData.test.js` and `e2e/sheet.spec.js`.
    The layout is a single column that works on phone and desktop; a dedicated wide desktop layout
    is not built yet.
-4. **Scene and Music**: Scene page, upload pipeline, folders, activation, summoning, Hidden flag
-   and context window, Music player.
+4. **Scene and Music**, split in two parts, each playtested on its own:
+   - **4a Scenes** (implemented, awaiting playtest): image pipeline, scenes and folders, temp NPCs,
+     pictures, stage with summoning, Hidden with the token menu, Display Screen, desktop and
+     mobile GM views. Check: build a scene, summon PCs and NPCs, watch it on a Display in another
+     window, hide and reveal, reorder by dragging from the Display, join and leave from a phone.
+     Covered by `server/test/sceneSockets.test.js` and `e2e/scene.spec.js`.
+   - **4b Music** (next): GM-run player, YouTube links, synced for late joiners.
 5. **Battle**: Battle mode, grid, tokens, D-pad remote, targeting, templates, drawing, pings, ruler.
 6. **Mechanics and Arcane**: roll engine, confirm card, Arcane browser, sandbox, spell builder,
    spontaneous-casting tables.
@@ -512,7 +585,9 @@ Asked one batch at a time; answers move into the sections above.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Whether statuses should ever affect Combat Mastery rolls.
 - A wider desktop layout for the sheet and the icon set for damage types.
-- Token art vs sheet art (one image or separate); grid size and scale per scene.
+- Grid size and scale per scene; Battle token framing (token art shares the picture collection).
+- Music player details (4b): playlists, controls, whether the Display plays the sound.
+- Image limits in Phase 4a are my defaults (see Images).
 - Undo of applied results? Turn order and initiative tracker? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
 - Backups/export of characters from Turso.
