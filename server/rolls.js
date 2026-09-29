@@ -12,15 +12,6 @@ const MODES = ['normal', 'advantage', 'disadvantage'];
 
 const bad = (message, code = 'bad_roll') => new AppError(code, message);
 
-// The stat a skill scales from. Ties keep the first listed stat.
-export function skillStat(sheet, skill) {
-  const candidates = skill.scaling.prime ? D.STATS : skill.scaling.stats;
-  let best = candidates[0];
-  for (const s of candidates) if (sheet.stats[s] > sheet.stats[best]) best = s;
-  const label = skill.scaling.prime ? `Prime: ${D.STAT_LABELS[best]}` : D.STAT_LABELS[best];
-  return { stat: best, value: sheet.stats[best], label };
-}
-
 // "1d20 + 3(Dexterity) - 1(Custom)". Zero-valued bonuses are left out,
 // except the stat itself which is always shown.
 export function formatExpression(terms) {
@@ -63,8 +54,8 @@ export function buildRoll(sheet, request, rng = rollD20) {
   } else if (kind === 'skill') {
     const skill = D.SKILLS.find((s) => s.key === key);
     if (!skill) throw bad('Unknown skill.');
-    title = `${skill.label} Skill Roll`;
-    const st = skillStat(sheet, skill);
+    title = `${skill.label} (Skill Roll)`;
+    const st = D.skillStat(sheet.stats, skill);
     terms.push({ label: st.label, value: st.value });
     if (sheet.skills[key] !== 0) terms.push({ label: `Mastery: ${skill.label}`, value: sheet.skills[key] });
   } else {

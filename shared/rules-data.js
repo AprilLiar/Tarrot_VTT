@@ -44,6 +44,15 @@ export const SKILLS = [
 ];
 export const SKILL_TIER_MAX = 10;
 
+// The stat a skill scales from, given a stats map. Ties keep the first listed stat.
+export function skillStat(stats, skill) {
+  const candidates = skill.scaling.prime ? STATS : skill.scaling.stats;
+  let best = candidates[0];
+  for (const s of candidates) if (stats[s] > stats[best]) best = s;
+  const label = skill.scaling.prime ? `Prime: ${STAT_LABELS[best]}` : STAT_LABELS[best];
+  return { stat: best, value: stats[best], label };
+}
+
 export const DAMAGE_TYPES = [
   'fire', 'cold', 'acid', 'poison', 'lightning', 'sound',
   'bludgeoning', 'slashing', 'piercing', 'soul', 'decay', 'psychic',
