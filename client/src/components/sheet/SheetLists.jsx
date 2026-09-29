@@ -252,16 +252,13 @@ function SendDialog({ s, item, onClose }) {
   );
 }
 
-// A fixed-size coloured tag: room for 7 characters on each of 2 lines, the rest is cut off with an ellipsis.
+// A fixed-size tag in the standard UI colour: room for 7 characters on each of 2 lines, the rest is cut off with an ellipsis.
 function StateTag({ state }) {
-  let hue = 0;
-  for (const ch of state) hue = (hue * 31 + ch.codePointAt(0)) % 360;
   return (
     <span
       data-testid="item-state"
       title={state}
-      className="flex h-10 w-[5.25rem] shrink-0 items-center justify-center overflow-hidden rounded-md px-1 text-center text-xs font-medium leading-tight"
-      style={{ background: `hsl(${hue} 45% 32%)` }}
+      className="flex h-10 w-[5.25rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/10 px-1 text-center text-xs font-medium leading-tight"
     >
       <span className="line-clamp-2 w-full break-all">{state}</span>
     </span>

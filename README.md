@@ -315,12 +315,15 @@ Implemented behaviour (Phase 3):
   each other's fields).
 - **Rolling:** on a touch screen a tap on any roll button always opens the roll dialog (long-press
   was unreliable on iOS). With a mouse, a click rolls at once and a right-click opens the dialog. The
-  dialog shows the effects statuses will apply automatically, a stepper for extra Advantage levels
-  (negative for Disadvantage) and a custom modifier (-99 to 99). The result goes to the chat and the
+  dialog previews the exact formula about to be rolled, with every bonus and its source (the same
+  plan the server uses, `shared/roll-plan.js`), the dice count, the effects statuses apply
+  automatically, a stepper for extra Advantage levels (negative for Disadvantage) and a custom
+  modifier (-99 to 99); the preview updates as you edit. The result goes to the chat and the
   roller's chat panel opens. (decided)
 - **Negative numbers:** iOS digit pads have no minus key, so every field that can be negative
-  (stats, X Defence, HP, resistance value, custom modifier) has a +/- button that flips the sign.
-  (decided)
+  (stats, X Defence, HP, resistance value, custom modifier) opens the full keyboard and the minus
+  is typed. Only a whole number (optionally negative) within range is saved; anything else reverts.
+  (decided, replaces the earlier +/- button)
 - **Advantage levels** work as in DC20: each level adds one d20; the roll keeps the highest (net
   Advantage) or the lowest (net Disadvantage); Advantage and Disadvantage levels cancel. Dazed (2)
   means 2 levels of Disadvantage, so 3d20 keep the lowest. (decided)
@@ -331,9 +334,10 @@ Implemented behaviour (Phase 3):
   Dexterity saves), Exhaustion X (-X on every check and save). The roll dialog shows them and the
   roller can add more levels on top. Not automated yet: auto-fail effects, effects "against the
   source", and everything about attacks (Phase 6). (decided)
-- **Combat Mastery rolls:** each Combat Mastery nameplate is a button. A Mastery roll is
+- **Combat Mastery rolls:** each Combat Mastery nameplate is a button, all three in the standard UI
+  colour (the coloured glow stays behind the box). A Mastery roll is
   d20 + the Mastery + the Experience Modifier, shown as `1d20 + 4(Mastery: Magic) + 3(Experience
-  Modifier)`. Statuses do not change it yet. (provisional: confirm)
+  Modifier)`. Statuses do not change it yet. (confirmed)
 - **Group saves:** Physical Save is the better of (Strength + Strength Defence) and (Dexterity +
   Dexterity Defence); Mental Save likewise for Intelligence and Spirit. (decided)
 - **Awareness** scales from the highest of all five stats, Luck included. (confirmed in playtest)
@@ -344,7 +348,7 @@ Implemented behaviour (Phase 3):
   replaced by the stack count. Nothing is automated yet. The text lives in
   `shared/rules-data.js` and a test fails if it drifts from the table above.
 - **Item State options** are added after the item is created (Edit). The chosen State shows on the
-  item's row in a coloured tag before the uses: fixed size, room for 7 characters on each of 2 lines,
+  item's row in a tag in the standard UI colour (never colour-coded per state) before the uses: fixed size, room for 7 characters on each of 2 lines,
   the rest cut off with an ellipsis. (decided)
 - **Status list:** each status shows at most 2 lines of its description in the add list and on the
   sheet; tapping an active status shows its full text.
@@ -363,8 +367,11 @@ Implemented behaviour (Phase 3):
 - No hidden rolls, no whispers. (decided)
 - **Roll card:** the roll type is at the top, the result as a big number under it, and the
   breakdown beneath in the form `1d20 + 3(Dexterity) + 1(Mastery: Fine Motor Skills)`. Zero
-  bonuses are left out, except the stat itself. With advantage or disadvantage the card also shows
-  both dice and the one kept. A natural 20 shows "Critical" and a natural 1 shows "Critical
+  bonuses are left out, except the stat itself. With more than one die the card also shows
+  the dice as `kept|other|other`, for example `12|1|20`: the die that counts comes first and is
+  prominent, the others follow greyed out and semi-transparent. A natural 20 is tinted green and
+  a natural 1 red, in the kept die and in the others, and the card and total are tinted the same
+  way when the kept die is a 20 or a 1. A natural 20 shows "Critical" and a natural 1 shows "Critical
   Failure" on every d20 roll (the Exposed status is not applied automatically). (decided)
 - Damage will get its own breakdown of the same shape when attacks arrive in Phase 6. (decided)
 - Author names come from the server-side identity: a player's messages carry the PC's name, the
@@ -503,7 +510,7 @@ Asked one batch at a time; answers move into the sections above.
 
 - Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Combat Mastery rolls: confirm d20 + Mastery + Experience Modifier, and whether statuses should affect them.
+- Whether statuses should ever affect Combat Mastery rolls.
 - A wider desktop layout for the sheet and the icon set for damage types.
 - Token art vs sheet art (one image or separate); grid size and scale per scene.
 - Undo of applied results? Turn order and initiative tracker? Animation budget?
