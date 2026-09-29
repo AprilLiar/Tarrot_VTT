@@ -4,21 +4,26 @@ import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
 import { cleanChatText } from './chat.js';
 import { AppError } from './errors.js';
+import * as scenes from './scenes.js';
+import { registerSceneHandlers } from './sceneHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
 // The server validates that the PC exists and is a PC, and derives every
 // permission from that identity, never from what a payload claims.
 //
-// Rooms: 'gm' (GM sockets), 'chat' (any identified socket), `char:<id>`
-// (sockets playing that PC). Sheets are visible to the GM and the PC's owner.
+// Rooms: 'gm' (GM sockets), 'view' (players and Display Screens: they see the
+// stage without hidden tokens), 'chat' (GMs and players), `char:<id>` (sockets
+// playing that PC). Sheets are visible to the GM and the PC's owner.
 
 const GM_ROOM = 'gm';
 const CHAT_ROOM = 'chat';
+const VIEW_ROOM = 'view';
 const charRoom = (id) => `char:${id}`;
 
 function dropIdentity(socket) {
   socket.leave(GM_ROOM);
   socket.leave(CHAT_ROOM);
+  socket.leave(VIEW_ROOM);
   if (socket.data.identity?.characterId != null) socket.leave(charRoom(socket.data.identity.characterId));
   socket.data.identity = null;
 }
@@ -30,6 +35,11 @@ export function registerHandlers(io, socket, db, shared) {
 
   const identity = () => socket.data.identity;
   const isGm = () => identity()?.role === 'gm';
+  const isPlayer = () => identity()?.role === 'player';
+  const isDisplay = () => identity()?.role === 'display';
+  const requireChatSeat = () => {
+    if (!isGm() && !isPlayer()) throw new AppError('forbidden', 'The Display Screen has no chat.');
+  };
 
   async function broadcastRoster() {
     const [full, pcs] = await Promise.all([roster.listRoster(db), roster.listPcs(db)]);
@@ -91,11 +101,19 @@ export function registerHandlers(io, socket, db, shared) {
       socket.join(CHAT_ROOM);
       return { identity: identity() };
     }
+    if (role === 'display') {
+      // A read-mostly screen for the table: it sees the stage (hidden tokens are never sent).
+      dropIdentity(socket);
+      socket.data.identity = { role: 'display' };
+      socket.join(VIEW_ROOM);
+      return { identity: identity() };
+    }
     const c = role === 'player' ? await roster.getCharacter(db, characterId) : null;
     if (!c || c.type !== 'pc') throw new AppError('gone', 'That character is not available.');
     dropIdentity(socket);
     socket.data.identity = { role: 'player', characterId: c.id };
     socket.join(CHAT_ROOM);
+    socket.join(VIEW_ROOM);
     socket.join(charRoom(c.id));
     return { identity: identity() };
   });
@@ -117,6 +135,8 @@ export function registerHandlers(io, socket, db, shared) {
   );
   on('character:delete', { gmOnly: true, broadcast: true }, async (p) => {
     const gone = await roster.deleteCharacter(db, p.id, p.confirmName);
+    await scenes.removeOwnerArt(db, { kind: 'character', id: gone.id });
+    await stage.broadcast();
     // Anyone playing the deleted character is sent back to the picker.
     for (const s of io.sockets.sockets.values()) {
       if (s.data.identity?.characterId === gone.id) {
@@ -239,9 +259,13 @@ export function registerHandlers(io, socket, db, shared) {
     return { message };
   });
 
-  on('chat:get', { needsIdentity: true }, () => ({ messages: chat.history() }));
+  on('chat:get', { needsIdentity: true }, () => {
+    requireChatSeat();
+    return { messages: chat.history() };
+  });
 
   on('chat:send', { needsIdentity: true }, async ({ text }) => {
+    requireChatSeat();
     const message = chat.add({ type: 'text', author: await authorName(), text: cleanChatText(text) });
     io.to(CHAT_ROOM).emit('chat:message', message);
   });
@@ -249,5 +273,20 @@ export function registerHandlers(io, socket, db, shared) {
   on('chat:clear', { gmOnly: true }, () => {
     chat.clear();
     io.to(CHAT_ROOM).emit('chat:cleared');
+  });
+
+  // ---- Scenes, stage, pictures ---------------------------------------------
+
+  const stage = registerSceneHandlers({
+    io,
+    socket,
+    db,
+    on,
+    identity,
+    isGm,
+    isPlayer,
+    isDisplay,
+    requireControl,
+    rooms: { GM_ROOM, VIEW_ROOM, charRoom },
   });
 }

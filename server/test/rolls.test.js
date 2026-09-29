@@ -95,6 +95,17 @@ describe('modes, modifiers and naturals', () => {
     expect(dis).toMatchObject({ dice: [14, 7], natural: 7, mode: 'disadvantage' });
   });
 
+  it('allows up to 10 manual levels and caps the total at 10', () => {
+    const sheet = defaultSheet();
+    expect(buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 10 }, () => 5).dice).toHaveLength(11);
+    expect(buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: -10 }, () => 5).dice).toHaveLength(11);
+    // Statuses plus manual levels never go beyond 10 levels (11 dice).
+    const dazed = applySet(sheetWith({}), 'statuses.dazed', 30);
+    const r = buildRoll(dazed, { kind: 'attribute', key: 'spirit', advantage: -5 }, () => 5);
+    expect(r.advantage.net).toBe(-10);
+    expect(r.dice).toHaveLength(11);
+  });
+
   it('each level adds one die', () => {
     const r = buildRoll(defaultSheet(), { kind: 'attribute', key: 'strength', advantage: 2 }, fixed(3, 17, 9));
     expect(r.dice).toEqual([3, 17, 9]);
@@ -107,7 +118,7 @@ describe('modes, modifiers and naturals', () => {
     expect(r.expression).toBe('1d20 + 1(Strength) - 2(Custom)');
     expect(r.total).toBe(9);
     expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', modifier: 1.5 })).toThrow();
-    expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 6 })).toThrow();
+    expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 11 })).toThrow();
     expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 0.5 })).toThrow();
   });
 

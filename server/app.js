@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import { registerHandlers } from './handlers.js';
 import { listPcs } from './roster.js';
 import { createChat } from './chat.js';
+import { getImage } from './images.js';
 
 const clientDist = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -41,6 +42,19 @@ export function createServer({ db }) {
     }
   });
 
+  // Images are immutable and their ids are random, so they can be cached for good.
+  app.get('/api/images/:id', async (req, res) => {
+    try {
+      const img = await getImage(db, req.params.id);
+      if (!img) return res.status(404).end();
+      res.set('Content-Type', img.mime);
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(img.data);
+    } catch (err) {
+      res.status(503).end();
+    }
+  });
+
   if (existsSync(clientDist)) {
     app.use(express.static(clientDist));
     // SPA fallback: any non-API route serves the client.
@@ -50,7 +64,8 @@ export function createServer({ db }) {
   }
 
   const httpServer = http.createServer(app);
-  const io = new Server(httpServer);
+  // Uploads travel over the socket (so the sender's identity is checked): allow a few MB.
+  const io = new Server(httpServer, { maxHttpBufferSize: 5 * 1024 * 1024 });
 
   // Per-instance state that is deliberately not in the database: the chat log
   // (clears on restart) and pending trade offers.

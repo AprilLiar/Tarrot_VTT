@@ -1,5 +1,7 @@
 import { createClient } from '@libsql/client';
 import { ROSTER_SCHEMA } from './roster.js';
+import { IMAGE_SCHEMA } from './images.js';
+import { SCENE_SCHEMA } from './scenes.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
 // file otherwise. Same client and same SQL either way.
@@ -18,6 +20,8 @@ const SCHEMA = [
      value TEXT NOT NULL
    )`,
   ...ROSTER_SCHEMA,
+  ...IMAGE_SCHEMA,
+  ...SCENE_SCHEMA,
 ];
 
 // New columns on existing tables cannot use IF NOT EXISTS, so each one is
