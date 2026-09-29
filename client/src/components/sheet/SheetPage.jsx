@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { socket } from '../../socket.js';
 import { call, useApp } from '../../AppContext.jsx';
 import * as D from '../../../../shared/rules-data.js';
+import { resolveStat, statusEffects } from '../../../../shared/status-effects.js';
 import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
@@ -15,6 +16,9 @@ const MASTERY_GLOW = {
   stances: '0 0 22px 4px rgba(239,68,68,0.65)',
   manifestation: '0 0 22px 4px rgba(234,179,8,0.65)',
 };
+
+// The status effects that will apply to a roll, for the roll dialog.
+const effectsFor = (sheet, kind, key) => statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
 
 export default function SheetPage({ characterId }) {
   const { identity, toast, setChatOpen } = useApp();
@@ -142,7 +146,7 @@ export default function SheetPage({ characterId }) {
         <div className="col-span-2">
           <div className="text-xs opacity-60">Experience Modifier</div>
           <div className="w-16 text-xl">
-            <NumField label="Experience Modifier" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
+            <NumField label="Experience Modifier" testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
           </div>
         </div>
       </section>
@@ -163,7 +167,7 @@ function Stats({ s }) {
   return (
     <section aria-label="Stats">
       <h2 className={heading}>Stats</h2>
-      <p className="mb-2 text-xs opacity-50">Tap a button to roll. Long-press (or right-click) for advantage and modifiers.</p>
+      <p className="mb-2 text-xs opacity-50">On a phone, tapping opens the roll options. With a mouse, click rolls at once and right-click opens the options. Statuses apply automatically.</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {D.STATS.map((stat) => {
           const hasSave = D.SAVE_STATS.includes(stat);
@@ -187,6 +191,7 @@ function Stats({ s }) {
                   title={`${D.STAT_LABELS[stat]} Attribute Roll`}
                   testId={`roll-attr-${stat}`}
                   className="min-h-9 w-1/2"
+                  info={effectsFor(sheet, 'attribute', stat)}
                   onRoll={(o) => roll('attribute', stat, o)}
                 />
                 {hasSave ? (
@@ -195,6 +200,7 @@ function Stats({ s }) {
                     title={`${D.STAT_LABELS[stat]} Save`}
                     testId={`roll-save-${stat}`}
                     className="min-h-9 w-1/2"
+                    info={effectsFor(sheet, 'save', stat)}
                     onRoll={(o) => roll('save', stat, o)}
                   />
                 ) : (
@@ -227,6 +233,7 @@ function Stats({ s }) {
             label={`${g.label} Save`}
             testId={`roll-save-${key}`}
             className="min-h-11 flex-1 text-sm"
+            info={effectsFor(sheet, 'save', key)}
             onRoll={(o) => roll('save', key, o)}
           />
         ))}
@@ -235,19 +242,32 @@ function Stats({ s }) {
   );
 }
 
+const MASTERY_TINT = {
+  magic: 'bg-blue-600/80 border-blue-300/60 active:bg-blue-500',
+  stances: 'bg-red-600/80 border-red-300/60 active:bg-red-500',
+  manifestation: 'bg-yellow-600/80 border-yellow-200/60 active:bg-yellow-500',
+};
+
 function Masteries({ s }) {
-  const { sheet, set } = s;
+  const { sheet, set, roll } = s;
   const box = (m) => (
     <div
       key={m}
       data-testid={`mastery-${m}`}
-      className="flex w-28 flex-col items-center rounded-xl border border-white/10 bg-black/40 p-2"
+      className="flex w-32 flex-col items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-2"
       style={{ boxShadow: MASTERY_GLOW[m] }}
     >
-      <div className="text-xs uppercase tracking-wide opacity-80">{D.MASTERY_LABELS[m]}</div>
+      <RollButton
+        label={`${D.MASTERY_LABELS[m]} - Roll`}
+        title={`${D.MASTERY_LABELS[m]} (Combat Mastery Roll)`}
+        testId={`roll-mastery-${m}`}
+        className={`min-h-10 w-full rounded-lg border text-xs font-semibold uppercase tracking-wide shadow-md ${MASTERY_TINT[m]}`}
+        onRoll={(o) => roll('mastery', m, o)}
+      />
       <div className="w-full text-3xl font-semibold">
         <NumField
           label={`${D.MASTERY_LABELS[m]} value`}
+          testId={`mastery-value-${m}`}
           value={sheet.masteries[m]}
           min={D.MASTERY_MIN}
           max={D.MASTERY_MAX}
@@ -260,9 +280,10 @@ function Masteries({ s }) {
   return (
     <section aria-label="Combat Masteries" className="py-3">
       <h2 className={heading}>Combat Masteries</h2>
+      <p className="mb-2 text-xs opacity-50">Roll = d20 + the Mastery + your Experience Modifier.</p>
       <div className="flex flex-col items-center gap-4">
         {box('magic')}
-        <div className="flex gap-6">
+        <div className="flex gap-4">
           {box('stances')}
           {box('manifestation')}
         </div>
@@ -303,6 +324,7 @@ function Skills({ s }) {
                 title={skill.label}
                 testId={`roll-skill-${skill.key}`}
                 className="min-h-9 w-14"
+                info={effectsFor(sheet, 'skill', skill.key)}
                 onRoll={(o) => roll('skill', skill.key, o)}
               />
             </div>

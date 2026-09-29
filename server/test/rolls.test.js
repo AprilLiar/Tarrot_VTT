@@ -89,10 +89,16 @@ describe('skill rolls', () => {
 describe('modes, modifiers and naturals', () => {
   it('takes the higher die with advantage and the lower with disadvantage', () => {
     const sheet = defaultSheet();
-    const adv = buildRoll(sheet, { kind: 'attribute', key: 'strength', mode: 'advantage' }, fixed(14, 7));
-    expect(adv).toMatchObject({ dice: [14, 7], natural: 14 });
-    const dis = buildRoll(sheet, { kind: 'attribute', key: 'strength', mode: 'disadvantage' }, fixed(14, 7));
-    expect(dis).toMatchObject({ dice: [14, 7], natural: 7 });
+    const adv = buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 1 }, fixed(14, 7));
+    expect(adv).toMatchObject({ dice: [14, 7], natural: 14, mode: 'advantage' });
+    const dis = buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: -1 }, fixed(14, 7));
+    expect(dis).toMatchObject({ dice: [14, 7], natural: 7, mode: 'disadvantage' });
+  });
+
+  it('each level adds one die', () => {
+    const r = buildRoll(defaultSheet(), { kind: 'attribute', key: 'strength', advantage: 2 }, fixed(3, 17, 9));
+    expect(r.dice).toEqual([3, 17, 9]);
+    expect(r.natural).toBe(17);
   });
 
   it('adds a custom modifier as its own term and rejects bad ones', () => {
@@ -101,7 +107,8 @@ describe('modes, modifiers and naturals', () => {
     expect(r.expression).toBe('1d20 + 1(Strength) - 2(Custom)');
     expect(r.total).toBe(9);
     expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', modifier: 1.5 })).toThrow();
-    expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', mode: 'lucky' })).toThrow();
+    expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 6 })).toThrow();
+    expect(() => buildRoll(sheet, { kind: 'attribute', key: 'strength', advantage: 0.5 })).toThrow();
   });
 
   it('flags natural 20 and natural 1 on any roll', () => {
@@ -114,5 +121,71 @@ describe('modes, modifiers and naturals', () => {
   it('rejects unknown kinds and keys', () => {
     expect(() => buildRoll(defaultSheet(), { kind: 'attack', key: 'x' })).toThrow();
     expect(() => buildRoll(defaultSheet(), { kind: 'skill', key: 'nope' })).toThrow();
+  });
+});
+
+describe('combat mastery rolls', () => {
+  it('adds the Mastery and the Experience Modifier', () => {
+    const sheet = sheetWith({ 'masteries.magic': 4, experience: 3 });
+    const r = buildRoll(sheet, { kind: 'mastery', key: 'magic' }, fixed(10));
+    expect(r.title).toBe('Magic (Combat Mastery Roll)');
+    expect(r.expression).toBe('1d20 + 4(Mastery: Magic) + 3(Experience Modifier)');
+    expect(r.total).toBe(17);
+    expect(() => buildRoll(sheet, { kind: 'mastery', key: 'luck' })).toThrow();
+  });
+});
+
+describe('statuses apply automatically', () => {
+  const withStatus = (sets, statuses) =>
+    Object.entries(statuses).reduce((s, [k, v]) => applySet(s, `statuses.${k}`, v), sheetWith(sets));
+
+  it('Dazed (2) gives 2 levels of Disadvantage on an Intelligence check', () => {
+    const sheet = withStatus({ 'stats.intelligence': 2 }, { dazed: 2 });
+    const r = buildRoll(sheet, { kind: 'attribute', key: 'intelligence' }, fixed(15, 4, 9));
+    expect(r.dice).toEqual([15, 4, 9]);
+    expect(r.natural).toBe(4);
+    expect(r.advantage).toEqual({ net: -2, sources: [{ label: 'Dazed 2', levels: -2 }] });
+  });
+
+  it('Dazed does not touch physical checks or saves', () => {
+    const sheet = withStatus({}, { dazed: 2 });
+    expect(buildRoll(sheet, { kind: 'attribute', key: 'strength' }, fixed(10)).advantage.net).toBe(0);
+    expect(buildRoll(sheet, { kind: 'save', key: 'intelligence' }, fixed(10)).advantage.net).toBe(0);
+  });
+
+  it('applies to skills through the stat they resolve to', () => {
+    const sheet = withStatus({ 'stats.spirit': 3 }, { dazed: 1, impaired: 1 });
+    expect(buildRoll(sheet, { kind: 'skill', key: 'mental_resolve' }, fixed(10, 5)).advantage.net).toBe(-1);
+    expect(buildRoll(sheet, { kind: 'skill', key: 'speed' }, fixed(10, 5)).advantage.net).toBe(-1);
+    expect(buildRoll(sheet, { kind: 'skill', key: 'astrology' }, fixed(10, 5)).advantage.net).toBe(-1);
+  });
+
+  it('Weakened hits physical saves and Disoriented hits mental saves', () => {
+    const sheet = withStatus({}, { weakened: 1, disoriented: 2 });
+    expect(buildRoll(sheet, { kind: 'save', key: 'physical' }, fixed(1, 2)).advantage.net).toBe(-1);
+    expect(buildRoll(sheet, { kind: 'save', key: 'mental' }, fixed(1, 2, 3)).advantage.net).toBe(-2);
+    expect(buildRoll(sheet, { kind: 'save', key: 'spirit' }, fixed(1, 2, 3)).advantage.net).toBe(-2);
+  });
+
+  it('Grappled gives Disadvantage on Dexterity saves only', () => {
+    const sheet = withStatus({}, { grappled: 1 });
+    expect(buildRoll(sheet, { kind: 'save', key: 'dexterity' }, fixed(10, 3)).advantage.net).toBe(-1);
+    expect(buildRoll(sheet, { kind: 'save', key: 'strength' }, fixed(10)).advantage.net).toBe(0);
+  });
+
+  it('Exhaustion is a flat penalty on every check and save, shown in the breakdown', () => {
+    const sheet = withStatus({ 'stats.strength': 2 }, { exhaustion: 2 });
+    const r = buildRoll(sheet, { kind: 'attribute', key: 'strength' }, fixed(10));
+    expect(r.expression).toBe('1d20 + 2(Strength) - 2(Exhaustion)');
+    expect(r.total).toBe(10);
+  });
+
+  it('manual levels stack with statuses and can cancel them', () => {
+    const sheet = withStatus({}, { dazed: 1 });
+    const r = buildRoll(sheet, { kind: 'attribute', key: 'spirit', advantage: 1 }, fixed(9));
+    expect(r.advantage.net).toBe(0);
+    expect(r.dice).toEqual([9]);
+    expect(r.mode).toBe('normal');
+    expect(r.advantage.sources.map((x) => x.label)).toEqual(['Dazed 1', 'Manual']);
   });
 });

@@ -28,6 +28,12 @@ async function playerPage(browser, name) {
   return { context, page };
 }
 
+// On a touch screen a tap opens the roll dialog; confirm it to roll.
+async function rollNow(page, testId) {
+  await page.getByTestId(testId).click();
+  await page.getByTestId('roll-confirm').click();
+}
+
 async function setNumber(page, testId, value) {
   const field = page.getByTestId(testId);
   await field.fill(String(value));
@@ -48,7 +54,7 @@ test('a player edits their sheet and rolls into the chat with a full breakdown',
   await p.page.reload();
   await expect(p.page.getByTestId('stat-value-dexterity')).toHaveValue('3');
 
-  await p.page.getByTestId('roll-skill-fine_motor_skills').click();
+  await rollNow(p.page, 'roll-skill-fine_motor_skills');
   await expect(p.page.getByTestId('chat-panel')).toBeVisible();
   const card = p.page.getByTestId('roll-card').last();
   await expect(card.getByTestId('roll-title')).toHaveText('Fine Motor Skills (Skill Roll)');
@@ -69,19 +75,118 @@ test('a player edits their sheet and rolls into the chat with a full breakdown',
   await gm.context.close();
 });
 
-test('a right-click on a roll button opens options for advantage and a modifier', async ({ browser }) => {
+test('the roll dialog adds advantage levels and a custom modifier', async ({ browser }) => {
   const name = `Adv-${uid()}`;
   const gm = await gmPage(browser);
   await createPc(gm.page, name);
   const p = await playerPage(browser, name);
 
-  await p.page.getByTestId('roll-attr-strength').click({ button: 'right' });
-  await p.page.getByRole('radio', { name: 'Advantage', exact: true }).click();
-  await p.page.getByLabel('Custom modifier').fill('2');
-  await p.page.getByRole('dialog').getByRole('button', { name: 'Roll', exact: true }).click();
+  await p.page.getByTestId('roll-attr-strength').click(); // touch: opens the dialog
+  await p.page.getByRole('button', { name: 'More levels' }).click();
+  await expect(p.page.getByTestId('net-mode')).toContainText('Advantage 1');
+  await p.page.getByRole('textbox', { name: 'Custom modifier' }).fill('2');
+  await p.page.getByTestId('roll-confirm').click();
   const card = p.page.getByTestId('roll-card').last();
   await expect(card.getByTestId('roll-expression')).toHaveText('1d20 + 0(Strength) + 2(Custom)');
-  await expect(card).toContainText('Advantage: rolled');
+  await expect(card.getByTestId('roll-advantage')).toContainText('Advantage 1 (Manual): rolled');
+
+  await p.context.close();
+  await gm.context.close();
+});
+
+test('negative numbers can be entered with the +/- button (no minus key on iOS)', async ({ browser }) => {
+  const name = `Neg-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+
+  await setNumber(p.page, 'stat-value-luck', 2);
+  await p.page.getByTestId('stat-value-luck-sign').click();
+  await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('-2');
+  await p.page.reload();
+  await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('-2');
+  // Out of range (-2 flipped is 2, fine; a 3 cannot flip below the minimum of -2).
+  await setNumber(p.page, 'stat-value-luck', 3);
+  await p.page.getByTestId('stat-value-luck-sign').click();
+  await expect(p.page.getByTestId('stat-value-luck')).toHaveValue('3');
+
+  await p.context.close();
+  await gm.context.close();
+});
+
+test('Combat Mastery nameplates roll d20 + Mastery + Experience Modifier', async ({ browser }) => {
+  const name = `Mast-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+
+  await setNumber(p.page, 'mastery-value-magic', 4);
+  await setNumber(p.page, 'experience-value', 3);
+  await rollNow(p.page, 'roll-mastery-magic');
+  const card = p.page.getByTestId('roll-card').last();
+  await expect(card.getByTestId('roll-title')).toHaveText('Magic (Combat Mastery Roll)');
+  await expect(card.getByTestId('roll-expression')).toHaveText(
+    '1d20 + 4(Mastery: Magic) + 3(Experience Modifier)',
+  );
+
+  await p.context.close();
+  await gm.context.close();
+});
+
+test('statuses apply to a roll automatically, and the status list is readable', async ({ browser }) => {
+  const name = `Dazed-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+
+  await p.page.getByTestId('add-status').click();
+  const options = p.page.getByTestId('status-option');
+  // Option boxes must not overlap each other.
+  const boxes = [];
+  for (let i = 0; i < 4; i++) boxes.push(await options.nth(i).boundingBox());
+  for (let i = 1; i < boxes.length; i++) expect(boxes[i].y).toBeGreaterThanOrEqual(boxes[i - 1].y + boxes[i - 1].height - 1);
+  await p.page.getByPlaceholder('Search').fill('Dazed');
+  await options.first().click();
+  await p.page.getByRole('button', { name: 'Increase Dazed' }).click();
+  await expect(p.page.getByTestId('status')).toContainText('Dazed (2)');
+
+  // Dazed (2) means 2 levels of Disadvantage on an Intelligence check, even without touching the options.
+  await p.page.getByTestId('roll-attr-intelligence').click();
+  await expect(p.page.getByTestId('status-effects')).toContainText('Dazed 2: Disadvantage 2');
+  await p.page.getByTestId('roll-confirm').click();
+  const card = p.page.getByTestId('roll-card').last();
+  await expect(card.getByTestId('roll-advantage')).toContainText('Disadvantage 2 (Dazed 2): rolled');
+  // A physical roll is untouched.
+  await p.page.getByTestId('chat-panel').getByRole('button', { name: 'Close' }).click();
+  await rollNow(p.page, 'roll-attr-strength');
+  await expect(p.page.getByTestId('roll-card').last().getByTestId('roll-advantage')).toHaveCount(0);
+
+  await p.context.close();
+  await gm.context.close();
+});
+
+test('an item state shows in a fixed-size tag before the uses', async ({ browser }) => {
+  const name = `State-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+
+  await p.page.getByTestId('add-item').click();
+  await p.page.getByLabel('Name').fill('Sword');
+  await p.page.getByRole('button', { name: 'Add', exact: true }).click();
+  await p.page.getByTestId('item').getByRole('button').first().click();
+  await p.page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await p.page.getByPlaceholder('New state').fill('Extremely long state name');
+  await p.page.getByRole('button', { name: 'Add', exact: true }).last().click();
+  await p.page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await p.page.getByRole('combobox').selectOption('Extremely long state name');
+
+  const tag = p.page.getByTestId('item-state');
+  await expect(tag).toBeVisible();
+  const box = await tag.boundingBox();
+  expect(box.width).toBeGreaterThan(70);
+  expect(box.width).toBeLessThan(100);
+  expect(box.height).toBeLessThan(50);
 
   await p.context.close();
   await gm.context.close();

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { btn, btnDanger, input } from '../Dialog.jsx';
 import { FormDialog } from './SheetLists.jsx';
+import { SignedInput } from './fields.jsx';
 import * as D from '../../../../shared/rules-data.js';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -80,7 +81,7 @@ function ResistanceDialog({ s, initialType, onClose }) {
       </label>
       <label className="flex flex-col gap-1 text-sm">
         Resistance (X): positive takes less damage, negative takes more
-        <input className={input} inputMode="numeric" value={flat} onChange={(e) => setFlat(e.target.value)} />
+        <SignedInput label="Resistance value" value={flat} onChange={setFlat} />
       </label>
       {[
         ['half', 'Half (x0.5)'],
@@ -160,20 +161,20 @@ function AddStatusDialog({ s, onClose }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+      <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
         {matches.map((st) => (
           <button
             type="button"
             key={st.key}
             data-testid="status-option"
-            className={`${btn} text-left`}
+            className="min-h-16 w-full shrink-0 rounded-lg bg-white/10 px-3 py-2 text-left active:bg-white/20"
             onClick={async () => {
               await s.set(`statuses.${st.key}`, 1);
               onClose();
             }}
           >
             <div className="font-medium">{st.name}</div>
-            <div className="text-xs opacity-60">{st.text}</div>
+            <div className="line-clamp-2 text-xs leading-snug opacity-60">{st.text}</div>
           </button>
         ))}
         {matches.length === 0 && <p className="text-sm opacity-60">No matching statuses.</p>}
@@ -215,7 +216,15 @@ export function Statuses({ s }) {
                   x
                 </button>
               </div>
-              {open === st.key && <p className="mt-2 text-sm opacity-80">{st.text.replaceAll(/\bX\b/g, String(stacks))}</p>}
+              <button
+                className="mt-1 w-full text-left"
+                aria-label={`Toggle full text of ${st.name}`}
+                onClick={() => setOpen(open === st.key ? null : st.key)}
+              >
+                <p className={`text-sm leading-snug opacity-80 ${open === st.key ? '' : 'line-clamp-2'}`}>
+                  {st.text.replaceAll(/\bX\b/g, String(stacks))}
+                </p>
+              </button>
             </div>
           );
         })}

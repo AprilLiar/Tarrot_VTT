@@ -31,9 +31,13 @@ function RollCard({ m }) {
       <div className="mt-1 text-sm opacity-90" data-testid="roll-expression">
         {roll.expression}
       </div>
-      {roll.mode !== 'normal' && (
-        <div className="text-xs opacity-60">
-          {roll.mode === 'advantage' ? 'Advantage' : 'Disadvantage'}: rolled {roll.dice.join(' and ')}, kept {roll.natural}
+      {roll.dice.length > 1 && (
+        <div className="text-xs opacity-70" data-testid="roll-advantage">
+          {roll.advantage.net > 0 ? 'Advantage' : 'Disadvantage'} {Math.abs(roll.advantage.net)}
+          {' ('}
+          {roll.advantage.sources.map((x) => x.label).join(', ')}
+          {'): rolled '}
+          {roll.dice.join(', ')}, kept {roll.natural}
         </div>
       )}
     </div>
