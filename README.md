@@ -418,7 +418,7 @@ Light-novel style: a fullscreen background with character art standing along the
 - **Motion:** characters slide in from their side when they appear.
 - Battle mode reuses this page in Phase 5; the Display will follow the active mode.
 
-### Battle mode (implemented in Phase 5a; the turn tracker is Phase 5b)
+### Battle mode (implemented in Phases 5a and 5b)
 Decided:
 - The GM (desktop) toggles **Scene / Battle** in the scene chrome; the mode is shared, so the Display
   and desktop players follow it. Each scene has a Scene picture and a separate **Battle map** picture
@@ -448,13 +448,34 @@ Decided:
 - **Targeting:** from the phone a player picks a token (any visible token) as their target, or
   clears it. Targets live in server memory; the target is shown on the map with a pulsing ring.
   Using a target for rolls and damage comes with Phase 6.
-- Turn order, initiative, rounds and turn-start effects: see the plan below (Phase 5b).
+- Turn order, initiative, rounds and turn-start effects: see the Combat tracker below.
 
-Planned for Phase 5b (decided, not built): **combat tracker** with Initiative = a Speed skill roll,
-one sorted list the GM can reorder, start/end combat, a round counter, Next turn (GM or the active
-player), turn-start effects applied automatically with a chat line showing numbers and sources
-(Bleeding true damage, Burning fire damage through the resistance table, statuses that lower AP),
-Movement bank cleared and AP refilled at end of turn.
+#### Combat tracker (implemented in Phase 5b)
+Decided:
+- **Who fights:** Start combat (GM) enrols every character token on the map (PCs, NPCs, temp NPCs;
+  props never). Hidden tokens are enrolled too, but they are left out of what players and the
+  Display see, and the tracker posts no chat lines about them. The GM can add a late arrival,
+  remove someone, reorder, and edit any initiative number.
+- **Initiative:** players roll their own from the phone (**Roll Initiative** on the Battle remote):
+  a Speed skill roll, shown in the chat like any roll, once per player (the GM can fix it). The GM
+  rolls the NPCs with one button (**Roll for NPCs**): a Speed roll for an NPC with a sheet, a plain
+  d20 for a temp NPC (it has no sheet). Combat begins when the GM presses **Begin combat**.
+- **One sorted list**, highest first; ties keep their current order (the GM can reorder); anyone
+  who has not rolled goes last. Shown as a list on the right of the Battle map for the GM, the
+  Display and desktop players, with the round counter, portraits and the active turn highlighted.
+- **Turns:** **Next turn** by the GM, or **End turn** by the player whose turn it is (phone). After
+  the last combatant a new round starts. Only the active character pays for Movement (see Movement
+  above); everyone else, and everyone outside combat, moves free.
+- **Turn start (automatic, with a chat line naming the numbers and the source):** Bleeding X does X
+  true damage; Burning X does X fire damage through the character's fire resistance (flat first,
+  then Half/Double; Immunity 0; Consumption heals half); Stunned X and Surprised (2) lower the AP
+  the turn starts with (Stunned X + Surprised 2 below the maximum, never under 0). HP never goes
+  below 0 and nothing happens at 0: the GM decides what it means (no death handling yet).
+- **Turn end:** unspent Movement is lost, AP is refilled to the maximum, and Surprised is removed.
+- The combat lives in server memory and belongs to the active scene: it ends when another scene is
+  activated, when everyone leaves the map, or when the GM presses End combat (or Cancel combat before
+  it began).
+- Temp NPCs have no sheet, so they take no turn-start effects.
 
 ### Targeting and automation (planned)
 A player targets a token. Using an ability auto-rolls and opens a confirm card for the GM with a
@@ -573,7 +594,7 @@ Battle (Phase 5a):
   positions and are clamped back onto the map when the grid changes.
 - `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)`.
 - Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
-- Targets and the combat state are server memory only (`shared.targets`, `shared.combat`).
+- Targets and the combat state are server memory only (`shared.targets`, `shared.combat`; see the Combat tracker).
 
 Planned (not final): character-local spells.
 
@@ -661,6 +682,16 @@ Battle (Phase 5a):
 - GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
   `mark:remove` `{ id }`, `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
   `battle:pinged`.
+- `combat:*`: `combat:start` (GM), `combat:roll` `{ tokenId }` (the GM, or a player for their own PC,
+  once), `combat:roll_npcs` (GM), `combat:set_initiative` `{ tokenId, value }` (GM), `combat:begin`
+  (GM), `combat:next` `{ tokenId? }` (the GM, or the player whose turn it is; a `tokenId` that is no
+  longer the active one is refused as `stale`), `combat:reorder` `{ ids }` (the full order, GM),
+  `combat:add` and `combat:remove` `{ tokenId }` (GM), `combat:end` (GM). The state arrives in
+  `stage.battle.combat` = `{ phase: 'rolling' | 'active', round, activeTokenId, order: [{ tokenId,
+  ownerKind, ownerId, name, imageId, kind, initiative }] }` (`null` when there is no combat).
+  Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
+  `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
+  `already_in_combat`, `stale`.
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
   needs AP. `battle:target` `{ characterId, tokenId | null }`: set or clear the target of a PC
@@ -706,7 +737,9 @@ Each phase ends in a deploy and playtest checkpoint.
      tokens with sizes and props, free dragging, D-pad remote with Movement banking and AP,
      targeting, drawing, areas, pings, ruler, Hidden. Covered by `server/test/battle.test.js` and
      `e2e/battle.spec.js`. Scene, music and battle playtests are done in one later batch.
-   - **5b Combat tracker** (planned): initiative, turn order, rounds, turn-start effects.
+   - **5b Combat tracker** (implemented, awaiting playtest): initiative rolled by the players,
+     one sorted list, rounds, Next turn and End turn, Movement costs on your own turn, turn-start
+     effects. Covered by `server/test/combat.test.js` and the combat test in `e2e/battle.spec.js`.
 6. **Mechanics and Arcane**: roll engine, confirm card, Arcane browser, sandbox, spell builder,
    spontaneous-casting tables.
 

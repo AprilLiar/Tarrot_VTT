@@ -289,3 +289,73 @@ test('desktop players watch the map without tools', async ({ browser }) => {
   await ctx.close();
   await gmCtx.close();
 });
+
+test('combat: players roll their own Initiative, turns run in order, and movement costs AP only on your turn', async ({ browser }) => {
+  const pc = `Hero-${uid()}`;
+  const npc = `Wolf-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Clash-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+
+  const entry = (page, name) => page.getByTestId('combat-entry').filter({ hasText: name });
+  const setInitiative = async (name, value) => {
+    await entry(gm, name).getByTestId('initiative').click();
+    await entry(gm, name).getByTestId('initiative-input').fill(String(value));
+    await entry(gm, name).getByTestId('initiative-input').press('Enter');
+    await expect(entry(gm, name).getByTestId('initiative')).toHaveText(String(value));
+  };
+
+  // Before combat: moving is free and there is no turn text.
+  await expect(p.getByTestId('remote-combat')).toHaveCount(0);
+  await gm.getByTestId('combat-start').click();
+  await expect(entry(tv, pc)).toBeVisible();
+  await expect(entry(tv, npc)).toBeVisible();
+  await expect(tv.getByTestId('combat-round')).toHaveText('Rolling Initiative');
+
+  // The player rolls their own; the GM rolls the NPC and fixes the numbers.
+  await p.getByTestId('roll-initiative').click();
+  await expect(p.getByTestId('remote-turn')).toContainText('Waiting for the GM');
+  await gm.getByTestId('combat-roll-npcs').click();
+  await expect(entry(gm, npc).getByTestId('initiative')).not.toHaveText('?');
+  await setInitiative(pc, 20);
+  await setInitiative(npc, 3);
+  await gm.getByTestId('combat-begin').click();
+
+  await expect(tv.getByTestId('combat-round')).toHaveText('Round 1');
+  await expect(entry(tv, pc)).toHaveAttribute('data-active', 'true');
+  await expect(p.getByTestId('remote-turn')).toContainText('Your turn');
+
+  // On their own turn a step costs AP, and asks first.
+  await p.getByTestId('dpad-E').click();
+  await expect(p.getByTestId('confirm-ap-text')).toContainText('Spend 1 AP');
+  await p.getByTestId('confirm-ap-no').click();
+
+  await p.getByTestId('end-turn').click();
+  await expect(entry(tv, npc)).toHaveAttribute('data-active', 'true');
+  await expect(p.getByTestId('remote-turn')).toContainText(`${npc}'s turn`);
+  await expect(p.getByTestId('end-turn')).toHaveCount(0);
+
+  await gm.getByTestId('combat-next').click();
+  await expect(tv.getByTestId('combat-round')).toHaveText('Round 2');
+  await expect(entry(tv, pc)).toHaveAttribute('data-active', 'true');
+  await expect(tv.getByTestId('combat-next')).toHaveCount(0); // the Display only watches
+
+  await gm.getByTestId('combat-end').click();
+  await expect(tv.getByTestId('combat-bar')).toHaveCount(0);
+  await expect(p.getByTestId('remote-combat')).toHaveCount(0);
+  await expect(gm.getByTestId('combat-start')).toBeVisible();
+
+  await ctx.close();
+  await tvCtx.close();
+  await gmCtx.close();
+});

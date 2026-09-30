@@ -32,11 +32,26 @@ export function BattleRemote({ s }) {
   const target = battle.tokens.find((t) => t.targetedBy.includes(s.characterId));
   const others = battle.tokens.filter((t) => t !== token);
   const apMax = s.sheet.ap.minion ? 2 : 4;
+  const combat = battle.combat;
+  const mine = combat?.order.find((e) => e.ownerKind === 'character' && e.ownerId === s.characterId);
+  const myTurn = !!mine && combat.activeTokenId === mine.tokenId;
+  const active = combat?.order.find((e) => e.tokenId === combat.activeTokenId);
+  const place = mine ? combat.order.indexOf(mine) + 1 : null;
 
   async function step(dc, dr, confirmAp = false) {
     const r = await call('battle:move', { tokenId: token.id, dc, dr, free, confirmAp });
     if (!r.ok) toast(r.error ?? 'You cannot move there.');
     else if (r.needsConfirm) setAsk({ dc, dr, ...r.needsConfirm });
+  }
+
+  async function rollInitiative() {
+    const r = await call('combat:roll', { tokenId: mine.tokenId });
+    if (!r.ok) toast(r.error);
+  }
+
+  async function endTurn() {
+    const r = await call('combat:next', { tokenId: mine.tokenId });
+    if (!r.ok) toast(r.error);
   }
 
   async function aim(tokenId) {
@@ -48,6 +63,33 @@ export function BattleRemote({ s }) {
     <section aria-label="Battle controls" data-testid="battle-remote">
       <h2 className={heading}>Battle</h2>
       <div className={card}>
+        {combat && (
+          <div className="mb-3 rounded-lg bg-white/5 p-2 text-center text-sm" data-testid="remote-combat">
+            {combat.phase === 'rolling' ? (
+              mine && mine.initiative == null ? (
+                <button className={`${btnPrimary} w-full`} data-testid="roll-initiative" onClick={rollInitiative}>
+                  Roll Initiative
+                </button>
+              ) : (
+                <span data-testid="remote-turn">
+                  {mine ? `Initiative ${mine.initiative}. ` : ''}Waiting for the GM to begin.
+                </span>
+              )
+            ) : (
+              <>
+                <div data-testid="remote-turn" data-my-turn={myTurn}>
+                  {myTurn ? 'Your turn' : `${active?.name ?? 'Someone'}'s turn`} (round {combat.round}
+                  {place ? `, you are ${place} of ${combat.order.length}` : ''})
+                </div>
+                {myTurn && (
+                  <button className={`${btnPrimary} mt-2 w-full`} data-testid="end-turn" onClick={endTurn}>
+                    End turn
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {!token ? (
           <p className="text-sm opacity-70">This character is not on the map right now.</p>
         ) : (
