@@ -624,9 +624,126 @@ Behaviour:
 - I could not check real YouTube playback in my test environment (it has no access to YouTube), so
   the first Render playtest is the real test of sound.
 
-### Arcane tab (planned)
-Interactive wiki for the magic system: searchable magic browser with rules text, interactive
-combination sandbox, spell builder saving to a character. (decided)
+### Arcane tab (decided, split into four PRs)
+The Arcane tab is a major part of Combat. Header: **General** (grey, 10% of the width) and three
+sub-tabs sharing the other 90%: **Magic**, **Stances**, **Manifest** (same colours as the sheet's
+Combat Masteries). The GM can also open the Arcane tab **without choosing a character** (the general
+Arcane tab): what is created there applies to every character, PCs and NPCs alike; the same actions
+inside a character's sheet affect only that character.
+
+**Overall attack (footer).** An attack is built from all four parts: exactly one **Weapon** (a physical
+weapon from General, a crafted spell from Magic, or a Manifestation) plus any number of Enhancements
+from any tab (an Enhancement spell, one Stance, a Manifestation Enhancement). The footer of the
+Arcane tab lists the names of everything chosen and has a small **Done** button at the right edge.
+Done makes one attack roll against all selected targets with all modifiers and then the usual GM
+confirm card (prefilled from the parts). Targets are selected here too (mirrored with the Battle
+remote's targets, so no switching tabs). Only crafted spells can be used; drafts cannot.
+
+**General tab (grey).**
+- Everyone always has an **Unarmed Attack** (0 Bludgeoning damage, Physical, 1 AP). It cannot be
+  removed, but can be modified (martial arts and similar).
+- Items get a **Weapon** toggle on the sheet. Turned on, the item changes background and its name and
+  description appear in General. Defaults: 1 Slashing damage, against Physical Defence, 1 AP; all of it
+  editable, and a **Range** (in Spaces) can be added. It replaces the current Attack flow of the sheet
+  (parameters, rules and UI move here).
+- **Range check** on rolling, from the selected targets: if at least one is out of range, the user is
+  warned and may attack anyway (a suggestion, not a rule). Distance is measured between the real token
+  positions: same height = what the Ruler shows; different heights = Pythagoras
+  (sqrt(horizontal Spaces squared + height difference squared), 1 height = 1 Space), rounded to the
+  nearest whole Space.
+- **Enhancements** augment an attack; each has a cost and an effect. Default ones for everyone:
+  **Power Attack** (1 AP: +1 damage of the weapon's type, repeatable), **Precise Attack** (1 AP: +1
+  Advantage, repeatable). Created by the GM globally (general Arcane tab) or by the GM or the owner
+  on a character's sheet. **Cost** = any combination of: AP; Damage (a damage amount of a type taken
+  by the user); Status (a status applied to the user); Item (a number of uses of a chosen item).
+  **Effect** = any combination of: Damage; Range; Status; Dice Roll Bonus (a die from d4 to d20 rolled
+  with the d20 and added or subtracted, positive and negative both possible); Unique Effect (a name
+  and description shown in the chat, no automation). Each Enhancement is **Repeatable** (more than once
+  per attack) or **Singular**. Any mix of different Enhancements can be applied as long as the user
+  can pay.
+
+**Magic tab.** Users prepare spell schemes, save drafts to their own collection and craft usable
+spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
+- **Spell Stones (12):** Aries Release (aggressive release), Taurus Modifier (stabilizes: fewer Spell
+  Levels but more uses), Gemini Release (stealthy, for traps, slow to charge), Cancer Base (emotional
+  phenomenon), Leo Modifier (positive version), Virgo Base (physical phenomenon), Libra Link (combines
+  two effects, halving each), Scorpio Modifier (weaker but longer lasting), Sagittarius Modifier
+  (weaker, much greater range), Capricorn Link (slightly weaker, one acts as catalyst for the other),
+  Aquarius Release (precise, stronger the more restrictions), Pisces Modifier (envelops the mage, immune
+  to it). Ring colours: Bases purple, Links dark blue, Modifiers cyan, Releases pink/red.
+- **Inventory:** a character has a count per stone, edited by the GM or the sheet's owner; shown as
+  "x3" beside stones with at least 1. Drafting shows all 12 and consumes nothing.
+- **Editor:** stones are listed in one column on the right (Bases, Modifiers, Links, Releases). On the
+  left an empty table with lanes in this order: Bases, Modifiers and Links, Releases, each with a slight
+  tint (the middle lane a colour between the two). Base lane: one row of any width. Release lane: one
+  stone. Modifier and Link lane: one stone per row; putting a stone on a row adds a new row below.
+  Stones are joined by arrows that go to the same row or to a lower one (never back up toward the
+  Bases). No stone may stay unconnected.
+- **Legal scheme:** at least 1 Base and exactly 1 Release; every stone leads to the Release; a Link
+  needs 2 or more incoming arrows (3 Bases into 1 Link is fine, 1 is not); two Bases can only be merged
+  through a Link; the same stone type may be used several times (crafting then needs that many).
+  Modifiers and Links are optional. An illegal scheme shows the concrete reason on save; it can still
+  be saved as a **Spell Draft** and is marked with red "Illegal".
+- **Notes:** double-tap a stone to give it a free text note. A stone with a note has a blue glow and a
+  small "1" at its top right; a press shows the note in a pop-up tied to the "1"; double-tap edits it.
+- **Spell Fine Tuning:** placeholder for now: three runes "1", "2", "3" whose order can be rearranged
+  and saved.
+- **Compendium drawer:** all saved spells (drafts) with name, description and a visual snapshot of the
+  scheme; filters: any number of stones of chosen Zodiacs used, and a search over names and
+  descriptions. From it a spell can be **edited** (loaded into the editor) or **crafted**.
+- **Craft:** shows the needed stones and counts and the notes; only possible with enough stones. It
+  spends the stones, adds a Created Spell, and makes a **Magic roll** (d20 + Magic Mastery +
+  Experience Modifier) posted to the chat, against nothing, only for the GM to judge the crafter's skill.
+- **Created Spells** (own sub-tab; the GM can also grant spells): name, description, an **icon**
+  (picked from the damage type icons), an **Effect** that is an Enhancement or a Weapon (the player
+  fills it in, the GM can edit), **Uses Remaining** (1/1, 5/5 if Taurus was used) and **Stabilization**
+  (10 at first). Using a spell rolls a Magic roll against Stabilization: success +3 Stabilization,
+  failure resets it to 10 and removes 1 use; at 0 uses the spell is destroyed (shown greyed out, readable,
+  only deletable). The spell itself always works; the roll only decides durability. A GM-only toggle
+  adds a **Spell tattoo** tag: no uses, still Stabilization, and the durability check is a Strength Save
+  against it; success still adds +3, failure removes no uses but adds 1 stack of the new status
+  **Blood Oxydization** (stackable (X) status; the blood becomes much more acidic, no automation).
+
+**Stances tab.** A scrollable list of the 12 Zodiac signs (big sign image, name, a short vibe text).
+Tapping one opens a skill-tree-like screen with the Zodiac's **base Stance** in the centre (globally
+configurable by the GM). A Stance is a special Enhancement: only one per attack, and using it needs a
+**Stance roll** (d20 + Stances Mastery + Experience Modifier). It is rolled automatically as its own chat
+roll when Done is pressed, before the attack; its band's effects then apply to the attack.
+- **Table of bands:** less than 10, 10-14, 15-19, 20-24, 25-29, 30 or more. Each band holds a
+  combination of Roll Bonuses, Advantage/Disadvantage, Range, extra Damage, Statuses, Dice Roll Bonuses and
+  Unique Effects. A band can be marked "-": the effect of the band above continues (drawn as one merged
+  cell covering all its rows; several "-" in a row copy the last real effect).
+- Default of every base Stance: a cumulative +1 roll bonus per band (+1 for less than 10, +2 for 10-14,
+  and so on); the GM changes it by hand.
+- The GM adds **variations** to the tree: circles with a Zodiac symbol joined by lines (base symbol
+  white; the GM picks any RGB colour for a variation). Tapping a circle shows the name, description and
+  table. Two GM toggles: **Character-Known** (characters have seen it: readable, shown greyed out and
+  half transparent, not usable) and, once Known is on, **Learned** (the GM picks the PCs and NPCs that
+  learned it: full colour, usable in attacks).
+
+**Manifest tab.** Background in the Manifest colour; players can only read and choose. Two sub-sections:
+- **Tarot Cards:** the character's cards (name, effect text); the current card has a golden frame; only
+  one is chosen, and a **Swap Card** button changes it at any time. Text only for now (no mechanics).
+  Cards are created inside a character only by the GM; only the GM sees **Transfer** (moves a card to
+  another character).
+- **Manifestations:** granted by gods, created only by the GM (text and description). A Manifestation
+  is configured as a Weapon or as an Enhancement with all the rules above.
+
+**Locked content.** The GM's general Arcane tab has a small lock button at the top right; it enters a
+locking mode where clicking an already open tab (or an already visible part) locks it. Locks are
+**global** and apply to **PCs only**: to a player a locked part is a heavily blurred picture with the text
+"You have not learned what this means for now". The GM (and every NPC's sheet, which the GM controls)
+sees everything, with a lock icon on what is locked. Lockable: the tabs (Magic, Stances, ...), and
+inside them Tarot Cards, Manifestations, each Zodiac's Stances (a separate lock per Zodiac), Spell
+Stones, Spell Combinations, Spell Fine Tuning.
+
+**Build order (four PRs, each playtestable):** (1) General tab and the footer attack flow (weapon toggle,
+Unarmed Attack, Enhancements, range check, Stance-less attack from the footer, replaces the sheet's
+Attack); (2) Magic (stones, editor, drafts, compendium, craft, Created Spells, tattoos); (3) Stances;
+(4) Manifest and Locks.
+
+Still open (to ask before PR 2): how many arrows a Modifier and the Release may take, and how a Base
+shows in the scheme when its row is wide.
 
 ### Game data (planned)
 Base building blocks (Zodiacs, Tarrot cards and effects, spontaneous-casting tables keyed by
@@ -853,8 +970,8 @@ Each phase ends in a deploy and playtest checkpoint.
      remote, the GM confirm card (editable numbers, several targets, areas), Hit Severity, damage
      through resistances, statuses, AP. Covered by `server/test/attack.test.js` and the attack test in
      `e2e/battle.spec.js`.
-   - **6b Arcane** (planned, needs the magic rules): Arcane browser, sandbox, spell builder,
-     spontaneous-casting tables, Enhancements.
+   - **6b Arcane** (rules received, see Arcane tab; four PRs: General and footer attack flow, Magic,
+     Stances, Manifest and Locks).
 7. **Settings and Russian** (implemented, added after the playtest): Settings on the picker with a
    language selector, the whole app in English and Russian, and `LOCALIZATION.md`. Covered by
    `server/test/localization.test.js` and `e2e/language.spec.js`.
@@ -863,7 +980,6 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Combat Masteries: how they enter the roll and what the Arcane combat rolls look like.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Whether statuses should ever affect Combat Mastery rolls.
 - A wider desktop layout for the sheet and the icon set for damage types.
