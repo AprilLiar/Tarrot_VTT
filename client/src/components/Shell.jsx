@@ -3,6 +3,7 @@ import { useApp } from '../AppContext.jsx';
 import { useIsDesktop } from '../lib/useMedia.js';
 import { Initial } from './Picker.jsx';
 import ChatPanel from './ChatPanel.jsx';
+import MusicBar from '../music/MusicBar.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
 
 // Top bar shown once an identity is chosen: who you are, connection state,
@@ -35,6 +36,7 @@ export default function Shell({ children }) {
         <span data-testid="whoami" className="min-w-0 flex-1 truncate font-medium">
           {label}
         </span>
+        <MusicBar />
         {links.length > 0 && (
           <nav className="flex gap-1" aria-label="Sections">
             {links.map(([to, text]) => (

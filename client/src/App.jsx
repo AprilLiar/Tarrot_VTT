@@ -6,6 +6,8 @@ import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
 import ScenePage from './components/scene/ScenePage.jsx';
 import { useIsDesktop } from './lib/useMedia.js';
+import { MusicProvider } from './music/MusicContext.jsx';
+import MusicBar from './music/MusicBar.jsx';
 
 function GmSheetRoute() {
   const { id } = useParams();
@@ -40,6 +42,10 @@ function Screen() {
     return (
       <div className="h-[100dvh]">
         <ScenePage chrome={false} onExit={switchIdentity} />
+        {/* Top right, and see-through everywhere else so it never blocks the scene. */}
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-end p-2">
+          <MusicBar />
+        </div>
       </div>
     );
   }
@@ -71,7 +77,9 @@ function Screen() {
 export default function App() {
   return (
     <AppProvider>
-      <Screen />
+      <MusicProvider>
+        <Screen />
+      </MusicProvider>
     </AppProvider>
   );
 }

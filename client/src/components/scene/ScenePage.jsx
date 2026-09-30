@@ -322,7 +322,7 @@ export default function ScenePage({ chrome = true, onExit }) {
 
       {!chrome && onExit && (
         <button
-          className="absolute right-2 top-2 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
+          className="absolute left-2 top-2 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
           data-no-pan
           data-testid="display-exit"
           onClick={onExit}

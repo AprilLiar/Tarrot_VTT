@@ -2,3 +2,24 @@
 
 html, body, #root { height: 100%; }
 body { margin: 0; background: #0f0d14; color: #e8e4f0; }
+
+/* The spinning record in the music bar. */
+.record {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle, #e8e4f0 0 12%, #7c3aed 13% 30%, transparent 31%),
+    repeating-radial-gradient(circle, #111 0 2px, #2a2a2a 2px 3px);
+  animation: record-spin 3s linear infinite;
+  animation-play-state: paused;
+}
+.record.spinning {
+  animation-play-state: running;
+}
+@keyframes record-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
