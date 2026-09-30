@@ -170,7 +170,7 @@ export async function updateToken(db, id, { pictureId, hidden, height }) {
     await db.execute({ sql: 'UPDATE battle_tokens SET hidden = ? WHERE id = ?', args: [hidden ? 1 : 0, id] });
   }
   if (height !== undefined) {
-    if (!Number.isInteger(height) || height < 0 || height > HEIGHT_MAX) throw new AppError('bad_value', `Height must be from 0 to ${HEIGHT_MAX} Spaces.`);
+    if (!Number.isInteger(height) || height < 0 || height > HEIGHT_MAX) throw new AppError('bad_value', 'Height must be from 0 to {max} Spaces.', { max: HEIGHT_MAX });
     await db.execute({ sql: 'UPDATE battle_tokens SET height = ? WHERE id = ?', args: [height, id] });
   }
 }
@@ -294,7 +294,7 @@ export async function addMark(db, kind, data) {
   const scene = await activeBattleScene(db);
   const clean = cleanMark(kind, data);
   const count = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM battle_marks WHERE scene_id = ?', args: [scene.id] })).rows[0].n);
-  if (count >= MAX_MARKS) throw new AppError('limit', `At most ${MAX_MARKS} drawings and templates. Clear some first.`);
+  if (count >= MAX_MARKS) throw new AppError('limit', 'At most {max} drawings and templates. Clear some first.', { max: MAX_MARKS });
   const r = await db.execute({ sql: 'INSERT INTO battle_marks (scene_id, kind, data) VALUES (?, ?, ?)', args: [scene.id, kind, JSON.stringify(clean)] });
   return Number(r.lastInsertRowid);
 }

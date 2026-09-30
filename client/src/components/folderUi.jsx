@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
+import { useT } from '../i18n.jsx';
 
 // Folder and dialog pieces shared by the character roster and the scene and
 // temp NPC libraries.
@@ -27,6 +28,7 @@ export function descendantIds(folders, id) {
 
 // One generic dialog per action. `run` returns the server ack; errors are shown inline.
 export function ActionDialog({ title, onClose, submitLabel, danger, canSubmit = true, run, children }) {
+  const t = useT();
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -36,7 +38,7 @@ export function ActionDialog({ title, onClose, submitLabel, danger, canSubmit = 
     const r = await run();
     setBusy(false);
     if (r.ok) onClose();
-    else setError(r.error ?? 'Something went wrong.');
+    else setError(r.error ?? t('Something went wrong.'));
   }
 
   return (
@@ -50,7 +52,7 @@ export function ActionDialog({ title, onClose, submitLabel, danger, canSubmit = 
         )}
         <div className="flex justify-end gap-2">
           <button type="button" className={btn} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type="submit" className={danger ? btnDanger : btnPrimary} disabled={busy || !canSubmit}>
             {submitLabel}
@@ -77,6 +79,7 @@ export function NameField({ value, onChange, label }) {
 }
 
 export function FolderSelect({ folders, value, onChange, exclude, label }) {
+  const t = useT();
   const options = flatten(folders).filter(({ folder }) => !exclude?.has(folder.id));
   return (
     <label className="flex flex-col gap-1 text-sm">
@@ -86,7 +89,7 @@ export function FolderSelect({ folders, value, onChange, exclude, label }) {
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
       >
-        <option value="">(top level)</option>
+        <option value="">{t('(top level)')}</option>
         {options.map(({ folder, depth }) => (
           <option key={folder.id} value={folder.id}>
             {`${'  '.repeat(depth)}${folder.name}`}

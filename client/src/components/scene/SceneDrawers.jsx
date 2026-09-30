@@ -5,10 +5,13 @@ import { ActionDialog, FolderSelect, NameField } from '../folderUi.jsx';
 import { prepareImage, prepareImageInfo } from '../../lib/image.js';
 import { LibraryTree } from './LibraryTree.jsx';
 import { PicturesDialog, uploadPicture } from './Pictures.jsx';
+import { useT } from '../../i18n.jsx';
+import { T } from '../../../../shared/localization.js';
 
 // GM-only side panels over the scene: Scenes (right) and Cast (left).
 
 function Drawer({ title, side, onClose, children, testId }) {
+  const t = useT();
   return (
     <>
       <div className="absolute inset-0 z-40 bg-black/30" data-no-pan onPointerDown={onClose} />
@@ -23,7 +26,7 @@ function Drawer({ title, side, onClose, children, testId }) {
         <header className="flex items-center gap-2 border-b border-white/10 p-3">
           <h2 className="flex-1 text-lg font-semibold">{title}</h2>
           <button className={btn} onClick={onClose}>
-            Close
+            {t('Close')}
           </button>
         </header>
         <div className="flex-1 overflow-y-auto p-3">{children}</div>
@@ -48,13 +51,14 @@ function useImagePicker(kind) {
 }
 
 function NewSceneDialog({ folders, folderId, onClose }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [folder, setFolder] = useState(folderId);
   const pick = useImagePicker('background');
   return (
     <ActionDialog
-      title="New scene"
-      submitLabel="Create"
+      title={t('New scene')}
+      submitLabel={t('Create')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={async () => {
@@ -63,65 +67,68 @@ function NewSceneDialog({ folders, folderId, onClose }) {
           try {
             data = await pick.prepare();
           } catch (err) {
-            return { ok: false, error: err.message };
+            return { ok: false, error: t(err.message) };
           }
         }
         return call('scene:create', { name, folderId: folder, data });
       }}
     >
-      <NameField label="Name" value={name} onChange={setName} />
-      <FolderSelect label="Folder" folders={folders} value={folder} onChange={setFolder} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
+      <FolderSelect label={t('Folder')} folders={folders} value={folder} onChange={setFolder} />
       {pick.input}
       <button type="button" className={btn} data-testid="choose-background" onClick={pick.open}>
-        {pick.file ? `Background: ${pick.file.name}` : 'Choose a background picture'}
+        {pick.file ? t('Background: {name}', { name: pick.file.name }) : t('Choose a background picture')}
       </button>
     </ActionDialog>
   );
 }
 
 function RenameSceneDialog({ scene, onClose }) {
+  const t = useT();
   const [name, setName] = useState(scene.name);
   return (
     <ActionDialog
-      title="Rename scene"
-      submitLabel="Rename"
+      title={t('Rename scene')}
+      submitLabel={t('Rename')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call('scene:rename', { id: scene.id, name })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
     </ActionDialog>
   );
 }
 
 function MoveDialog({ title, folders, current, run, onClose }) {
+  const t = useT();
   const [dest, setDest] = useState(current);
   return (
-    <ActionDialog title={title} submitLabel="Move" onClose={onClose} run={() => run(dest)}>
-      <FolderSelect label="Move to" folders={folders} value={dest} onChange={setDest} />
+    <ActionDialog title={title} submitLabel={t('Move')} onClose={onClose} run={() => run(dest)}>
+      <FolderSelect label={t('Move to')} folders={folders} value={dest} onChange={setDest} />
     </ActionDialog>
   );
 }
 
 function BackgroundDialog({ scene, onClose }) {
+  const t = useT();
   const pick = useImagePicker('background');
   return (
     <ActionDialog
-      title={`Background: ${scene.name}`}
-      submitLabel="Replace"
+      title={t('Background: {name}', { name: scene.name })}
+      submitLabel={t('Replace')}
       onClose={onClose}
       canSubmit={!!pick.file}
       run={async () => {
         try {
           return call('scene:set_image', { id: scene.id, data: await pick.prepare() });
         } catch (err) {
-          return { ok: false, error: err.message };
+          return { ok: false, error: t(err.message) };
         }
       }}
     >
       {pick.input}
       <button type="button" className={btn} onClick={pick.open}>
-        {pick.file ? pick.file.name : 'Choose a new background picture'}
+        {pick.file ? pick.file.name : t('Choose a new background picture')}
       </button>
     </ActionDialog>
   );
@@ -129,12 +136,13 @@ function BackgroundDialog({ scene, onClose }) {
 
 // A battle map is a picture of the place seen from above; its shape is kept so the grid fits.
 function BattleMapDialog({ scene, onClose }) {
+  const t = useT();
   const [file, setFile] = useState(null);
   const ref = useRef(null);
   return (
     <ActionDialog
-      title={`Battle map: ${scene.name}`}
-      submitLabel="Upload"
+      title={t('Battle map: {name}', { name: scene.name })}
+      submitLabel={t('Upload')}
       onClose={onClose}
       canSubmit={!!file}
       run={async () => {
@@ -142,15 +150,15 @@ function BattleMapDialog({ scene, onClose }) {
           const { data, width, height } = await prepareImageInfo(file, 'background');
           return call('scene:set_battle_image', { id: scene.id, data, aspect: width / height });
         } catch (err) {
-          return { ok: false, error: err.message };
+          return { ok: false, error: t(err.message) };
         }
       }}
     >
       <input ref={ref} type="file" accept="image/*" hidden data-testid="battle-file" onChange={(e) => setFile(e.target.files[0] ?? null)} />
       <button type="button" className={btn} onClick={() => ref.current?.click()}>
-        {file ? file.name : 'Choose the battle map picture'}
+        {file ? file.name : t('Choose the battle map picture')}
       </button>
-      <p className="text-xs opacity-60">After uploading, switch to Battle and use Set grid to line the squares up with the map.</p>
+      <p className="text-xs opacity-60">{t('After uploading, switch to Battle and use Set grid to line the squares up with the map.')}</p>
     </ActionDialog>
   );
 }
@@ -164,54 +172,55 @@ function ConfirmDialog({ title, text, label, run, onClose }) {
 }
 
 export function ScenesDrawer({ onClose }) {
+  const t = useT();
   const { library, stage } = useApp();
   const [dialog, setDialog] = useState(null);
   const done = () => setDialog(null);
-  if (!library) return <Drawer title="Scenes" side="right" onClose={onClose}>Loading...</Drawer>;
+  if (!library) return <Drawer title={t('Scenes')} side="right" onClose={onClose}>{t('Loading...')}</Drawer>;
   const activeId = stage.scene?.id ?? null;
 
   return (
-    <Drawer title="Scenes" side="right" onClose={onClose} testId="scenes-drawer">
+    <Drawer title={t('Scenes')} side="right" onClose={onClose} testId="scenes-drawer">
       <button className={`${btnPrimary} mb-3 w-full`} data-testid="new-scene" onClick={() => setDialog({ kind: 'new', folderId: null })}>
-        New scene
+        {t('New scene')}
       </button>
       <LibraryTree
         folders={library.sceneFolders}
         items={library.scenes}
         folderEvent="scene_folder"
-        emptyText="No scenes yet."
+        emptyText={t('No scenes yet.')}
         onAddItem={(folderId) => setDialog({ kind: 'new', folderId })}
         renderItem={(scene, { open, toggle }) => (
           <div data-testid="scene-row">
             <button className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left active:bg-white/10" onClick={toggle}>
               <span className="flex-1 truncate">{scene.name}</span>
-              {scene.id === activeId && <span className="rounded bg-emerald-800 px-1.5 py-0.5 text-xs">Active</span>}
+              {scene.id === activeId && <span className="rounded bg-emerald-800 px-1.5 py-0.5 text-xs">{t('Active')}</span>}
             </button>
             {open && (
               <div className="flex flex-wrap gap-2 pb-2">
                 {scene.id === activeId ? (
                   <button className={btn} data-testid="deactivate-scene" onClick={() => call('scene:activate', { id: null })}>
-                    Deactivate
+                    {t('Deactivate')}
                   </button>
                 ) : (
                   <button className={btnPrimary} data-testid="activate-scene" onClick={() => call('scene:activate', { id: scene.id })}>
-                    Activate
+                    {t('Activate')}
                   </button>
                 )}
                 <button className={btn} onClick={() => setDialog({ kind: 'rename', scene })}>
-                  Rename
+                  {t('Rename')}
                 </button>
                 <button className={btn} onClick={() => setDialog({ kind: 'background', scene })}>
-                  Background
+                  {t('Background')}
                 </button>
                 <button className={btn} data-testid="battle-map-button" onClick={() => setDialog({ kind: 'battle-map', scene })}>
-                  {scene.battleImageId ? 'Battle map (set)' : 'Battle map'}
+                  {scene.battleImageId ? t('Battle map (set)') : t('Battle map')}
                 </button>
                 <button className={btn} onClick={() => setDialog({ kind: 'move', scene })}>
-                  Move
+                  {t('Move')}
                 </button>
                 <button className={btnDanger} onClick={() => setDialog({ kind: 'delete', scene })}>
-                  Delete
+                  {t('Delete')}
                 </button>
               </div>
             )}
@@ -224,7 +233,7 @@ export function ScenesDrawer({ onClose }) {
       {dialog?.kind === 'battle-map' && <BattleMapDialog scene={dialog.scene} onClose={done} />}
       {dialog?.kind === 'move' && (
         <MoveDialog
-          title={`Move ${dialog.scene.name}`}
+          title={t('Move {name}', { name: dialog.scene.name })}
           folders={library.sceneFolders}
           current={dialog.scene.folderId}
           run={(folderId) => call('scene:move', { id: dialog.scene.id, folderId })}
@@ -233,9 +242,9 @@ export function ScenesDrawer({ onClose }) {
       )}
       {dialog?.kind === 'delete' && (
         <ConfirmDialog
-          title="Delete scene"
-          text={`Delete ${dialog.scene.name} and everyone standing on it? This cannot be undone.`}
-          label="Delete"
+          title={t('Delete scene')}
+          text={t('Delete {name} and everyone standing on it? This cannot be undone.', { name: dialog.scene.name })}
+          label={t('Delete')}
           run={() => call('scene:delete', { id: dialog.scene.id })}
           onClose={done}
         />
@@ -247,6 +256,7 @@ export function ScenesDrawer({ onClose }) {
 // ---- Cast -----------------------------------------------------------------------
 
 function NewTempNpcDialog({ folders, folderId, onClose }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [folder, setFolder] = useState(folderId);
   const [isProp, setIsProp] = useState(false);
@@ -255,25 +265,25 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
   const [file, setFile] = useState(null);
   return (
     <ActionDialog
-      title="New temp NPC"
-      submitLabel="Create"
+      title={t('New temp NPC')}
+      submitLabel={t('Create')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={async () => {
         const r = await call('temp_npc:create', { name, folderId: folder, isProp, size });
-        if (r.ok && file) return uploadPicture({ tempNpcId: r.id }, file, name);
+        if (r.ok && file) return uploadPicture({ tempNpcId: r.id }, file, name, t);
         return r;
       }}
     >
-      <p className="text-xs opacity-60">A quick, sheet-less extra for the story. It only needs a name and a picture.</p>
-      <NameField label="Name" value={name} onChange={setName} />
-      <FolderSelect label="Folder" folders={folders} value={folder} onChange={setFolder} />
+      <p className="text-xs opacity-60">{t('A quick, sheet-less extra for the story. It only needs a name and a picture.')}</p>
+      <NameField label={t('Name')} value={name} onChange={setName} />
+      <FolderSelect label={t('Folder')} folders={folders} value={folder} onChange={setFolder} />
       <label className="flex min-h-10 items-center gap-3 text-sm">
         <input type="checkbox" className="h-5 w-5" data-testid="temp-npc-prop" checked={isProp} onChange={(e) => setIsProp(e.target.checked)} />
-        A prop or terrain (a crate, a tree, a wall) rather than a creature
+        {t('A prop or terrain (a crate, a tree, a wall) rather than a creature')}
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        Token size on the battle map
+        {t('Token size on the battle map')}
         <select className={input} data-testid="temp-npc-size" value={size} onChange={(e) => setSize(Number(e.target.value))}>
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <option key={n} value={n}>
@@ -284,7 +294,7 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
       </label>
       <input ref={fileRef} type="file" accept="image/*" hidden data-testid="temp-npc-file" onChange={(e) => setFile(e.target.files[0] ?? null)} />
       <button type="button" className={btn} onClick={() => fileRef.current?.click()}>
-        {file ? `Picture: ${file.name}` : 'Choose a first picture (optional)'}
+        {file ? t('Picture: {name}', { name: file.name }) : t('Choose a first picture (optional)')}
       </button>
     </ActionDialog>
   );
@@ -292,10 +302,11 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
 
 // One summonable row: a character or a temp NPC.
 function CastRow({ owner, name, badge, stage, onPictures, extra }) {
+  const t = useT();
   const { toast } = useApp();
   const battleMode = stage.mode === 'battle';
   const onStage = battleMode
-    ? stage.battle?.tokens.find((t) => t.ownerKind === owner.kind && t.ownerId === owner.id)
+    ? stage.battle?.tokens.find((tk) => tk.ownerKind === owner.kind && tk.ownerId === owner.id)
     : stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
   const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
 
@@ -324,16 +335,16 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
   return (
     <div data-testid="cast-row" data-name={name} className="rounded-lg bg-white/5 p-2">
       <div className="flex items-center gap-2">
-        {badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{badge}</span>}
+        {badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{t(badge)}</span>}
         <span className="flex-1 truncate">{name}</span>
-        {onStage && <span className="text-xs opacity-60">{onStage.hidden ? 'hidden' : battleMode ? 'on map' : 'on stage'}</span>}
+        {onStage && <span className="text-xs opacity-60">{onStage.hidden ? t('hidden') : battleMode ? t('on map') : t('on stage')}</span>}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button className={onStage ? btn : btnPrimary} data-testid={onStage ? 'dismiss-cast' : 'summon-cast'} onClick={toggle}>
-          {battleMode ? (onStage ? 'Remove token' : 'Place token') : onStage ? 'Dismiss' : 'Summon'}
+          {battleMode ? (onStage ? t('Remove token') : t('Place token')) : onStage ? t('Dismiss') : t('Summon')}
         </button>
         <button className={btn} data-testid="cast-pictures" onClick={onPictures}>
-          Pictures
+          {t('Pictures')}
         </button>
         {onStage && !battleMode && (
           <button
@@ -344,7 +355,7 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
               if (!r.ok) toast(r.error);
             }}
           >
-            Reset spot
+            {t('Reset spot')}
           </button>
         )}
         {extra}
@@ -354,6 +365,7 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
 }
 
 export function CastDrawer({ onClose }) {
+  const t = useT();
   const { roster, library, stage } = useApp();
   const [query, setQuery] = useState('');
   const [dialog, setDialog] = useState(null);
@@ -361,52 +373,52 @@ export function CastDrawer({ onClose }) {
   const q = query.trim().toLowerCase();
   const characters = (roster?.characters ?? []).filter((c) => c.name.toLowerCase().includes(q));
 
-  if (!library) return <Drawer title="Cast" side="left" onClose={onClose}>Loading...</Drawer>;
+  if (!library) return <Drawer title={t('Cast')} side="left" onClose={onClose}>{t('Loading...')}</Drawer>;
 
   return (
-    <Drawer title="Cast" side="left" onClose={onClose} testId="cast-drawer">
-      <input className={`${input} mb-3`} placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+    <Drawer title={t('Cast')} side="left" onClose={onClose} testId="cast-drawer">
+      <input className={`${input} mb-3`} placeholder={t('Search')} value={query} onChange={(e) => setQuery(e.target.value)} />
 
-      <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">Characters</h3>
+      <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">{t('Characters')}</h3>
       <div className="mb-4 flex flex-col gap-2">
-        {characters.length === 0 && <p className="text-sm opacity-60">No characters.</p>}
+        {characters.length === 0 && <p className="text-sm opacity-60">{t('No characters.')}</p>}
         {characters.map((c) => (
           <CastRow
             key={c.id}
             owner={{ kind: 'character', id: c.id }}
             name={c.name}
-            badge={c.type.toUpperCase()}
+            badge={c.type === 'pc' ? T('PC') : T('NPC')}
             stage={stage}
-            onPictures={() => setDialog({ kind: 'pictures', title: `Pictures: ${c.name}`, owner: { characterId: c.id } })}
+            onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: c.name }), owner: { characterId: c.id } })}
           />
         ))}
       </div>
 
-      <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">Temp NPCs</h3>
+      <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">{t('Temp NPCs')}</h3>
       <button className={`${btn} mb-2 w-full`} data-testid="new-temp-npc" onClick={() => setDialog({ kind: 'new-npc', folderId: null })}>
-        New temp NPC
+        {t('New temp NPC')}
       </button>
       <LibraryTree
         folders={library.tempNpcFolders}
-        items={library.tempNpcs.filter((t) => t.name.toLowerCase().includes(q))}
+        items={library.tempNpcs.filter((n) => n.name.toLowerCase().includes(q))}
         folderEvent="temp_npc_folder"
-        emptyText="No temp NPCs yet."
+        emptyText={t('No temp NPCs yet.')}
         onAddItem={(folderId) => setDialog({ kind: 'new-npc', folderId })}
-        renderItem={(t) => (
+        renderItem={(n) => (
           <div className="mb-2">
             <CastRow
-              owner={{ kind: 'temp_npc', id: t.id }}
-              name={t.name}
-              badge={t.isProp ? 'PROP' : 'TEMP'}
+              owner={{ kind: 'temp_npc', id: n.id }}
+              name={n.name}
+              badge={n.isProp ? T('PROP') : T('TEMP')}
               stage={stage}
-              onPictures={() => setDialog({ kind: 'pictures', title: `Pictures: ${t.name}`, owner: { tempNpcId: t.id } })}
+              onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: n.name }), owner: { tempNpcId: n.id } })}
               extra={
                 <>
                   <select
                     className={`${btn} px-2`}
-                    aria-label={`Token size of ${t.name}`}
-                    value={t.size}
-                    onChange={(e) => call('temp_npc:set_size', { id: t.id, size: Number(e.target.value) })}
+                    aria-label={t('Token size of {name}', { name: n.name })}
+                    value={n.size}
+                    onChange={(e) => call('temp_npc:set_size', { id: n.id, size: Number(e.target.value) })}
                   >
                     {[1, 2, 3, 4, 5, 6].map((n) => (
                       <option key={n} value={n}>
@@ -414,14 +426,14 @@ export function CastDrawer({ onClose }) {
                       </option>
                     ))}
                   </select>
-                  <button className={btn} onClick={() => setDialog({ kind: 'rename-npc', npc: t })}>
-                    Rename
+                  <button className={btn} onClick={() => setDialog({ kind: 'rename-npc', npc: n })}>
+                    {t('Rename')}
                   </button>
-                  <button className={btn} onClick={() => setDialog({ kind: 'move-npc', npc: t })}>
-                    Move
+                  <button className={btn} onClick={() => setDialog({ kind: 'move-npc', npc: n })}>
+                    {t('Move')}
                   </button>
-                  <button className={btnDanger} onClick={() => setDialog({ kind: 'delete-npc', npc: t })}>
-                    Delete
+                  <button className={btnDanger} onClick={() => setDialog({ kind: 'delete-npc', npc: n })}>
+                    {t('Delete')}
                   </button>
                 </>
               }
@@ -435,7 +447,7 @@ export function CastDrawer({ onClose }) {
       {dialog?.kind === 'rename-npc' && <RenameNpc npc={dialog.npc} onClose={done} />}
       {dialog?.kind === 'move-npc' && (
         <MoveDialog
-          title={`Move ${dialog.npc.name}`}
+          title={t('Move {name}', { name: dialog.npc.name })}
           folders={library.tempNpcFolders}
           current={dialog.npc.folderId}
           run={(folderId) => call('temp_npc:move', { id: dialog.npc.id, folderId })}
@@ -444,9 +456,9 @@ export function CastDrawer({ onClose }) {
       )}
       {dialog?.kind === 'delete-npc' && (
         <ConfirmDialog
-          title="Delete temp NPC"
-          text={`Delete ${dialog.npc.name} and its pictures? This cannot be undone.`}
-          label="Delete"
+          title={t('Delete temp NPC')}
+          text={t('Delete {name} and its pictures? This cannot be undone.', { name: dialog.npc.name })}
+          label={t('Delete')}
           run={() => call('temp_npc:delete', { id: dialog.npc.id })}
           onClose={done}
         />
@@ -456,16 +468,17 @@ export function CastDrawer({ onClose }) {
 }
 
 function RenameNpc({ npc, onClose }) {
+  const t = useT();
   const [name, setName] = useState(npc.name);
   return (
     <ActionDialog
-      title="Rename temp NPC"
-      submitLabel="Rename"
+      title={t('Rename temp NPC')}
+      submitLabel={t('Rename')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call('temp_npc:rename', { id: npc.id, name })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
     </ActionDialog>
   );
 }

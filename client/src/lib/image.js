@@ -3,6 +3,8 @@
 // Backgrounds become JPEG (opaque); character art keeps its transparency as
 // WebP, or PNG on browsers that cannot encode WebP (Safari).
 
+import { T } from '../../../shared/localization.js';
+
 export const IMAGE_LIMITS = {
   background: { maxWidth: 1920, maxHeight: 1200 },
   character: { maxWidth: 1200, maxHeight: 1400 },
@@ -19,7 +21,7 @@ function load(file) {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('That file is not an image this browser can read.'));
+      reject(new Error(T('That file is not an image this browser can read.')));
     };
     img.src = url;
   });
@@ -40,7 +42,7 @@ export async function prepareImage(file, kind) {
 
 // Same, and also says how big the resized picture is (a battle map needs its shape).
 export async function prepareImageInfo(file, kind) {
-  if (!file || !file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  if (!file || !file.type.startsWith('image/')) throw new Error(T('Choose an image file.'));
   const img = await load(file);
   const limits = IMAGE_LIMITS[kind];
   let shrink = 1;
@@ -65,7 +67,7 @@ export async function prepareImageInfo(file, kind) {
     if (blob && blob.size <= MAX_BYTES) return { data: await blob.arrayBuffer(), width, height };
     shrink *= 0.8;
   }
-  throw new Error('That image is too large even after resizing. Try a smaller one.');
+  throw new Error(T('That image is too large even after resizing. Try a smaller one.'));
 }
 
 export const imageUrl = (id) => (id ? `/api/images/${id}` : null);

@@ -4,6 +4,7 @@ import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
 import { cleanChatText } from './chat.js';
 import { AppError } from './errors.js';
+import { t, isLang } from './i18n.js';
 import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
 import { registerAttackHandlers } from './attackHandlers.js';
@@ -69,25 +70,34 @@ export function registerHandlers(io, socket, db, shared) {
     return { role: 'player', name: c?.name ?? 'Player' };
   }
 
+  // Error texts are shown in this socket's language (set by the client with lang:set).
+  const say = (text, params) => t(socket.data.lang, text, params);
+
   // Wraps a handler: the ack is always { ok, ... } and errors never crash.
   const on = (event, { gmOnly = false, needsIdentity = false, broadcast = false } = {}, fn) => {
     socket.on(event, async (payload, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
       try {
-        if (gmOnly && !isGm()) return reply({ ok: false, code: 'forbidden', error: 'GM only.' });
+        if (gmOnly && !isGm()) return reply({ ok: false, code: 'forbidden', error: say('GM only.') });
         if (needsIdentity && !identity()) {
-          return reply({ ok: false, code: 'forbidden', error: 'Choose who you are first.' });
+          return reply({ ok: false, code: 'forbidden', error: say('Choose who you are first.') });
         }
         const result = (await fn(payload ?? {})) ?? {};
         if (broadcast) await broadcastRoster();
         reply({ ok: true, ...result });
       } catch (err) {
-        if (err instanceof AppError) return reply({ ok: false, code: err.code, error: err.message });
+        if (err instanceof AppError) return reply({ ok: false, code: err.code, error: say(err.message, err.params) });
         console.error(`${event} failed`, err);
-        reply({ ok: false, code: 'server_error', error: 'Something went wrong.' });
+        reply({ ok: false, code: 'server_error', error: say('Something went wrong.') });
       }
     });
   };
+
+  // The language this device shows the interface in; server messages follow it.
+  socket.on('lang:set', (payload, ack) => {
+    if (isLang(payload?.lang)) socket.data.lang = payload.lang;
+    if (typeof ack === 'function') ack({ ok: true, lang: socket.data.lang });
+  });
 
   // Round-trip check used by the connection banner and by tests.
   socket.on('ping:check', (payload, ack) => {

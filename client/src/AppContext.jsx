@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { socket } from './socket.js';
+import { useT } from './i18n.jsx';
 
 // Identity is remembered per device in localStorage; the server re-validates
 // it on every (re)connect and is the only authority on what it may do.
@@ -33,6 +34,10 @@ export const useApp = () => useContext(AppContext);
 let toastSeq = 0;
 
 export function AppProvider({ children }) {
+  const t = useT();
+  // Socket handlers below are set up once; they read the current language through this ref.
+  const tRef = useRef(t);
+  tRef.current = t;
   const [identity, setIdentity] = useState(loadSaved);
   const identityRef = useRef(identity);
   const [ready, setReady] = useState(false);
@@ -115,7 +120,7 @@ export function AppProvider({ children }) {
         const r = await call('identity:set', saved);
         if (!r.ok && r.code === 'gone') {
           updateIdentity(null);
-          setNotice('Your character is no longer available. Please choose again.');
+          setNotice(tRef.current('Your character is no longer available. Please choose again.'));
         } else if (r.ok) {
           if (saved.role === 'gm') {
             await Promise.all([loadRoster(), loadLibrary()]);
@@ -133,7 +138,7 @@ export function AppProvider({ children }) {
     const onLibrary = (lib) => setLibrary(lib);
     const onRevoked = ({ name }) => {
       updateIdentity(null);
-      setNotice(`${name} was deleted by the GM. Please choose again.`);
+      setNotice(tRef.current('{name} was deleted by the GM. Please choose again.', { name }));
     };
     const onMessage = (m) => {
       setMessages((list) => [...list, m]);
@@ -149,9 +154,11 @@ export function AppProvider({ children }) {
       const me = identityRef.current;
       if (me?.role !== 'player') return;
       toast(
-        o.accepted
-          ? `${o.toName} accepted ${o.itemName} from ${o.fromName}.`
-          : `${o.toName} declined ${o.itemName} from ${o.fromName}.`,
+        tRef.current(o.accepted ? '{to} accepted {item} from {from}.' : '{to} declined {item} from {from}.', {
+          to: o.toName,
+          item: o.itemName,
+          from: o.fromName,
+        }),
       );
     };
 
@@ -192,7 +199,7 @@ export function AppProvider({ children }) {
         if (next.role !== 'display') await loadChat();
         await loadStage();
       } else {
-        setNotice('That character is not available any more.');
+        setNotice(tRef.current('That character is not available any more.'));
       }
       return r;
     },
@@ -207,7 +214,7 @@ export function AppProvider({ children }) {
   const respondTrade = useCallback(async (offerId, accept) => {
     setOffers((list) => list.filter((o) => o.offerId !== offerId));
     const r = await call('trade:respond', { offerId, accept });
-    if (!r.ok) toast(r.error ?? 'That offer is no longer available.');
+    if (!r.ok) toast(r.error ?? tRef.current('That offer is no longer available.'));
   }, [toast]);
 
   const value = {

@@ -129,7 +129,7 @@ export async function createTrack(db, { playlistId, url, name }) {
   if (!youtubeId) throw new AppError('not_youtube', 'That is not a YouTube video link.');
   const label = typeof name === 'string' && name.trim() ? cleanName(name) : `YouTube ${youtubeId}`;
   const count = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM audio_tracks WHERE playlist_id = ?', args: [playlistId] })).rows[0].n);
-  if (count >= MAX_TRACKS_PER_PLAYLIST) throw new AppError('limit', `At most ${MAX_TRACKS_PER_PLAYLIST} tracks per playlist.`);
+  if (count >= MAX_TRACKS_PER_PLAYLIST) throw new AppError('limit', 'At most {max} tracks per playlist.', { max: MAX_TRACKS_PER_PLAYLIST });
   const r = await db.execute({
     sql: 'INSERT INTO audio_tracks (playlist_id, youtube_id, name, position) VALUES (?, ?, ?, ?)',
     args: [playlistId, youtubeId, label, count],

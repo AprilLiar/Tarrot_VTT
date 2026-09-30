@@ -6,22 +6,24 @@ import ChatPanel from './ChatPanel.jsx';
 import { AttackInbox } from './AttackCard.jsx';
 import MusicBar from '../music/MusicBar.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
+import { useT } from '../i18n.jsx';
 
 // Top bar shown once an identity is chosen: who you are, connection state,
 // and the way back to the picker. Also hosts the chat, toasts and incoming
 // trade offers, which must be reachable from every page.
 export default function Shell({ children }) {
+  const t = useT();
   const { identity, pcs, connected, switchIdentity, toasts, offers, respondTrade } = useApp();
   const isGm = identity.role === 'gm';
   const pc = pcs.find((c) => c.id === identity.characterId);
-  const label = isGm ? 'Game Master' : (pc?.name ?? '...');
+  const label = isGm ? t('Game Master') : (pc?.name ?? '...');
   const offer = offers[0];
   const desktop = useIsDesktop();
   // The GM can view the scene on any device; players only on a desktop (phones stay on the controls).
   const links = isGm
-    ? [['/', 'Characters'], ['/scene', 'Scene']]
+    ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')]]
     : desktop
-      ? [['/', 'Sheet'], ['/scene', 'Scene']]
+      ? [['/', 'Sheet', t('Sheet')], ['/scene', 'Scene', t('Scene')]]
       : [];
 
   return (
@@ -29,7 +31,7 @@ export default function Shell({ children }) {
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-white/10 bg-[#0f0d14] px-4">
         {isGm ? (
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-700 text-sm font-semibold">
-            GM
+            {t('GM')}
           </span>
         ) : (
           <Initial name={label} size="h-9 w-9 text-base" />
@@ -39,13 +41,13 @@ export default function Shell({ children }) {
         </span>
         <MusicBar />
         {links.length > 0 && (
-          <nav className="flex gap-1" aria-label="Sections">
-            {links.map(([to, text]) => (
+          <nav className="flex gap-1" aria-label={t('Sections')}>
+            {links.map(([to, id, text]) => (
               <NavLink
                 key={to}
                 to={to}
                 end
-                data-testid={`nav-${text.toLowerCase()}`}
+                data-testid={`nav-${id.toLowerCase()}`}
                 className={({ isActive }) =>
                   `flex min-h-10 items-center rounded-lg px-3 text-sm ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
                 }
@@ -57,7 +59,7 @@ export default function Shell({ children }) {
         )}
         {!connected && (
           <span data-testid="offline" className="text-xs text-amber-400">
-            Reconnecting...
+            {t('Reconnecting...')}
           </span>
         )}
         <button
@@ -65,7 +67,7 @@ export default function Shell({ children }) {
           className="min-h-11 rounded-lg bg-white/10 px-3 text-sm active:bg-white/20"
           onClick={switchIdentity}
         >
-          Switch
+          {t('Switch')}
         </button>
       </header>
       <div className="flex-1">{children}</div>
@@ -82,16 +84,16 @@ export default function Shell({ children }) {
       </div>
 
       {offer && (
-        <Dialog title="Item offered" onClose={() => {}}>
+        <Dialog title={t('Item offered')} onClose={() => {}}>
           <p className="mb-3 text-sm" data-testid="trade-offer">
-            <strong>{offer.fromName}</strong> wants to give you <strong>{offer.itemName}</strong>.
+            {t('{from} wants to give you {item}.', { from: offer.fromName, item: offer.itemName })}
           </p>
           <div className="flex justify-end gap-2">
             <button className={btn} data-testid="trade-decline" onClick={() => respondTrade(offer.offerId, false)}>
-              Decline
+              {t('Decline')}
             </button>
             <button className={btnPrimary} data-testid="trade-accept" onClick={() => respondTrade(offer.offerId, true)}>
-              Accept
+              {t('Accept')}
             </button>
           </div>
         </Dialog>

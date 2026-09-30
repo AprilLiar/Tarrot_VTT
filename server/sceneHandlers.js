@@ -5,6 +5,8 @@ import * as combat from './combat.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
+import { line as chatLine } from './i18n.js';
+import { T } from '../shared/localization.js';
 
 // Socket events for scenes, the stage, temp NPCs and pictures.
 //
@@ -88,6 +90,8 @@ export function registerSceneHandlers(ctx) {
   on('picture:list', { needsIdentity: true }, async (p) => {
     const owner = ownerFrom(p);
     // Anyone who may summon a character can see its pictures; players see their own PC's.
+    // The Display picks pictures too (its token menu has Token Settings).
+    if (isDisplay()) return { pictures: await scenes.listPictures(db, owner) };
     if (owner.kind === 'character') await requireControl(owner.id);
     else if (!isGm()) throw new AppError('forbidden', 'GM only.');
     return { pictures: await scenes.listPictures(db, owner) };
@@ -135,9 +139,11 @@ export function registerSceneHandlers(ctx) {
   gmLibrary('temp_npc_folder:delete', (p) => scenes.tempNpcFolders.remove(db, p.id));
 
   gmLibrary('temp_npc:create', async (p) => ({ id: await scenes.createTempNpc(db, p) }));
-  gmLibrary('temp_npc:set_size', async (p) => {
+  on('temp_npc:set_size', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change a size.');
     await scenes.setTempNpcSize(db, p.id, p.size);
     await broadcastStage();
+    await broadcastLibrary();
   });
   gmLibrary('temp_npc:rename', async (p) => {
     await scenes.renameTempNpc(db, p.id, p.name);
@@ -203,8 +209,7 @@ export function registerSceneHandlers(ctx) {
   });
 
   on('stage:dismiss', { needsIdentity: true }, async (p) => {
-    if (isDisplay()) throw new AppError('forbidden', 'The Display Screen cannot dismiss.');
-    if (!isGm()) {
+    if (!isGm() && !isDisplay()) {
       const owner = await scenes.summonOwner(db, p.id);
       if (owner.kind !== 'character' || owner.id !== identity().characterId) {
         throw new AppError('forbidden', 'You can only dismiss your own character.');
@@ -214,7 +219,9 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
   });
 
-  on('stage:update', { gmOnly: true }, async (p) => {
+  // The token menu's Token Settings and Hide: the GM and the Display.
+  on('stage:update', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change a figure.');
     await scenes.updateSummon(db, p.id, { pictureId: p.pictureId, scale: p.scale, hidden: p.hidden });
     await broadcastStage();
   });
@@ -265,12 +272,24 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
     return { id };
   });
-  on('battle:remove', { gmOnly: true }, async (p) => {
+  // Token menu: the GM and the Display can do everything; a player can only set the height of their own PC.
+  on('battle:remove', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can remove a token.');
     await battle.removeToken(db, p.id);
     for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });
-  on('battle:update', { gmOnly: true }, async (p) => {
+  // A player's own PC: true when the token is that character's.
+  async function ownsToken(tokenId) {
+    if (!isPlayer()) return false;
+    const t = await battle.getToken(db, tokenId);
+    return t.ownerKind === 'character' && t.ownerId === identity().characterId;
+  }
+  on('battle:update', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) {
+      const heightOnly = p.pictureId === undefined && p.hidden === undefined && p.height !== undefined;
+      if (!heightOnly || !(await ownsToken(p.id))) throw new AppError('forbidden', 'You can only change the height of your own character.');
+    }
     await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height });
     if (p.hidden === true) for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
@@ -282,7 +301,9 @@ export function registerSceneHandlers(ctx) {
 
   // Dragging is free: it never changes AP or Movement. The GM and the Display can do it.
   on('battle:place', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can move tokens by dragging.');
+    if (!isGm() && !isDisplay() && !(await ownsToken(p.id))) {
+      throw new AppError('forbidden', 'You can only move your own character by dragging.');
+    }
     await battle.placeToken(db, p.id, p.col, p.row);
     await broadcastStage();
   });
@@ -344,9 +365,9 @@ export function registerSceneHandlers(ctx) {
   };
 
   // A chat line from the tracker. Lines about hidden tokens are never sent (they would give them away).
-  function say(text, token) {
+  function say(m, token) {
     if (token?.hidden) return;
-    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: 'Combat' }, text });
+    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: T('Combat') }, ...chatLine(typeof m === 'string' ? { key: m } : m) });
     io.to(CHAT_ROOM).emit('chat:message', message);
   }
 
@@ -360,7 +381,7 @@ export function registerSceneHandlers(ctx) {
     const entry = combat.activeEntry(c);
     if (!entry) return;
     const token = await battle.getToken(db, entry.tokenId);
-    say(`Round ${c.round}: ${token.name}'s turn.`, token);
+    say({ key: "Round {round}: {name}'s turn.", params: { round: c.round, name: token.name } }, token);
     if (entry.ownerKind !== 'character') return;
     let lines = [];
     const sheet = await sheets.updateSheet(db, entry.ownerId, (s) => {
@@ -416,7 +437,7 @@ export function registerSceneHandlers(ctx) {
     } else {
       const n = rollD20();
       combat.setInitiative(c, entry.tokenId, n);
-      say(`${token.name} rolls Initiative: ${n}.`, token);
+      say({ key: '{name} rolls Initiative: {n}.', params: { name: token.name, n } }, token);
     }
   }
 
@@ -435,7 +456,7 @@ export function registerSceneHandlers(ctx) {
     if (sceneId == null) throw new AppError('no_scene', 'There is no active scene.');
     const tokens = await battle.listTokens(db, sceneId, { forGm: true });
     shared.combat = combat.newCombat(sceneId, tokens);
-    say('Combat begins. Roll for Initiative.');
+    say({ key: 'Combat begins. Roll for Initiative.' });
   });
 
   // A player rolls their own PC; the GM can roll anyone (and re-roll).
@@ -469,7 +490,7 @@ export function registerSceneHandlers(ctx) {
   gmCombat('combat:begin', async () => {
     const c = requireCombat();
     combat.begin(c);
-    say('Combat begins. Round 1.');
+    say({ key: 'Combat begins. Round 1.' });
     await beginTurn(c);
   });
 
@@ -510,7 +531,7 @@ export function registerSceneHandlers(ctx) {
   gmCombat('combat:end', async () => {
     const c = requireCombat();
     for (const entry of c.order) await battle.clearBank(db, entry.tokenId).catch(() => {});
-    say(c.phase === 'active' ? `Combat ends after ${c.round} round${c.round === 1 ? '' : 's'}.` : 'Combat cancelled.');
+    say(c.phase === 'active' ? { key: 'Combat ends after {n} round(s).', params: { n: c.round } } : { key: 'Combat cancelled.' });
     shared.combat = null;
   });
 

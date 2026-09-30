@@ -19,9 +19,9 @@ export function makeFolders({ folderTable, itemTable, itemFolderColumn = 'folder
   }
 
   async function require(db, id) {
-    if (!Number.isInteger(id)) throw new AppError('bad_id', `Invalid ${label}.`);
+    if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid folder.');
     const f = await get(db, id);
-    if (!f) throw new AppError('not_found', `That ${label} no longer exists.`);
+    if (!f) throw new AppError('not_found', 'That folder no longer exists.');
     return f;
   }
 

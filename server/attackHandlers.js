@@ -4,6 +4,8 @@ import * as sheets from './sheet.js';
 import * as scenes from './scenes.js';
 import { buildRoll } from './rolls.js';
 import { AppError } from './errors.js';
+import { line as chatLine } from './i18n.js';
+import { T } from '../shared/localization.js';
 import * as D from '../shared/rules-data.js';
 
 // Socket events for attacks. See server/attack.js for the flow.
@@ -15,8 +17,8 @@ export function registerAttackHandlers(ctx) {
   const { GM_ROOM, CHAT_ROOM } = rooms;
   const pending = shared.attacks;
 
-  const say = (text) => {
-    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: 'Combat' }, text });
+  const say = (m) => {
+    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: T('Combat') }, ...chatLine(m) });
     io.to(CHAT_ROOM).emit('chat:message', message);
   };
   const get = (id) => {
@@ -31,7 +33,7 @@ export function registerAttackHandlers(ctx) {
     if (!Number.isInteger(p.ap) || p.ap < 1 || p.ap > 2) throw new AppError('bad_value', 'A basic attack costs 1 or 2 AP.');
     if (p.defence !== 'physical' && p.defence !== 'mental') throw new AppError('bad_value', 'Choose Physical or Mental Defence.');
     const sheet = await sheets.getSheet(db, c.id);
-    if (sheet.ap.current < p.ap) throw new AppError('no_ap', `Not enough AP: this attack costs ${p.ap} and you have ${sheet.ap.current}.`);
+    if (sheet.ap.current < p.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: p.ap, have: sheet.ap.current });
     const picked = [...(shared.targets.get(c.id) ?? [])];
     if (!picked.length) throw new AppError('no_target', 'Select at least one target first.');
     const infos = [];
@@ -114,7 +116,7 @@ export function registerAttackHandlers(ctx) {
     pending.delete(p.id);
     try {
       const { lines } = await attack.applyAttack(db, entry, clean, { emitSheet });
-      for (const l of lines) if (!l.hidden) say(l.text);
+      for (const l of lines) if (!l.hidden) say(l.message);
     } catch (err) {
       pending.set(p.id, entry);
       throw err;

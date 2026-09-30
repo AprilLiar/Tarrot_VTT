@@ -15,7 +15,7 @@ Statuses: `decided`, `open`, `implemented`.
 4. [Roles and access model](#roles-and-access-model)
 5. [Experience variants](#experience-variants)
 6. [Game rules](#game-rules)
-7. [Feature design](#feature-design)
+7. [Feature design](#feature-design) (including [Settings and languages](#settings-and-languages-implemented))
 8. [Data model](#data-model)
 9. [Real-time events](#real-time-events)
 10. [Phases](#phases)
@@ -48,6 +48,9 @@ Repository layout:
 | `server/scenes.js`, `server/sceneHandlers.js`, `server/images.js`, `server/folders.js` | Scenes, stage, temp NPCs, pictures, image storage, generic folder trees. |
 | `server/audio.js`, `server/audioHandlers.js` | Playlists, the anchored player state, YouTube link parsing, socket events. |
 | `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
+| `LOCALIZATION.md` | The Localization Mapping: every text of the app in English and Russian (a table to read and fix by hand). |
+| `shared/localization.js`, `server/i18n.js`, `client/src/i18n.jsx` | Reading the table, translating with `{placeholders}`, the per-socket language on the server, the language context on the client. |
+| `scripts/i18n-keys.mjs`, `scripts/i18n-sync.mjs` | Find every text the code asks to translate; `npm run i18n` keeps `LOCALIZATION.md` in step. |
 | `server/db.js` | libSQL client, `initSchema` (idempotent, one batch). |
 | `server/index.js` | Boot: connect DB, init schema, listen on `$PORT` (default 3001). |
 | `server/test/` | Vitest tests (in-memory DB, ephemeral port). |
@@ -376,6 +379,30 @@ Implemented behaviour (Phase 3):
   nothing. Pending offers are held in server memory and are lost on restart. The GM's Send moves
   an item between any two characters at once, with no confirmation.
 
+### Settings and languages (implemented)
+Decided:
+- **Settings** are local to the device (browser storage, like the remembered identity) and reached with
+  a **Settings** button on the picker (the login screen), before anyone is chosen. On the Display the
+  way there is Switch, then Settings. They hold one setting for now: the **language**.
+- **Languages:** English and Russian. A first visit uses the browser's language (Russian if it starts
+  with "ru", otherwise English); the choice is then remembered (`tarrot.lang`). Everything a person
+  reads is translated: the interface, the game terms (stats, skills, statuses and their rule text,
+  damage types, roll titles), server error messages and the Combat and attack lines in the chat, each
+  shown in the language of whoever reads it (the client tells the server its language with `lang:set`;
+  chat lines travel as `{ key, params }`). Not translated: names typed by people (characters, items,
+  scenes, tracks) and this README.
+- **The Localization Mapping** is `LOCALIZATION.md` in the repository: a Markdown table `English |
+  Russian`, grouped by part of the app. The English text is the row's key. It is the only source of the
+  Russian text: the page is built with it and the server reads it at start, so a fix made on GitHub
+  goes live with the next deploy (a fetch from GitHub at run time was considered and not chosen).
+  A missing translation shows the English text.
+- **Keeping it complete:** whenever something visible is added, both languages are added in the same
+  change (rule in `CLAUDE.md`). `npm run i18n` adds rows for new texts; `server/test/localization.test.js`
+  fails when a text has no Russian row, a row is empty, or the `{placeholders}` differ, and checks that
+  every roll title and formula term is covered. Russian terms are my first draft (for example Сила,
+  Ловкость, Интеллект, Дух, Удача; ОД for AP, ОЗ for HP, "Преимущество" and "Помеха" for Advantage and
+  Disadvantage); fix them in the table.
+
 ### Chat log (implemented in Phase 3)
 - A global log every identified person can read and write to. Every roll from any sheet is posted.
 - Held in server memory only: it clears itself whenever the server instance restarts. Only the GM
@@ -391,6 +418,7 @@ Implemented behaviour (Phase 3):
   way when the kept die is a 20 or a 1. A natural 20 shows "Critical" and a natural 1 shows "Critical
   Failure" on every d20 roll (the Exposed status is not applied automatically). (decided)
 - Damage will get its own breakdown of the same shape when attacks arrive in Phase 6. (decided)
+- Roll cards keep the English names in the data; each reader sees them translated (see Settings and languages).
 - **Popups:** while the chat is closed, every new message (text or roll, one line) rises from the
   bottom right corner above the Chat button, stays for two seconds and fades out by itself.
   Several messages stack upwards and never overlap. With the chat open there are no popups.
@@ -444,11 +472,19 @@ Decided:
   Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
   Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
-  token for its circles: **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove**
-  (**Remove** takes the token off the map). **Set Height** is the number of Spaces the character is
-  in the air (0 to 99); it shows as "+X sp." above the token for everyone and changes nothing else
-  yet.
-- **Dragging** a token (GM and Display) is free and snaps to a square for everyone; it costs no
+  token for its circles, standing on the two sides of the token (up to two per side, each column
+  centred on the middle of the token; next to a screen edge the column moves beside the other one):
+  **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove** (takes the token off the map).
+  **Set Height** is the number of Spaces the character is in the air (0 to 99), changed with **Up**,
+  **Down** and **Reset** buttons (no typing; every press is saved at once); it shows as "+X sp." above
+  the token for everyone and changes nothing else yet. The same buttons sit on the character
+  sheet next to Movement and Size while the character has a token on the active Battle map.
+  **Who:** the GM and the **Display Screen** get every circle (in Scene mode: Token Settings,
+  Hide/Reveal and Remove); a desktop player gets only **Set Height** and only for their own
+  character. Controls on the Display and in Scene and Battle are meant to be usable with the mouse
+  alone. (decided) A token or figure the Display hides is gone from the Display too, so only the
+  GM can reveal it again.
+- **Dragging** a token (GM, Display, and a player for their own character) is free and snaps to a square for everyone; it costs no
   movement.
 - **Tools** (GM and Display): Move, Draw, Ping, Ruler, Area, Erase, on a **static bar** on the left
   (it never moves or changes size). Picking a tool opens its options in a separate panel to the right
@@ -457,7 +493,8 @@ Decided:
     the part of a drawing under it, splitting the drawing where it is cut; **Clean** removes all
     drawings.
   - **Area:** circle, cone (90 degrees), **arc** (a 180 degree cone), line and square templates sized
-    in squares and rotated by dragging; **Clean** removes all areas.
+    in squares (with up and down arrows to the right of the number field, usable on a touch
+    screen) and rotated by dragging; **Clean** removes all areas.
   - **Erase:** click any drawing or area to remove it whole.
   - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
     Display alike (a decision of mine: they share the same tools).
@@ -664,6 +701,9 @@ All client-to-server events use an ack of the form `{ ok: true, ... }` or
 Implemented:
 
 - `ping:check`: replies `{ ok: true, echo }`. Connectivity check.
+- `lang:set` `{ lang: 'en' | 'ru' }`: the language of this socket; error texts in acks and (for the
+  client) chat lines are written in it. Unknown languages are ignored. Errors are `{ ok: false, code, error }`
+  with `error` already in that language; chat text lines carry `{ text (English), key, params }`.
 - `identity:set` `{ role: 'gm' }` or `{ role: 'player', characterId }`: any socket. Fails with
   code `gone` if the character does not exist or is an NPC.
 - `identity:clear`: drops identity and GM rights.
@@ -704,7 +744,7 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
 - GM only: `scene:create` `{ name, folderId?, data? }`, `scene:rename`, `scene:move`,
   `scene:set_image` `{ id, data }`, `scene:delete`, `scene:activate` `{ id | null }`,
   `scene_folder:*` and `temp_npc_folder:*` (create, rename, move, delete), `temp_npc:*` (create,
-  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }`.
+  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }` (GM and Display).
 - `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
   for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
 - `stage:summon` `{ owner, pictureId? }` and `stage:dismiss` `{ id }`: the GM for anyone; a player
@@ -735,9 +775,9 @@ Battle (Phase 5a):
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
 - GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
-  `{ id }`, `battle:update` `{ id, pictureId?, hidden?, height? }`, `battle:clear_bank` `{ id }`,
+  `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height? }` (GM and Display; a player only `height`, for their own PC), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.
-- GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
+- GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
   `mark:remove` `{ id }`, `mark:clear` `{ kind? }` (Clean), `mark:erase` `{ x, y, r }` (the eraser: picture
   fractions and a radius in picture widths; splits the drawings it cuts), `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
   `battle:pinged`.
@@ -815,6 +855,9 @@ Each phase ends in a deploy and playtest checkpoint.
      `e2e/battle.spec.js`.
    - **6b Arcane** (planned, needs the magic rules): Arcane browser, sandbox, spell builder,
      spontaneous-casting tables, Enhancements.
+7. **Settings and Russian** (implemented, added after the playtest): Settings on the picker with a
+   language selector, the whole app in English and Russian, and `LOCALIZATION.md`. Covered by
+   `server/test/localization.test.js` and `e2e/language.spec.js`.
 
 ## Open questions
 

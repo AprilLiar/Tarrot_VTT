@@ -1,6 +1,7 @@
 import * as D from '../shared/rules-data.js';
 import { apMax, normalizeSheet } from './sheet.js';
 import { applyResistance } from '../shared/damage.js';
+import { joinMsgs } from '../shared/localization.js';
 import { AppError } from './errors.js';
 
 // The combat tracker. The state lives in server memory (`shared.combat`) and is tied to the
@@ -111,28 +112,36 @@ export { applyResistance };
 
 // Start of a character's turn: Bleeding (true damage) and Burning (fire, through the resistance
 // table) hurt, and Stunned X and Surprised lower the AP they start with.
-// -> { sheet, lines }  (`lines` are the chat lines, with the numbers and where they came from)
+// -> { sheet, lines }  (`lines` are chat messages { key, params }, with the numbers and where they came from)
 export function startOfTurn(sheet, name) {
   const next = structuredClone(sheet);
   const lines = [];
-  const hurt = (amount, label, detail) => {
+  const hurt = (amount, source, detail) => {
     const before = next.hp.current;
     next.hp.current = Math.max(0, before - amount);
-    lines.push(`${name} takes ${amount} damage from ${label}${detail ? ` (${detail})` : ''}. HP ${before} to ${next.hp.current}.`);
+    lines.push({
+      key: '{name} takes {amount} damage from {source} ({detail}). HP {from} to {to}.',
+      params: { name, amount, source, detail, from: before, to: next.hp.current },
+    });
   };
   const bleeding = next.statuses?.bleeding ?? 0;
-  if (bleeding > 0) hurt(bleeding, `Bleeding ${bleeding}`, 'true damage');
+  if (bleeding > 0) hurt(bleeding, { t: `Bleeding ${bleeding}` }, { key: 'true damage' });
   const burning = next.statuses?.burning ?? 0;
   if (burning > 0) {
     const out = applyResistance(next.resistances?.fire, burning);
+    const source = { t: `Burning ${burning}` };
+    const detail = joinMsgs([{ t: 'Fire' }, ...out.steps]);
     if (out.heal > 0) {
       const before = next.hp.current;
       next.hp.current = Math.min(next.hp.max, before + out.heal);
-      lines.push(`${name} is healed ${out.heal} by Burning ${burning} (${out.steps.join(', ')}). HP ${before} to ${next.hp.current}.`);
+      lines.push({
+        key: '{name} is healed {n} by {source} ({detail}). HP {from} to {to}.',
+        params: { name, n: out.heal, source, detail, from: before, to: next.hp.current },
+      });
     } else if (out.damage > 0) {
-      hurt(out.damage, `Burning ${burning}`, ['fire', ...out.steps].join(', '));
+      hurt(out.damage, source, detail);
     } else {
-      lines.push(`${name} takes no damage from Burning ${burning} (${out.steps.join(', ') || 'fire'}).`);
+      lines.push({ key: '{name} takes no damage from {source} ({detail}).', params: { name, source, detail } });
     }
   }
   const stunned = next.statuses?.stunned ?? 0;
@@ -140,10 +149,13 @@ export function startOfTurn(sheet, name) {
   if (stunned + surprised > 0) {
     const max = apMax(next);
     next.ap.current = Math.max(0, max - stunned - surprised);
-    const parts = [];
-    if (stunned) parts.push(`Stunned ${stunned}`);
-    if (surprised) parts.push('Surprised 2');
-    lines.push(`${name} starts with ${next.ap.current} AP instead of ${max} (${parts.join(', ')}).`);
+    const reasons = [];
+    if (stunned) reasons.push({ t: `Stunned ${stunned}` });
+    if (surprised) reasons.push({ t: 'Surprised 2' });
+    lines.push({
+      key: '{name} starts with {ap} AP instead of {max} ({reasons}).',
+      params: { name, ap: next.ap.current, max, reasons: joinMsgs(reasons) },
+    });
   }
   return { sheet: normalizeSheet(next), lines };
 }

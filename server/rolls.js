@@ -12,7 +12,7 @@ export { formatExpression };
 
 export function buildRoll(sheet, request, rng = rollD20) {
   const plan = planRoll(sheet, request);
-  if (!plan.ok) throw new AppError('bad_roll', plan.error);
+  if (!plan.ok) throw new AppError('bad_roll', plan.error, plan.params);
 
   const dice = Array.from({ length: plan.diceCount }, () => rng());
   const natural = plan.net < 0 ? Math.min(...dice) : Math.max(...dice);

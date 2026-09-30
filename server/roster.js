@@ -32,13 +32,13 @@ export function cleanName(value) {
   const name = value.trim();
   if (!name) throw new RosterError('bad_name', 'A name is required.');
   if (name.length > NAME_MAX) {
-    throw new RosterError('bad_name', `Names can be at most ${NAME_MAX} characters.`);
+    throw new RosterError('bad_name', 'Names can be at most {max} characters.', { max: NAME_MAX });
   }
   return name;
 }
 
 function cleanId(value, what) {
-  if (!Number.isInteger(value)) throw new RosterError('bad_id', `Invalid ${what}.`);
+  if (!Number.isInteger(value)) throw new RosterError('bad_id', 'Invalid id.');
   return value;
 }
 

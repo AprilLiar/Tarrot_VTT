@@ -240,8 +240,12 @@ describe('tokens', () => {
     expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 4, row: 3, bank: 0 });
     expect(await g.call('battle:place', { id, col: 10, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
     expect(await g.call('battle:place', { id, col: 1.5, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    // A player drags their own character freely, but nobody else's.
     const p = await player(a);
-    expect(await p.call('battle:place', { id, col: 0, row: 0 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await p.call('battle:place', { id, col: 0, row: 0 })).ok).toBe(true);
+    const b = await withPicture(g, 'Bob');
+    const bt = (await g.call('battle:add', { characterId: b })).id;
+    expect(await p.call('battle:place', { id: bt, col: 1, row: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
   });
 
   it('never sends hidden tokens to players or the Display, and drops their targets', async () => {
@@ -433,7 +437,17 @@ describe('height', () => {
     expect((await stageOf(d)).battle.tokens[0].height).toBe(3);
     expect(await g.call('battle:update', { id: t, height: -1 })).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await g.call('battle:update', { id: t, height: 1.5 })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await d.call('battle:update', { id: t, height: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
+    // The Display has the whole menu; a player only the height of their own character.
+    expect((await d.call('battle:update', { id: t, height: 1 })).ok).toBe(true);
+    const own = await player(a);
+    const other = await player(await withPicture(g, 'Bob'));
+    expect((await own.call('battle:update', { id: t, height: 2 })).ok).toBe(true);
+    expect((await stageOf(d)).battle.tokens[0].height).toBe(2);
+    expect(await own.call('battle:update', { id: t, hidden: true })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await own.call('battle:update', { id: t, height: 2, hidden: true })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await other.call('battle:update', { id: t, height: 5 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await own.call('battle:remove', { id: t })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await d.call('battle:remove', { id: t })).ok).toBe(true);
   });
 });
 

@@ -15,6 +15,18 @@ export const DAMAGE_KINDS = [...D.DAMAGE_TYPES, 'true']; // 'true' ignores resis
 
 export const SEVERITY_LABELS = { miss: 'Miss', hit: 'Hit', heavy: 'Heavy Hit', brutal: 'Brutal Hit' };
 
+// The label of a hit result as a message parameter: { t: 'Heavy Hit' } or a nested Critical Hit message.
+export function hitParam(result) {
+  const name = { t: SEVERITY_LABELS[result.severity] };
+  return result.critical ? { key: 'Critical Hit ({severity})', params: { severity: name } } : name;
+}
+
+// The label of a hit result in a language: t is a translator, (text, params) -> string.
+export function hitLabel(result, t) {
+  const name = t(SEVERITY_LABELS[result.severity]);
+  return result.critical ? t('Critical Hit ({severity})', { severity: name }) : name;
+}
+
 // -> { difference, severity, critical, hit, bonus, label }
 export function hitResult({ total, natural, defence, critThreshold = DEFAULT_CRIT }) {
   const difference = total - defence;
@@ -30,24 +42,27 @@ export function hitResult({ total, natural, defence, critThreshold = DEFAULT_CRI
 
 // Flat resistance first (positive takes less, negative takes more), then Half and Double.
 // Immunity takes nothing. Consumption takes nothing and heals half of the raw damage.
-// -> { damage, heal, steps }  (`steps` explains the number)
+// -> { damage, heal, steps }  (`steps` explain the number; each is a message { key, params })
 export function applyResistance(res, raw) {
   const r = res ?? { flat: 0, half: false, double: false, immunity: false, consumption: false };
-  if (r.consumption) return { damage: 0, heal: Math.round(raw / 2), steps: [`Consumption: heals ${Math.round(raw / 2)}`] };
-  if (r.immunity) return { damage: 0, heal: 0, steps: ['Immune'] };
+  if (r.consumption) {
+    const n = Math.round(raw / 2);
+    return { damage: 0, heal: n, steps: [{ key: 'Consumption: heals {n}', params: { n } }] };
+  }
+  if (r.immunity) return { damage: 0, heal: 0, steps: [{ key: 'Immune' }] };
   const steps = [];
   let v = raw;
   if (r.flat) {
     v = Math.max(0, v - r.flat);
-    steps.push(`Resistance ${r.flat}: ${v}`);
+    steps.push({ key: 'Resistance {flat}: {v}', params: { flat: r.flat, v } });
   }
   if (r.half) {
     v = Math.round(v / 2);
-    steps.push(`Half: ${v}`);
+    steps.push({ key: 'Half: {v}', params: { v } });
   }
   if (r.double) {
     v *= 2;
-    steps.push(`Double: ${v}`);
+    steps.push({ key: 'Double: {v}', params: { v } });
   }
   return { damage: v, heal: 0, steps };
 }

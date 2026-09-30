@@ -5,11 +5,12 @@ import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { cellAt, cellToUnits, distanceSquares, dropCell, templateShape, toUnits } from '../../lib/battleMath.js';
-import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
+import Dialog, { btn, btnDanger } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
-import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
+import { HeightControl } from './HeightControl.jsx';
 import { CombatBar } from './CombatBar.jsx';
+import { useT } from '../../i18n.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -19,20 +20,21 @@ const RING = { pc: '#34d399', npc: '#f87171', prop: '#94a3b8' };
 const DRAG_THRESHOLD = 6;
 
 function TokenSettings({ token, onClose }) {
+  const t = useT();
   const { toast } = useApp();
   const owner = token.ownerKind === 'character' ? { characterId: token.ownerId } : { tempNpcId: token.ownerId };
   const pictures = usePictures(owner);
   return (
-    <Dialog title={`Token Settings: ${token.name}`} onClose={onClose}>
+    <Dialog title={t('Token Settings: {name}', { name: token.name })} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <div className="mb-1 text-sm opacity-70">Picture</div>
+          <div className="mb-1 text-sm opacity-70">{t('Picture')}</div>
           <div className="grid grid-cols-4 gap-2">
             {pictures?.map((p) => (
               <button
                 key={p.id}
                 data-testid="pick-token-picture"
-                aria-label={p.name || 'Picture'}
+                aria-label={p.name || t('Picture')}
                 aria-pressed={p.id === token.pictureId}
                 className={`flex h-20 items-center justify-center overflow-hidden rounded bg-white/5 ${p.id === token.pictureId ? 'ring-2 ring-violet-500' : ''}`}
                 onClick={async () => {
@@ -46,8 +48,8 @@ function TokenSettings({ token, onClose }) {
           </div>
         </div>
         <p className="text-sm opacity-70">
-          Size: {token.size} x {token.size} squares (set on the character sheet or the temp NPC).
-          {token.ownerKind === 'character' && ` Banked Movement: ${token.bank}.`}
+          {t('Size: {n} x {n} squares (set on the character sheet or the temp NPC).', { n: token.size })}
+          {token.ownerKind === 'character' && ` ${t('Banked Movement: {n}.', { n: token.bank })}`}
         </p>
         <div className="flex flex-wrap justify-between gap-2">
           <button
@@ -58,15 +60,15 @@ function TokenSettings({ token, onClose }) {
               onClose();
             }}
           >
-            Remove from the map
+            {t('Remove from the map')}
           </button>
           {token.ownerKind === 'character' && (
             <button className={btn} onClick={() => call('battle:clear_bank', { id: token.id })}>
-              Clear banked Movement
+              {t('Clear banked Movement')}
             </button>
           )}
           <button className={btn} onClick={onClose}>
-            Close
+            {t('Close')}
           </button>
         </div>
       </div>
@@ -75,6 +77,7 @@ function TokenSettings({ token, onClose }) {
 }
 
 function GridPanel({ scene, battle, onClose }) {
+  const t = useT();
   const { toast } = useApp();
   const [g, setG] = useState(battle.grid);
   const timer = useRef(null);
@@ -108,56 +111,34 @@ function GridPanel({ scene, battle, onClose }) {
   return (
     <div className="absolute bottom-16 left-2 z-30 w-72 rounded-xl bg-[#1a1626]/95 p-3 shadow-xl" data-no-pan data-testid="grid-panel">
       <div className="mb-2 flex items-center justify-between">
-        <strong>Grid</strong>
+        <strong>{t('Grid')}</strong>
         <button className={`${btn} min-h-9 px-3`} onClick={onClose}>
-          Close
+          {t('Close')}
         </button>
       </div>
       <p className="mb-2 text-xs opacity-70" data-testid="grid-size">
-        {battle.cols} x {battle.rows} squares. Line the grid up with the map; sizes are a share of the picture's width.
+        {t("{cols} x {rows} squares. Line the grid up with the map; sizes are a share of the picture's width.", { cols: battle.cols, rows: battle.rows })}
       </p>
       <div className="flex flex-col gap-2">
-        {row('Square size', 'cell', 0.01, 0.3, 0.001)}
-        {row('Shift right', 'ox', 0, 0.3, 0.001)}
-        {row('Shift down', 'oy', 0, 0.3, 0.001)}
+        {row(t('Square size'), 'cell', 0.01, 0.3, 0.001)}
+        {row(t('Shift right'), 'ox', 0, 0.3, 0.001)}
+        {row(t('Shift down'), 'oy', 0, 0.3, 0.001)}
       </div>
     </div>
   );
 }
 
-// How many Spaces a character is in the air. It shows as "+X sp." above the token.
+// How many Spaces a character is in the air ("+X sp." above the token): Up, Down and Reset buttons.
 function HeightDialog({ token, onClose }) {
-  const { toast } = useApp();
-  const [value, setValue] = useState(String(token.height));
-  const valid = isWholeNumber(value) && Number(value) >= 0 && Number(value) <= 99;
-  async function save() {
-    const r = await call('battle:update', { id: token.id, height: Number(value) });
-    if (!r.ok) toast(r.error);
-    else onClose();
-  }
+  const t = useT();
   return (
-    <Dialog title={`Height: ${token.name}`} onClose={onClose}>
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) save();
-        }}
-      >
-        <label className="flex flex-col gap-1 text-sm">
-          Spaces in the air (0 for the ground)
-          <IntInput label="Height in Spaces" value={value} onChange={setValue} />
-        </label>
-        {!valid && <p className="text-sm text-red-400">Use a whole number from 0 to 99.</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className={btn} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className={btnPrimary} disabled={!valid} data-testid="height-set">
-            Set
-          </button>
-        </div>
-      </form>
+    <Dialog title={t('Height: {name}', { name: token.name })} onClose={onClose}>
+      <div className="flex flex-col items-center gap-4">
+        <HeightControl token={token} />
+        <button className={btn} data-testid="height-close" onClick={onClose}>
+          {t('Close')}
+        </button>
+      </div>
     </Dialog>
   );
 }
@@ -169,9 +150,14 @@ function Ping({ ping, unit }) {
 }
 
 export default function BattleView() {
+  const t = useT();
   const { identity, stage, toast } = useApp();
   const isGm = identity.role === 'gm';
   const tools = isGm || identity.role === 'display';
+  // A player drags and opens the menu for their own character only; the GM and the Display for everyone.
+  const isOwn = (tk) => identity.role === 'player' && tk.ownerKind === 'character' && tk.ownerId === identity.characterId;
+  const canDragToken = (tk) => tools || isOwn(tk);
+  const canOpenMenu = (tk) => tools || isOwn(tk);
   const battle = stage.battle;
   const scene = stage.scene;
   const { ref, view, bind, zoomBy, reset } = useZoomPan();
@@ -214,7 +200,11 @@ export default function BattleView() {
     return () => socket.off('battle:pinged', onPing);
   }, []);
 
-  const menuToken = menu && battle?.tokens.find((t) => t.id === menu.id);
+  const menuToken = menu && battle?.tokens.find((tk) => tk.id === menu.id);
+  const openHeight = () => {
+    setHeightFor(menu.id);
+    setMenu(null);
+  };
 
   // Picture fractions under a pointer.
   function toFractions(e) {
@@ -303,43 +293,43 @@ export default function BattleView() {
 
   // ---- dragging tokens (GM and Display) -------------------------------------------
   const dragState = useRef(null);
-  function tokenDown(e, t) {
+  function tokenDown(e, tk) {
     if (e.button === 2) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragState.current = { id: t.id, x: e.clientX, y: e.clientY, moved: false };
+    dragState.current = { id: tk.id, x: e.clientX, y: e.clientY, moved: false };
   }
-  function tokenMove(e, t) {
+  function tokenMove(e, tk) {
     const d = dragState.current;
-    if (!d || d.id !== t.id || !tools) return;
+    if (!d || d.id !== tk.id || !canDragToken(tk)) return;
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_THRESHOLD) return;
     d.moved = true;
     const f = toFractions(e);
-    setDrag({ id: t.id, u: f.u, v: f.v });
+    setDrag({ id: tk.id, u: f.u, v: f.v });
   }
-  async function tokenUp(e, t) {
+  async function tokenUp(e, tk) {
     const d = dragState.current;
     dragState.current = null;
-    if (!d || d.id !== t.id) return;
-    if (d.moved && tools) {
+    if (!d || d.id !== tk.id) return;
+    if (d.moved && canDragToken(tk)) {
       const f = toFractions(e);
       setDrag(null);
-      const cell = dropCell(f.u, f.v, t.size, battle.grid, aspect, battle.cols, battle.rows);
-      const r = await call('battle:place', { id: t.id, ...cell });
+      const cell = dropCell(f.u, f.v, tk.size, battle.grid, aspect, battle.cols, battle.rows);
+      const r = await call('battle:place', { id: tk.id, ...cell });
       if (!r.ok) toast(r.error);
-    } else if (!d.moved && isGm) {
-      setMenu({ id: t.id, anchor: e.currentTarget });
+    } else if (!d.moved && canOpenMenu(tk)) {
+      setMenu({ id: tk.id, anchor: e.currentTarget });
     }
   }
 
   const cellPx = (v) => `${v * 100}%`;
-  const tokenBox = (t) => {
-    const pos = drag?.id === t.id ? dropCell(drag.u, drag.v, t.size, battle.grid, aspect, battle.cols, battle.rows) : { col: t.col, row: t.row };
+  const tokenBox = (tk) => {
+    const pos = drag?.id === tk.id ? dropCell(drag.u, drag.v, tk.size, battle.grid, aspect, battle.cols, battle.rows) : { col: tk.col, row: tk.row };
     return {
       left: cellPx(battle.grid.ox + pos.col * battle.grid.cell),
       top: cellPx(battle.grid.oy + pos.row * battle.grid.cell * aspect),
-      width: cellPx(t.size * battle.grid.cell),
-      height: cellPx(t.size * battle.grid.cell * aspect),
+      width: cellPx(tk.size * battle.grid.cell),
+      height: cellPx(tk.size * battle.grid.cell * aspect),
     };
   };
 
@@ -472,47 +462,47 @@ export default function BattleView() {
               })}
             </svg>
 
-            {battle.tokens.map((t) => (
+            {battle.tokens.map((tk) => (
               <div
-                key={t.id}
+                key={tk.id}
                 data-testid="battle-token"
-                data-name={t.name}
-                data-kind={t.kind}
-                data-hidden={t.hidden ? 'true' : 'false'}
-                data-col={t.col}
-                data-row={t.row}
-                data-size={t.size}
-                data-height={t.height}
-                data-targeted={t.targetedBy.length > 0 ? 'true' : 'false'}
+                data-name={tk.name}
+                data-kind={tk.kind}
+                data-hidden={tk.hidden ? 'true' : 'false'}
+                data-col={tk.col}
+                data-row={tk.row}
+                data-size={tk.size}
+                data-height={tk.height}
+                data-targeted={tk.targetedBy.length > 0 ? 'true' : 'false'}
                 data-no-pan
-                className={`absolute select-none ${t.hidden ? 'opacity-50' : ''} ${tools && tool === 'select' ? 'cursor-grab' : ''}`}
-                style={{ ...tokenBox(t), zIndex: drag?.id === t.id ? 20 : 5, pointerEvents: tool === 'select' || !tools ? 'auto' : 'none', touchAction: 'none' }}
-                onPointerDown={(e) => tokenDown(e, t)}
-                onPointerMove={(e) => tokenMove(e, t)}
-                onPointerUp={(e) => tokenUp(e, t)}
+                className={`absolute select-none ${tk.hidden ? 'opacity-50' : ''} ${canDragToken(tk) && tool === 'select' ? 'cursor-grab' : ''}`}
+                style={{ ...tokenBox(tk), zIndex: drag?.id === tk.id ? 20 : 5, pointerEvents: tool === 'select' || !tools ? 'auto' : 'none', touchAction: 'none' }}
+                onPointerDown={(e) => tokenDown(e, tk)}
+                onPointerMove={(e) => tokenMove(e, tk)}
+                onPointerUp={(e) => tokenUp(e, tk)}
                 onPointerCancel={() => {
                   dragState.current = null;
                   setDrag(null);
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (isGm) setMenu({ id: t.id, anchor: e.currentTarget });
+                  if (canOpenMenu(tk)) setMenu({ id: tk.id, anchor: e.currentTarget });
                 }}
               >
                 <div
                   className="absolute inset-[6%] overflow-hidden rounded-full bg-black/35"
-                  style={{ boxShadow: `0 0 0 ${Math.max(2, ppu * unit * 0.06)}px ${t.targetedBy.length ? '#fbbf24' : RING[t.kind]}` }}
+                  style={{ boxShadow: `0 0 0 ${Math.max(2, ppu * unit * 0.06)}px ${tk.targetedBy.length ? '#fbbf24' : RING[tk.kind]}` }}
                 >
-                  <img src={imageUrl(t.imageId)} alt={t.name} draggable={false} className="h-full w-full object-contain" />
+                  <img src={imageUrl(tk.imageId)} alt={tk.name} draggable={false} className="h-full w-full object-contain" />
                 </div>
-                {t.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
-                {t.height > 0 && (
+                {tk.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
+                {tk.height > 0 && (
                   <div
                     data-testid="token-height"
                     className="pointer-events-none absolute bottom-full left-1/2 mb-px -translate-x-1/2 whitespace-nowrap rounded bg-sky-700/90 px-1 text-white"
                     style={{ fontSize: `calc(var(--map-w) * ${unit * 0.32})` }}
                   >
-                    +{t.height} sp.
+                    {t('+{n} sp.', { n: tk.height })}
                   </div>
                 )}
                 <div
@@ -520,7 +510,7 @@ export default function BattleView() {
                   className="pointer-events-none absolute left-1/2 top-full mt-px -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 text-white"
                   style={{ fontSize: `calc(var(--map-w) * ${unit * 0.32})` }}
                 >
-                  {t.name}
+                  {tk.name}
                 </div>
               </div>
             ))}
@@ -533,31 +523,31 @@ export default function BattleView() {
           <p className="text-lg opacity-70">
             {!scene
               ? isGm
-                ? 'No scene is active. Open Scenes to start one.'
-                : 'Waiting for the GM to start a scene.'
+                ? t('No scene is active. Open Scenes to start one.')
+                : t('Waiting for the GM to start a scene.')
               : isGm
-                ? 'This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map.'
-                : 'The GM has not set up a battle map for this scene yet.'}
+                ? t('This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map.')
+                : t('The GM has not set up a battle map for this scene yet.')}
           </p>
         </div>
       )}
 
       {ruler && (
         <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1 text-lg" data-testid="ruler-distance">
-          {distanceSquares(ruler.a, ruler.b)} squares
+          {t('{n} squares', { n: distanceSquares(ruler.a, ruler.b) })}
         </div>
       )}
 
       {/* Overlays live outside the zoomed world so they stay put. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
         <div className="pointer-events-auto flex gap-1 rounded-full bg-black/50 p-1 backdrop-blur">
-          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label="Zoom out" data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
+          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom out')} data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
             -
           </button>
           <button className="h-10 rounded-full px-3 text-xs active:bg-white/20" data-testid="zoom-reset" onClick={reset}>
             {Math.round(view.scale * 100)}%
           </button>
-          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label="Zoom in" data-testid="zoom-in" onClick={() => zoomBy(1.25)}>
+          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom in')} data-testid="zoom-in" onClick={() => zoomBy(1.25)}>
             +
           </button>
         </div>
@@ -574,12 +564,12 @@ export default function BattleView() {
             data-testid="battle-tools"
           >
             {[
-              ['select', 'Move'],
-              ['draw', 'Draw'],
-              ['ping', 'Ping'],
-              ['ruler', 'Ruler'],
-              ['template', 'Area'],
-              ['erase', 'Erase'],
+              ['select', t('Move')],
+              ['draw', t('Draw')],
+              ['ping', t('Ping')],
+              ['ruler', t('Ruler')],
+              ['template', t('Area')],
+              ['erase', t('Erase')],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -592,11 +582,11 @@ export default function BattleView() {
               </button>
             ))}
             <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={showGrid} data-testid="toggle-grid" onClick={() => setShowGrid(!showGrid)}>
-              Grid {showGrid ? 'on' : 'off'}
+              {showGrid ? t('Grid on') : t('Grid off')}
             </button>
             {isGm && (
               <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="open-grid" onClick={() => setGridOpen(!gridOpen)}>
-                Set grid
+                {t('Set grid')}
               </button>
             )}
           </div>
@@ -608,10 +598,10 @@ export default function BattleView() {
               data-testid="tool-options"
             >
               {tool === 'draw' && (
-                <div className="flex gap-1" role="radiogroup" aria-label="Drawing mode">
+                <div className="flex gap-1" role="radiogroup" aria-label={t('Drawing mode')}>
                   {[
-                    ['pen', 'Pen'],
-                    ['eraser', 'Eraser'],
+                    ['pen', t('Pen')],
+                    ['eraser', t('Eraser')],
                   ].map(([id, label]) => (
                     <button
                       key={id}
@@ -631,7 +621,7 @@ export default function BattleView() {
                   {COLORS.map((c) => (
                     <button
                       key={c}
-                      aria-label={`Colour ${c}`}
+                      aria-label={t('Colour {c}', { c })}
                       aria-pressed={color === c}
                       className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-white' : 'border-transparent'}`}
                       style={{ background: c }}
@@ -643,7 +633,7 @@ export default function BattleView() {
               {tool === 'draw' && (
                 <div className="flex gap-1">
                   {[0.002, 0.004, 0.008].map((wd) => (
-                    <button key={wd} aria-pressed={width === wd} aria-label={drawMode === 'eraser' ? 'Eraser size' : 'Line width'} className={`min-h-8 flex-1 rounded ${width === wd ? 'bg-violet-700' : 'bg-white/10'}`} onClick={() => setWidth(wd)}>
+                    <button key={wd} aria-pressed={width === wd} aria-label={drawMode === 'eraser' ? t('Eraser size') : t('Line width')} className={`min-h-8 flex-1 rounded ${width === wd ? 'bg-violet-700' : 'bg-white/10'}`} onClick={() => setWidth(wd)}>
                       {wd === 0.002 ? 'S' : wd === 0.004 ? 'M' : 'L'}
                     </button>
                   ))}
@@ -651,41 +641,61 @@ export default function BattleView() {
               )}
               {tool === 'draw' && (
                 <>
-                  <span className="opacity-70">{drawMode === 'eraser' ? 'Drag over a drawing to rub it out.' : 'Press and drag to draw.'}</span>
+                  <span className="opacity-70">{drawMode === 'eraser' ? t('Drag over a drawing to rub it out.') : t('Press and drag to draw.')}</span>
                   <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-drawings" onClick={() => call('mark:clear', { kind: 'draw' })}>
-                    Clean
+                    {t('Clean')}
                   </button>
                 </>
               )}
               {tool === 'template' && (
                 <>
-                  <select className="min-h-9 rounded bg-white/10 px-1" aria-label="Shape" data-testid="template-shape" value={shape} onChange={(e) => setShape(e.target.value)}>
-                    <option value="circle">Circle</option>
-                    <option value="cone">Cone</option>
-                    <option value="arc">Arc</option>
-                    <option value="line">Line</option>
-                    <option value="square">Square</option>
+                  <select className="min-h-9 rounded bg-white/10 px-1" aria-label={t('Shape')} data-testid="template-shape" value={shape} onChange={(e) => setShape(e.target.value)}>
+                    <option value="circle">{t('Circle')}</option>
+                    <option value="cone">{t('Cone')}</option>
+                    <option value="arc">{t('Arc')}</option>
+                    <option value="line">{t('Line')}</option>
+                    <option value="square">{t('Square')}</option>
                   </select>
-                  <label className="flex items-center gap-1">
-                    Squares
+                  <div className="flex items-center gap-1">
+                    <span>{t('Squares')}</span>
                     <input
                       type="number"
                       min="1"
                       max="60"
-                      aria-label="Template size"
+                      aria-label={t('Template size')}
                       data-testid="template-size"
-                      className="min-h-9 w-14 rounded bg-black/40 px-1 text-center"
+                      className="min-h-9 w-12 rounded bg-black/40 px-1 text-center"
                       value={tsize}
                       onChange={(e) => setTsize(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
                     />
-                  </label>
-                  <span className="opacity-70">Press for the start, drag for the direction.</span>
+                    {/* Arrows to the right of the field, big enough to press on a touch screen. */}
+                    <div className="flex flex-col gap-0.5">
+                      {[
+                        ['up', 1, 'M4 10l4-4 4 4'],
+                        ['down', -1, 'M4 6l4 4 4-4'],
+                      ].map(([id, step, path]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-label={id === 'up' ? t('More squares') : t('Fewer squares')}
+                          data-testid={`template-size-${id}`}
+                          className="flex h-6 w-10 items-center justify-center rounded bg-white/15 active:bg-white/30"
+                          onClick={() => setTsize(Math.max(1, Math.min(60, tsize + step)))}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d={path} />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="opacity-70">{t('Press for the start, drag for the direction.')}</span>
                   <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
-                    Clean
+                    {t('Clean')}
                   </button>
                 </>
               )}
-              {tool === 'erase' && <span className="opacity-70">Click a drawing or an area to remove it.</span>}
+              {tool === 'erase' && <span className="opacity-70">{t('Click a drawing or an area to remove it.')}</span>}
             </div>
           )}
         </>
@@ -695,33 +705,51 @@ export default function BattleView() {
 
       {menuToken && (
         <TokenMenu
-          s={menuToken}
           anchor={menu.anchor}
           containerRef={ref}
           onClose={() => setMenu(null)}
-          onSettings={() => {
-            setSettings(menuToken);
-            setMenu(null);
-          }}
-          onToggleHidden={async () => {
-            await call('battle:update', { id: menuToken.id, hidden: !menuToken.hidden });
-            setMenu(null);
-          }}
-          onHeight={() => {
-            setHeightFor(menuToken.id);
-            setMenu(null);
-          }}
-          onRemove={async () => {
-            const r = await call('battle:remove', { id: menuToken.id });
-            if (!r.ok) toast(r.error);
-            setMenu(null);
-          }}
+          options={
+            // The GM and the Display get every circle; a player only Set Height, for their own character.
+            tools
+              ? [
+                  {
+                    key: 'settings',
+                    label: t('Token Settings'),
+                    testId: 'menu-settings',
+                    onClick: () => {
+                      setSettings(menuToken);
+                      setMenu(null);
+                    },
+                  },
+                  {
+                    key: 'hide',
+                    label: menuToken.hidden ? t('Reveal') : t('Hide'),
+                    testId: 'menu-hide',
+                    onClick: async () => {
+                      await call('battle:update', { id: menuToken.id, hidden: !menuToken.hidden });
+                      setMenu(null);
+                    },
+                  },
+                  { key: 'height', label: t('Set Height'), testId: 'menu-height', onClick: openHeight },
+                  {
+                    key: 'remove',
+                    label: t('Remove'),
+                    testId: 'menu-remove',
+                    onClick: async () => {
+                      const r = await call('battle:remove', { id: menuToken.id });
+                      if (!r.ok) toast(r.error);
+                      setMenu(null);
+                    },
+                  },
+                ]
+              : [{ key: 'height', label: t('Set Height'), testId: 'menu-height', onClick: openHeight }]
+          }
         />
       )}
-      {heightFor != null && battle.tokens.find((t) => t.id === heightFor) && (
-        <HeightDialog token={battle.tokens.find((t) => t.id === heightFor)} onClose={() => setHeightFor(null)} />
+      {heightFor != null && battle.tokens.find((tk) => tk.id === heightFor) && (
+        <HeightDialog token={battle.tokens.find((tk) => tk.id === heightFor)} onClose={() => setHeightFor(null)} />
       )}
-      {settings && <TokenSettings token={battle.tokens.find((t) => t.id === settings.id) ?? settings} onClose={() => setSettings(null)} />}
+      {settings && <TokenSettings token={battle.tokens.find((tk) => tk.id === settings.id) ?? settings} onClose={() => setSettings(null)} />}
     </div>
   );
 }
