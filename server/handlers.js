@@ -170,6 +170,8 @@ export function registerHandlers(io, socket, db, shared) {
     const c = await requireControl(characterId);
     const sheet = await sheets.updateSheet(db, c.id, (s) => sheets.applySet(s, path, value, c));
     emitSheet(c.id, sheet);
+    // A token's footprint follows the sheet's Size.
+    if (path === 'size') await stage.broadcast();
     return { sheet };
   });
 

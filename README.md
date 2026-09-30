@@ -418,19 +418,54 @@ Light-novel style: a fullscreen background with character art standing along the
 - **Motion:** characters slide in from their side when they appear.
 - Battle mode reuses this page in Phase 5; the Display will follow the active mode.
 
-### Battle mode (planned)
-Toggle from Scene to Battle: alternate artwork per scene, square grid, characters as tokens,
-prop/terrain tokens. Base Foundry-like functionality: area templates for spells (circle, cone,
-line, square), freehand drawing, pings, measuring ruler, targeting. (decided)
+### Battle mode (implemented in Phase 5a; the turn tracker is Phase 5b)
+Decided:
+- The GM (desktop) toggles **Scene / Battle** in the scene chrome; the mode is shared, so the Display
+  and desktop players follow it. Each scene has a Scene picture and a separate **Battle map** picture
+  (uploaded from the Scenes drawer). The mode outlives scene changes.
+- The map is shown whole, as large as fits, with the same local zoom and pan as the Scene.
+- **Grid:** square. Each scene stores the cell size and offset as fractions of the picture (default
+  cell 1/20 of the width). The GM sets it live over the map (GM Grid panel: cell size, offset,
+  grid on/off); the squares counted across and down are shown. Hidden tokens are never sent to
+  players or the Display.
+- **Tokens:** the GM places a character or temp NPC as a token from the Cast drawer ("Place token" in
+  Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
+  character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
+  Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
+  token for the same circles as the Scene (Token Settings, Hide/Reveal).
+- **Dragging** a token (GM and Display) is free and snaps to a square for everyone; it costs no
+  movement.
+- **Tools** (GM and Display, side toolbar): Move, Draw (freehand), Ping, Ruler, Area, Erase.
+  Areas are circle, cone (90 degrees), line and square templates sized in squares and rotated by
+  dragging. Drawings and areas are shared and stay until erased; the GM can clear all. At most 300
+  marks. Pings show a ring for a few seconds on every map.
+- **Ruler:** counts squares with diagonals alternating 1 and 2.
+- **Movement (phone D-pad):** each sheet has **Movement** (squares per AP, default 5, 0 to 99).
+  On the character's own turn every square costs from the Movement bank; when the bank is empty
+  the next step needs 1 AP and banks a fresh Movement (the phone asks to confirm spending AP).
+  Diagonal steps alternate cost 1 and 2. A **Free Movement** checkbox lets a step cost nothing.
+  Outside the character's own turn (and before combat) steps are free.
+- **Targeting:** from the phone a player picks a token (any visible token) as their target, or
+  clears it. Targets live in server memory; the target is shown on the map with a pulsing ring.
+  Using a target for rolls and damage comes with Phase 6.
+- Turn order, initiative, rounds and turn-start effects: see the plan below (Phase 5b).
+
+Planned for Phase 5b (decided, not built): **combat tracker** with Initiative = a Speed skill roll,
+one sorted list the GM can reorder, start/end combat, a round counter, Next turn (GM or the active
+player), turn-start effects applied automatically with a chat line showing numbers and sources
+(Bleeding true damage, Burning fire damage through the resistance table, statuses that lower AP),
+Movement bank cleared and AP refilled at end of turn.
 
 ### Targeting and automation (planned)
 A player targets a token. Using an ability auto-rolls and opens a confirm card for the GM with a
 full breakdown of where every modifier came from. Every value (attack, damage, type, effects, etc.)
 is editable before applying. Results are applied to the targeted token's actor. (decided)
 
-### Mobile remote (planned)
-Phones do not render the Scene. Controls: D-pad (one grid step per tap, counted against the
-movement budget) plus targeting. (decided)
+### Mobile remote (implemented in Phase 5a)
+Phones do not render the Scene. On the character sheet a **Battle remote** shows when the character
+has a token on the active Battle map: an eight-way D-pad (one square per tap, counted against
+Movement as described under Battle mode), the Movement bank and AP, the Free Movement checkbox and
+the target list. A step that needs AP asks for confirmation. (decided)
 
 ### Music player (implemented in Phase 4b)
 Decided:
@@ -529,7 +564,18 @@ Implemented:
   duration_ms, position)`. Deleting a playlist deletes its tracks by code. What is playing is not in
   the database (server memory).
 
-Planned (not final): battle tokens/objects, character-local spells.
+Battle (Phase 5a):
+- `scenes` gains `battle_aspect` (picture width / height), `grid_cell`, `grid_ox`, `grid_oy`
+  (fractions of the picture); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
+  and `size`.
+- `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank)`:
+  one token per owner per scene; `bank` is the leftover Movement squares. Tokens keep whole-square
+  positions and are clamped back onto the map when the grid changes.
+- `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)`.
+- Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
+- Targets and the combat state are server memory only (`shared.targets`, `shared.combat`).
+
+Planned (not final): character-local spells.
 
 ## Real-time events
 
@@ -603,6 +649,23 @@ Music (Phase 4b):
   `audio:track_unplayable` `{ trackId, name, code }` tells the GM a track was skipped.
 - Error codes added: `not_youtube`.
 
+Battle (Phase 5a):
+- `stage:get` / `stage:updated` now carry `{ scene, summons, mode, battle }`, where `battle` is
+  `{ imageId, aspect, grid: { cell, ox, oy }, cols, rows, tokens: [{ id, ownerKind, ownerId, name,
+  pictureId, imageId, col, row, size, hidden, prop, bank, targetedBy }], marks, targetId? }`; hidden
+  tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
+- GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
+  `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
+  `{ id }`, `battle:update` `{ id, pictureId?, hidden? }`, `battle:clear_bank` `{ id }`,
+  `mark:clear` `{ kind? }`, `temp_npc:set_size` `{ id, size }`.
+- GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
+  `mark:remove` `{ id }`, `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
+  `battle:pinged`.
+- `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
+  player who owns the token; replies with the new position, or asks for confirmation when the step
+  needs AP. `battle:target` `{ characterId, tokenId | null }`: set or clear the target of a PC
+  (the GM or that PC's player).
+
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
 
@@ -638,7 +701,12 @@ Each phase ends in a deploy and playtest checkpoint.
      YouTube links, play, see and hear it on the Display, pause and skip, right-click the bar on
      the Display for volume, reload the Display mid-song. Covered by `server/test/audio.test.js`
      and `e2e/music.spec.js`; real sound needs your playtest.
-5. **Battle**: Battle mode, grid, tokens, D-pad remote, targeting, templates, drawing, pings, ruler.
+5. **Battle**, split in two parts:
+   - **5a Map** (implemented, awaiting playtest): Battle mode toggle, battle map and live grid,
+     tokens with sizes and props, free dragging, D-pad remote with Movement banking and AP,
+     targeting, drawing, areas, pings, ruler, Hidden. Covered by `server/test/battle.test.js` and
+     `e2e/battle.spec.js`. Scene, music and battle playtests are done in one later batch.
+   - **5b Combat tracker** (planned): initiative, turn order, rounds, turn-start effects.
 6. **Mechanics and Arcane**: roll engine, confirm card, Arcane browser, sandbox, spell builder,
    spontaneous-casting tables.
 
@@ -650,9 +718,9 @@ Asked one batch at a time; answers move into the sections above.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Whether statuses should ever affect Combat Mastery rolls.
 - A wider desktop layout for the sheet and the icon set for damage types.
-- Grid size and scale per scene; Battle token framing (token art shares the picture collection).
+- Battle token framing (token art shares the picture collection); what one square means in distance.
 - Music: whether sound effects (short one-shots) are wanted later, and whether the Display should also show what is playing on a Scene-less screen.
 - Image limits in Phase 4a are my defaults (see Images).
-- Undo of applied results? Turn order and initiative tracker? Animation budget?
+- Undo of applied results? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
 - Backups/export of characters from Turso.

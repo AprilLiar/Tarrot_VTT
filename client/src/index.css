@@ -23,3 +23,20 @@ body { margin: 0; background: #0f0d14; color: #e8e4f0; }
     transform: rotate(360deg);
   }
 }
+
+/* A ping on the battle map: a ring that grows and fades. */
+.battle-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: battle-ping 2.5s ease-out forwards;
+}
+@keyframes battle-ping {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}

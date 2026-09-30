@@ -5,6 +5,8 @@ import { useZoomPan } from '../../lib/useZoomPan.js';
 import Dialog, { btn, btnDanger, input } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
+import BattleView from './BattleView.jsx';
+import { TokenMenu } from './TokenMenu.jsx';
 
 // The scene: a fullscreen picture with characters standing along the bottom in
 // the style of a light novel. PCs stand on the left, NPCs on the right.
@@ -102,37 +104,6 @@ function Figure({ s, index, canDrag, menuOpen, onMenu, onDragEnd, zoomRef }) {
   );
 }
 
-// The half-transparent circles next to a character (Foundry style).
-function TokenMenu({ s, anchor, containerRef, onSettings, onToggleHidden, onClose }) {
-  const [pos, setPos] = useState(null);
-  useLayoutEffect(() => {
-    const box = containerRef.current?.getBoundingClientRect();
-    if (!box || !anchor) return;
-    const r = anchor.getBoundingClientRect();
-    const onLeft = r.left + r.width / 2 < box.left + box.width / 2;
-    setPos({
-      top: Math.min(Math.max(r.top - box.top + r.height / 2 - 60, 8), box.height - 130),
-      left: onLeft ? Math.min(r.right - box.left + 8, box.width - 80) : Math.max(r.left - box.left - 72, 8),
-    });
-  }, [anchor, containerRef, s.id]);
-  if (!pos) return null;
-  const circle =
-    'flex h-16 w-16 items-center justify-center rounded-full border border-white/50 bg-black/45 text-center text-xs font-medium leading-tight text-white backdrop-blur active:bg-black/70';
-  return (
-    <>
-      <div className="absolute inset-0 z-30" data-testid="token-menu-backdrop" onPointerDown={onClose} />
-      <div className="absolute z-40 flex flex-col gap-2" style={pos} data-testid="token-menu">
-        <button className={circle} data-testid="menu-settings" onClick={onSettings}>
-          Token Settings
-        </button>
-        <button className={circle} data-testid="menu-hide" onClick={onToggleHidden}>
-          {s.hidden ? 'Reveal' : 'Hide'}
-        </button>
-      </div>
-    </>
-  );
-}
-
 function TokenSettings({ s, onClose }) {
   const { toast } = useApp();
   const owner = s.ownerKind === 'character' ? { characterId: s.ownerId } : { tempNpcId: s.ownerId };
@@ -202,7 +173,7 @@ function TokenSettings({ s, onClose }) {
 }
 
 // `chrome`: false on the Display Screen (no drawers). `onExit`: how the Display gets back to the picker.
-export default function ScenePage({ chrome = true, onExit }) {
+function SceneView() {
   const { identity, stage } = useApp();
   const isGm = identity.role === 'gm';
   const canDrag = isGm || identity.role === 'display';
@@ -212,7 +183,6 @@ export default function ScenePage({ chrome = true, onExit }) {
   const figures = useRef(new Map());
   const [menu, setMenu] = useState(null); // { id, anchor }
   const [settings, setSettings] = useState(null);
-  const [drawer, setDrawer] = useState(null); // 'cast' | 'scenes' | null
 
   const summons = stage.summons;
   const bySide = (side) => summons.filter((x) => x.side === side);
@@ -306,31 +276,6 @@ export default function ScenePage({ chrome = true, onExit }) {
         </div>
       </div>
 
-      {isGm && chrome && (
-        <div className="absolute inset-x-0 top-2 flex justify-between px-2" data-no-pan>
-          <button className={`${btn} bg-black/50 backdrop-blur`} data-testid="open-cast" onClick={() => setDrawer('cast')}>
-            Cast
-          </button>
-          <div className="self-center rounded-full bg-black/50 px-3 py-1 text-sm backdrop-blur" data-testid="scene-title">
-            {stage.scene?.name ?? 'No scene'}
-          </div>
-          <button className={`${btn} bg-black/50 backdrop-blur`} data-testid="open-scenes" onClick={() => setDrawer('scenes')}>
-            Scenes
-          </button>
-        </div>
-      )}
-
-      {!chrome && onExit && (
-        <button
-          className="absolute left-2 top-2 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
-          data-no-pan
-          data-testid="display-exit"
-          onClick={onExit}
-        >
-          Switch
-        </button>
-      )}
-
       {menuTarget && (
         <TokenMenu
           s={menuTarget}
@@ -349,8 +294,74 @@ export default function ScenePage({ chrome = true, onExit }) {
       )}
 
       {settings && <TokenSettings s={summons.find((x) => x.id === settings.id) ?? settings} onClose={() => setSettings(null)} />}
+    </div>
+  );
+}
+
+// The GM's buttons over the picture (Cast, Scenes, Scene/Battle) and the Display's way out.
+function SceneChrome({ chrome, onExit }) {
+  const { identity, stage } = useApp();
+  const isGm = identity.role === 'gm';
+  const [drawer, setDrawer] = useState(null); // 'cast' | 'scenes' | null
+  const battle = stage.mode === 'battle';
+  return (
+    <>
+      {isGm && chrome && (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex items-start justify-between px-2">
+          <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-cast" onClick={() => setDrawer('cast')}>
+            Cast
+          </button>
+          <div className="pointer-events-auto flex flex-col items-center gap-1">
+            <div className="rounded-full bg-black/50 px-3 py-1 text-sm backdrop-blur" data-testid="scene-title">
+              {stage.scene?.name ?? 'No scene'}
+            </div>
+            <div className="flex rounded-full bg-black/50 p-0.5 text-xs backdrop-blur" role="radiogroup" aria-label="Mode">
+              {[
+                ['scene', 'Scene'],
+                ['battle', 'Battle'],
+              ].map(([m, text]) => (
+                <button
+                  key={m}
+                  role="radio"
+                  aria-checked={(battle ? 'battle' : 'scene') === m}
+                  data-testid={`mode-${m}`}
+                  className={`min-h-8 rounded-full px-3 ${(battle ? 'battle' : 'scene') === m ? 'bg-violet-700' : ''}`}
+                  onClick={() => call('battle:mode', { mode: m })}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-scenes" onClick={() => setDrawer('scenes')}>
+            Scenes
+          </button>
+        </div>
+      )}
+
+      {!chrome && onExit && (
+        <button
+          className="absolute left-2 top-2 z-30 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
+          data-testid="display-exit"
+          onClick={onExit}
+        >
+          Switch
+        </button>
+      )}
+
       {drawer === 'cast' && <CastDrawer onClose={() => setDrawer(null)} />}
       {drawer === 'scenes' && <ScenesDrawer onClose={() => setDrawer(null)} />}
+    </>
+  );
+}
+
+// `chrome`: false on the Display Screen (no drawers). `onExit`: how the Display gets back to the picker.
+export default function ScenePage({ chrome = true, onExit }) {
+  const { stage } = useApp();
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      {stage.mode === 'battle' ? <BattleView /> : <SceneView />}
+      <SceneChrome chrome={chrome} onExit={onExit} />
     </div>
   );
 }

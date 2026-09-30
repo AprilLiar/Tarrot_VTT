@@ -47,6 +47,8 @@ async function createAndActivateScene(gm, name) {
   await gm.getByTestId('scene-row').filter({ hasText: name }).getByRole('button').first().click();
   await gm.getByTestId('activate-scene').click();
   await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
+  // The stage mode outlives scenes (Battle tests may have left it on Battle).
+  await gm.getByTestId('mode-scene').click();
   await expect(gm.getByTestId('scene-title')).toHaveText(name);
 }
 

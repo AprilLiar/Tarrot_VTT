@@ -7,6 +7,7 @@ import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
+import { BattleRemote } from './BattleRemote.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
@@ -140,6 +141,28 @@ export default function SheetPage({ characterId }) {
             <NumField label="Mental Defence" value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
           </div>
         </div>
+        <div>
+          <div className="text-xs opacity-60">Movement (squares per AP)</div>
+          <div className="w-16 text-xl">
+            <NumField label="Movement" testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
+          </div>
+        </div>
+        <div>
+          <div className="text-xs opacity-60">Size (token)</div>
+          <select
+            aria-label="Size"
+            data-testid="size-select"
+            className="min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
+            value={sheet.size}
+            onChange={(e) => set('size', Number(e.target.value))}
+          >
+            {Array.from({ length: D.SIZE_MAX }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}x{n}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="col-span-2">
           <div className="text-xs opacity-60">Experience Modifier</div>
           <div className="w-16 text-xl">
@@ -148,6 +171,7 @@ export default function SheetPage({ characterId }) {
         </div>
       </section>
 
+      <BattleRemote s={s} />
       <Stats s={s} />
       <Masteries s={s} />
       <Skills s={s} />
