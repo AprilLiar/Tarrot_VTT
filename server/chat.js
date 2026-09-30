@@ -26,7 +26,7 @@ export function createChat({ max = 300, now = Date.now } = {}) {
 export function cleanChatText(value) {
   if (typeof value !== 'string' || !value.trim()) throw new AppError('bad_text', 'Type a message first.');
   if (value.trim().length > CHAT_TEXT_MAX) {
-    throw new AppError('bad_text', `Messages can be at most ${CHAT_TEXT_MAX} characters.`);
+    throw new AppError('bad_text', 'Messages can be at most {max} characters.', { max: CHAT_TEXT_MAX });
   }
   return value.trim();
 }

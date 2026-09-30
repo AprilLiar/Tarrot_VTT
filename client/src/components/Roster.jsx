@@ -3,24 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { call, useApp } from '../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField, descendantIds } from './folderUi.jsx';
+import { useT } from '../i18n.jsx';
 
 function CreateCharacterDialog({ folders, folderId, onClose }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [type, setType] = useState('pc');
   const [folder, setFolder] = useState(folderId);
   return (
     <ActionDialog
-      title="New character"
-      submitLabel="Create"
+      title={t('New character')}
+      submitLabel={t('Create')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call('character:create', { name, type, folderId: folder })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
-      <div className="flex gap-2" role="radiogroup" aria-label="Type">
+      <NameField label={t('Name')} value={name} onChange={setName} />
+      <div className="flex gap-2" role="radiogroup" aria-label={t('Type')}>
         {[
-          ['pc', 'PC'],
-          ['npc', 'NPC'],
+          ['pc', t('PC')],
+          ['npc', t('NPC')],
         ].map(([v, text]) => (
           <button
             type="button"
@@ -34,44 +36,47 @@ function CreateCharacterDialog({ folders, folderId, onClose }) {
           </button>
         ))}
       </div>
-      <FolderSelect label="Folder" folders={folders} value={folder} onChange={setFolder} />
+      <FolderSelect label={t('Folder')} folders={folders} value={folder} onChange={setFolder} />
     </ActionDialog>
   );
 }
 
 function CreateFolderDialog({ folders, parentId, onClose }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [parent, setParent] = useState(parentId);
   return (
     <ActionDialog
-      title="New folder"
-      submitLabel="Create"
+      title={t('New folder')}
+      submitLabel={t('Create')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call('folder:create', { name, parentId: parent })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
-      <FolderSelect label="Inside" folders={folders} value={parent} onChange={setParent} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
+      <FolderSelect label={t('Inside')} folders={folders} value={parent} onChange={setParent} />
     </ActionDialog>
   );
 }
 
 function RenameDialog({ target, onClose }) {
+  const t = useT();
   const [name, setName] = useState(target.name);
   return (
     <ActionDialog
-      title={`Rename ${target.kind}`}
-      submitLabel="Rename"
+      title={target.kind === 'folder' ? t('Rename folder') : t('Rename character')}
+      submitLabel={t('Rename')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call(`${target.kind}:rename`, { id: target.id, name })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
     </ActionDialog>
   );
 }
 
 function MoveDialog({ target, folders, onClose }) {
+  const t = useT();
   const [dest, setDest] = useState(target.parentId);
   const exclude = target.kind === 'folder' ? descendantIds(folders, target.id) : undefined;
   const payload =
@@ -80,33 +85,34 @@ function MoveDialog({ target, folders, onClose }) {
       : { id: target.id, folderId: dest };
   return (
     <ActionDialog
-      title={`Move ${target.name}`}
-      submitLabel="Move"
+      title={t('Move {name}', { name: target.name })}
+      submitLabel={t('Move')}
       onClose={onClose}
       run={() => call(`${target.kind}:move`, payload)}
     >
-      <FolderSelect label="Move to" folders={folders} value={dest} onChange={setDest} exclude={exclude} />
+      <FolderSelect label={t('Move to')} folders={folders} value={dest} onChange={setDest} exclude={exclude} />
     </ActionDialog>
   );
 }
 
 function DeleteCharacterDialog({ target, onClose }) {
+  const t = useT();
   const [typed, setTyped] = useState('');
   return (
     <ActionDialog
-      title="Delete character"
-      submitLabel="Delete forever"
+      title={t('Delete character')}
+      submitLabel={t('Delete forever')}
       danger
       onClose={onClose}
       canSubmit={typed.trim() === target.name}
       run={() => call('character:delete', { id: target.id, confirmName: typed })}
     >
       <p className="text-sm">
-        This permanently deletes <strong>{target.name}</strong> and cannot be undone. Type the name to confirm.
+        {t('This permanently deletes {name} and cannot be undone. Type the name to confirm.', { name: target.name })}
       </p>
       <input
         className={input}
-        aria-label="Type the name to confirm"
+        aria-label={t('Type the name to confirm')}
         value={typed}
         autoFocus
         onChange={(e) => setTyped(e.target.value)}
@@ -116,50 +122,53 @@ function DeleteCharacterDialog({ target, onClose }) {
 }
 
 function DeleteFolderDialog({ target, onClose }) {
+  const t = useT();
   return (
     <ActionDialog
-      title="Delete folder"
-      submitLabel="Delete"
+      title={t('Delete folder')}
+      submitLabel={t('Delete')}
       danger
       onClose={onClose}
       run={() => call('folder:delete', { id: target.id })}
     >
       <p className="text-sm">
-        Delete the folder <strong>{target.name}</strong>? Only empty folders can be deleted.
+        {t('Delete the folder {name}? Only empty folders can be deleted.', { name: target.name })}
       </p>
     </ActionDialog>
   );
 }
 
 function RowActions({ onOpen, onRename, onMove, onDelete }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap gap-2 pb-2">
       {onOpen && (
         <button className={btnPrimary} data-testid="open-sheet" onClick={onOpen}>
-          Open sheet
+          {t('Open sheet')}
         </button>
       )}
       <button className={btn} onClick={onRename}>
-        Rename
+        {t('Rename')}
       </button>
       <button className={btn} onClick={onMove}>
-        Move
+        {t('Move')}
       </button>
       <button className={btnDanger} onClick={onDelete}>
-        Delete
+        {t('Delete')}
       </button>
     </div>
   );
 }
 
 export default function Roster() {
+  const t = useT();
   const { roster } = useApp();
   const navigate = useNavigate();
   const [dialog, setDialog] = useState(null);
   const [openRow, setOpenRow] = useState(null);
   const close = () => setDialog(null);
 
-  if (!roster) return <p className="p-4 text-sm opacity-70">Loading roster...</p>;
+  if (!roster) return <p className="p-4 text-sm opacity-70">{t('Loading roster...')}</p>;
   const { folders, characters } = roster;
 
   const toggle = (key) => setOpenRow((cur) => (cur === key ? null : key));
@@ -179,7 +188,7 @@ export default function Roster() {
               <span
                 className={`rounded px-1.5 py-0.5 text-xs ${c.type === 'pc' ? 'bg-emerald-800' : 'bg-slate-700'}`}
               >
-                {c.type.toUpperCase()}
+                {c.type === 'pc' ? t('PC') : t('NPC')}
               </span>
               <span className="flex-1 truncate">{c.name}</span>
             </button>
@@ -219,10 +228,10 @@ export default function Roster() {
             {openRow === key && (
               <div className="flex flex-wrap gap-2 pb-2">
                 <button className={btn} onClick={() => setDialog({ kind: 'new-character', folderId: f.id })}>
-                  Add character
+                  {t('Add character')}
                 </button>
                 <button className={btn} onClick={() => setDialog({ kind: 'new-folder', parentId: f.id })}>
-                  Add subfolder
+                  {t('Add subfolder')}
                 </button>
                 <RowActions
                   onRename={() => setDialog({ kind: 'rename', target: { kind: 'folder', id: f.id, name: f.name } })}
@@ -249,15 +258,15 @@ export default function Roster() {
     <main className="mx-auto max-w-2xl p-4">
       <div className="mb-3 flex gap-2">
         <button className={btnPrimary} data-testid="new-character" onClick={() => setDialog({ kind: 'new-character', folderId: null })}>
-          New character
+          {t('New character')}
         </button>
         <button className={btn} data-testid="new-folder" onClick={() => setDialog({ kind: 'new-folder', parentId: null })}>
-          New folder
+          {t('New folder')}
         </button>
       </div>
 
       {folders.length === 0 && characters.length === 0 && (
-        <p className="text-sm opacity-60">Nothing here yet. Create your first character.</p>
+        <p className="text-sm opacity-60">{t('Nothing here yet. Create your first character.')}</p>
       )}
       <ul>
         {tree(null, 0)}

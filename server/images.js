@@ -39,7 +39,7 @@ export async function storeImage(db, data) {
   const buf = toBuffer(data);
   if (!buf) throw new AppError('bad_image', 'No image was sent.');
   if (buf.length > IMAGE_MAX_BYTES) {
-    throw new AppError('image_too_large', `Images can be at most ${IMAGE_MAX_BYTES / 1024 / 1024} MB after resizing.`);
+    throw new AppError('image_too_large', 'Images can be at most {mb} MB after resizing.', { mb: IMAGE_MAX_BYTES / 1024 / 1024 });
   }
   const mime = sniffImage(buf);
   if (!mime) throw new AppError('bad_image', 'Only PNG, JPEG and WebP images are accepted.');

@@ -8,6 +8,7 @@ import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
 import BattleView from './BattleView.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
+import { useT } from '../../i18n.jsx';
 
 // The scene: a fullscreen picture with characters standing on it in the style of a
 // light novel. Each character has its own spot, given as fractions of the background
@@ -128,6 +129,7 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
 }
 
 function TokenSettings({ s, onClose }) {
+  const t = useT();
   const { toast } = useApp();
   const owner = s.ownerKind === 'character' ? { characterId: s.ownerId } : { tempNpcId: s.ownerId };
   const pictures = usePictures(owner);
@@ -140,16 +142,16 @@ function TokenSettings({ s, onClose }) {
   }
 
   return (
-    <Dialog title={`Token Settings: ${s.name}`} onClose={onClose}>
+    <Dialog title={t('Token Settings: {name}', { name: s.name })} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <div className="mb-1 text-sm opacity-70">Picture</div>
+          <div className="mb-1 text-sm opacity-70">{t('Picture')}</div>
           <div className="grid grid-cols-4 gap-2">
             {pictures?.map((p) => (
               <button
                 key={p.id}
                 data-testid="pick-picture"
-                aria-label={p.name || 'Picture'}
+                aria-label={p.name || t('Picture')}
                 aria-pressed={p.id === s.pictureId}
                 className={`flex h-20 items-center justify-center overflow-hidden rounded bg-white/5 ${p.id === s.pictureId ? 'ring-2 ring-violet-500' : ''}`}
                 onClick={() => update({ pictureId: p.id })}
@@ -160,7 +162,7 @@ function TokenSettings({ s, onClose }) {
           </div>
         </div>
         <label className="flex flex-col gap-1 text-sm">
-          Size: {scale.toFixed(2)}
+          {t('Size: {n}', { n: scale.toFixed(2) })}
           <input
             type="range"
             min="0.3"
@@ -184,16 +186,16 @@ function TokenSettings({ s, onClose }) {
               onClose();
             }}
           >
-            Remove from stage
+            {t('Remove from stage')}
           </button>
           <button className={btn} data-testid="reset-position" onClick={async () => {
               const r = await call('stage:move', { id: s.id, reset: true });
               if (!r.ok) toast(r.error);
             }}>
-            Reset position
+            {t('Reset position')}
           </button>
           <button className={btn} onClick={onClose}>
-            Close
+            {t('Close')}
           </button>
         </div>
       </div>
@@ -203,6 +205,7 @@ function TokenSettings({ s, onClose }) {
 
 // `chrome`: false on the Display Screen (no drawers). `onExit`: how the Display gets back to the picker.
 function SceneView() {
+  const t = useT();
   const { identity, stage } = useApp();
   const isGm = identity.role === 'gm';
   const isDisplay = identity.role === 'display';
@@ -290,20 +293,20 @@ function SceneView() {
 
       {!stage.scene && (
         <div className="absolute inset-0 flex items-center justify-center p-6 text-center" data-testid="no-scene">
-          <p className="text-lg opacity-70">{isGm ? 'No scene is active. Open Scenes to start one.' : 'Waiting for the GM to start a scene.'}</p>
+          <p className="text-lg opacity-70">{isGm ? t('No scene is active. Open Scenes to start one.') : t('Waiting for the GM to start a scene.')}</p>
         </div>
       )}
 
       {/* Overlays live outside the zoomed world so they stay put. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
         <div className="pointer-events-auto flex gap-1 rounded-full bg-black/50 p-1 backdrop-blur">
-          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label="Zoom out" data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
+          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom out')} data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
             -
           </button>
           <button className="h-10 rounded-full px-3 text-xs active:bg-white/20" data-testid="zoom-reset" onClick={reset}>
             {Math.round(view.scale * 100)}%
           </button>
-          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label="Zoom in" data-testid="zoom-in" onClick={() => zoomBy(1.25)}>
+          <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom in')} data-testid="zoom-in" onClick={() => zoomBy(1.25)}>
             +
           </button>
         </div>
@@ -317,7 +320,7 @@ function SceneView() {
           options={[
             {
               key: 'settings',
-              label: 'Token Settings',
+              label: t('Token Settings'),
               testId: 'menu-settings',
               onClick: () => {
                 setSettings(menuTarget);
@@ -326,7 +329,7 @@ function SceneView() {
             },
             {
               key: 'hide',
-              label: menuTarget.hidden ? 'Reveal' : 'Hide',
+              label: menuTarget.hidden ? t('Reveal') : t('Hide'),
               testId: 'menu-hide',
               onClick: async () => {
                 await call('stage:update', { id: menuTarget.id, hidden: !menuTarget.hidden });
@@ -335,7 +338,7 @@ function SceneView() {
             },
             {
               key: 'remove',
-              label: 'Remove',
+              label: t('Remove'),
               testId: 'menu-remove',
               onClick: async () => {
                 await call('stage:dismiss', { id: menuTarget.id });
@@ -353,6 +356,7 @@ function SceneView() {
 
 // The GM's buttons over the picture (Cast, Scenes, Scene/Battle) and the Display's way out.
 function SceneChrome({ chrome, onExit }) {
+  const t = useT();
   const { identity, stage } = useApp();
   const isGm = identity.role === 'gm';
   const [drawer, setDrawer] = useState(null); // 'cast' | 'scenes' | null
@@ -362,16 +366,16 @@ function SceneChrome({ chrome, onExit }) {
       {isGm && chrome && (
         <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex items-start justify-between px-2">
           <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-cast" onClick={() => setDrawer('cast')}>
-            Cast
+            {t('Cast')}
           </button>
           <div className="pointer-events-auto flex flex-col items-center gap-1">
             <div className="rounded-full bg-black/50 px-3 py-1 text-sm backdrop-blur" data-testid="scene-title">
-              {stage.scene?.name ?? 'No scene'}
+              {stage.scene?.name ?? t('No scene')}
             </div>
-            <div className="flex rounded-full bg-black/50 p-0.5 text-xs backdrop-blur" role="radiogroup" aria-label="Mode">
+            <div className="flex rounded-full bg-black/50 p-0.5 text-xs backdrop-blur" role="radiogroup" aria-label={t('Mode')}>
               {[
-                ['scene', 'Scene'],
-                ['battle', 'Battle'],
+                ['scene', t('Scene')],
+                ['battle', t('Battle')],
               ].map(([m, text]) => (
                 <button
                   key={m}
@@ -387,7 +391,7 @@ function SceneChrome({ chrome, onExit }) {
             </div>
           </div>
           <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-scenes" onClick={() => setDrawer('scenes')}>
-            Scenes
+            {t('Scenes')}
           </button>
         </div>
       )}
@@ -398,7 +402,7 @@ function SceneChrome({ chrome, onExit }) {
           data-testid="display-exit"
           onClick={onExit}
         >
-          Switch
+          {t('Switch')}
         </button>
       )}
 

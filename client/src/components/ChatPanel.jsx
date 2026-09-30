@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { socket } from '../socket.js';
 import { call, useApp } from '../AppContext.jsx';
+import { useT } from '../i18n.jsx';
+import { formatExpression } from '../../../shared/roll-plan.js';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 
 // A die is tinted green on a natural 20 and red on a natural 1.
@@ -29,6 +31,7 @@ function DiceLine({ roll }) {
 }
 
 function RollCard({ m }) {
+  const t = useT();
   const { roll } = m;
   const crit = roll.flags.includes('critical');
   const fail = roll.flags.includes('critical_failure');
@@ -41,18 +44,18 @@ function RollCard({ m }) {
     >
       <div className="flex items-center justify-between gap-2 text-xs opacity-70">
         <span className="truncate">
-          {m.author.name}
+          {m.author.role === 'gm' ? t(m.author.name) : m.author.name}
           {m.characterName !== m.author.name ? ` (${m.characterName})` : ''}
         </span>
       </div>
       <div className="text-sm font-medium uppercase tracking-wide" data-testid="roll-title">
-        {roll.title}
+        {t(roll.title)}
       </div>
       {roll.against ? (
         // A roll against something (an attack against a Defence): the number rolled next to the number to beat.
         <div className="mt-1 flex items-center gap-3" data-testid="roll-versus">
           <div>
-            <div className="text-xs uppercase tracking-wide opacity-60">Attack Value</div>
+            <div className="text-xs uppercase tracking-wide opacity-60">{t('Attack Value')}</div>
             <div className={`text-5xl font-bold leading-tight ${crit ? 'text-green-400' : fail ? 'text-red-400' : ''}`} data-testid="roll-total">
               {roll.total}
             </div>
@@ -60,7 +63,7 @@ function RollCard({ m }) {
           <div className="text-lg opacity-60">vs</div>
           <div className="min-w-0">
             <div className="text-xs uppercase tracking-wide opacity-60" data-testid="roll-against-label">
-              Target Value ({roll.against.label})
+              {t('Target Value')} ({t(roll.against.label)})
             </div>
             {roll.against.targets.map((t, i) => (
               <div key={i} className="flex items-baseline gap-2">
@@ -82,17 +85,17 @@ function RollCard({ m }) {
       )}
       {(crit || fail) && (
         <div className={`text-sm font-semibold ${crit ? 'text-green-400' : 'text-red-400'}`}>
-          {crit ? 'Critical' : 'Critical Failure'}
+          {crit ? t('Critical') : t('Critical Failure')}
         </div>
       )}
       <div className="mt-1 text-sm opacity-90" data-testid="roll-expression">
-        {roll.expression}
+        {formatExpression(roll.terms.map((x) => ({ ...x, label: t(x.label) })))}
       </div>
       {roll.dice.length > 1 && (
         <div className="mt-1" data-testid="roll-advantage">
           <div className="text-xs opacity-60">
-            {roll.advantage.net > 0 ? 'Advantage' : 'Disadvantage'} {Math.abs(roll.advantage.net)} (
-            {roll.advantage.sources.map((x) => x.label).join(', ')})
+            {roll.advantage.net > 0 ? t('Advantage') : t('Disadvantage')} {Math.abs(roll.advantage.net)} (
+            {roll.advantage.sources.map((x) => t(x.label)).join(', ')})
           </div>
           <DiceLine roll={roll} />
         </div>
@@ -102,18 +105,21 @@ function RollCard({ m }) {
 }
 
 // One line for the popup that shows a new message while the chat is closed.
-function popupText(m) {
+function popupText(m, t) {
   if (m.type === 'roll') {
-    const vs = m.roll.against ? ` vs ${m.roll.against.targets.map((t) => t.value).join(', ')}` : '';
-    return `${m.characterName}: ${m.roll.title} ${m.roll.total}${vs}`;
+    const vs = m.roll.against ? ` ${t('vs')} ${m.roll.against.targets.map((x) => x.value).join(', ')}` : '';
+    return `${m.characterName}: ${t(m.roll.title)} ${m.roll.total}${vs}`;
   }
-  return `${m.author.name}: ${m.text}`;
+  return `${m.author.role === 'gm' ? t(m.author.name) : m.author.name}: ${messageText(m, t)}`;
 }
 
 // New messages rise from the corner for two seconds while the chat is closed. Several at once stack
 // upwards instead of overlapping.
 const POPUP_MS = 2000;
 function ChatPopups({ chatOpen }) {
+  const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [popups, setPopups] = useState([]);
   const openRef = useRef(chatOpen);
   openRef.current = chatOpen;
@@ -121,7 +127,7 @@ function ChatPopups({ chatOpen }) {
     const timers = [];
     const onMessage = (m) => {
       if (openRef.current) return;
-      setPopups((list) => [...list, { key: m.id, text: popupText(m) }]);
+      setPopups((list) => [...list, { key: m.id, m }]);
       timers.push(setTimeout(() => setPopups((list) => list.filter((p) => p.key !== m.id)), POPUP_MS + 300));
     };
     socket.on('chat:message', onMessage);
@@ -135,19 +141,23 @@ function ChatPopups({ chatOpen }) {
     <div className="pointer-events-none fixed bottom-20 right-4 z-30 flex w-72 max-w-[calc(100vw-2rem)] flex-col items-end gap-1" data-testid="chat-popups">
       {popups.map((p) => (
         <div key={p.key} data-testid="chat-popup" className="chat-popup w-full rounded-lg bg-slate-800/95 px-3 py-2 text-sm shadow-lg">
-          {p.text}
+          {popupText(p.m, t)}
         </div>
       ))}
     </div>
   );
 }
 
+// A line from the server can arrive as data ({ key, params }) so each reader sees it in their language.
+const messageText = (m, t) => (m.key ? t(m.key, m.params) : m.text);
+
 function Message({ m }) {
+  const t = useT();
   if (m.type === 'roll') return <RollCard m={m} />;
   return (
     <div data-testid="chat-text" className="rounded-lg bg-white/5 px-3 py-2 text-sm">
-      <span className={`font-semibold ${m.author.role === 'gm' ? 'text-violet-300' : ''}`}>{m.author.name}: </span>
-      <span className="whitespace-pre-wrap break-words">{m.text}</span>
+      <span className={`font-semibold ${m.author.role === 'gm' ? 'text-violet-300' : ''}`}>{m.author.role === 'gm' ? t(m.author.name) : m.author.name}: </span>
+      <span className="whitespace-pre-wrap break-words">{messageText(m, t)}</span>
     </div>
   );
 }
@@ -155,6 +165,7 @@ function Message({ m }) {
 // Global chat log with roll results. In memory on the server: clears when the
 // instance restarts, and the GM can clear it by hand.
 export default function ChatPanel() {
+  const t = useT();
   const { identity, messages, chatOpen, setChatOpen, unread } = useApp();
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
@@ -182,7 +193,7 @@ export default function ChatPanel() {
         className="fixed bottom-4 right-4 z-30 min-h-12 rounded-full bg-violet-700 px-5 text-sm font-medium shadow-lg active:bg-violet-600"
         onClick={() => setChatOpen(!chatOpen)}
       >
-        Chat{unread > 0 ? ` (${unread})` : ''}
+        {t('Chat')}{unread > 0 ? ` (${unread})` : ''}
       </button>
 
       <ChatPopups chatOpen={chatOpen} />
@@ -190,22 +201,22 @@ export default function ChatPanel() {
       {chatOpen && (
         <aside
           data-testid="chat-panel"
-          aria-label="Chat"
+          aria-label={t('Chat')}
           className="fixed inset-x-0 bottom-0 z-40 flex h-[70%] flex-col rounded-t-2xl border-t border-white/15 bg-[#14111d] sm:inset-x-auto sm:right-4 sm:bottom-20 sm:h-[32rem] sm:w-96 sm:rounded-2xl sm:border"
         >
           <header className="flex items-center gap-2 border-b border-white/10 p-2">
-            <h2 className="flex-1 pl-2 font-semibold">Chat</h2>
+            <h2 className="flex-1 pl-2 font-semibold">{t('Chat')}</h2>
             {identity.role === 'gm' && (
               <button className={`${btn} min-h-9 px-3`} data-testid="chat-clear" onClick={() => setConfirmClear(true)}>
-                Clear
+                {t('Clear')}
               </button>
             )}
             <button className={`${btn} min-h-9 px-3`} onClick={() => setChatOpen(false)}>
-              Close
+              {t('Close')}
             </button>
           </header>
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2" data-testid="chat-log">
-            {messages.length === 0 && <p className="p-2 text-sm opacity-50">No messages yet. Rolls show up here.</p>}
+            {messages.length === 0 && <p className="p-2 text-sm opacity-50">{t('No messages yet. Rolls show up here.')}</p>}
             {messages.map((m) => (
               <Message key={m.id} m={m} />
             ))}
@@ -214,15 +225,15 @@ export default function ChatPanel() {
           <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-2">
             <input
               className={input}
-              aria-label="Message"
+              aria-label={t('Message')}
               data-testid="chat-input"
-              placeholder="Message"
+              placeholder={t('Message')}
               value={text}
               maxLength={500}
               onChange={(e) => setText(e.target.value)}
             />
             <button className={btnPrimary} type="submit">
-              Send
+              {t('Send')}
             </button>
           </form>
           {error && <p className="px-3 pb-2 text-sm text-red-400">{error}</p>}
@@ -230,11 +241,11 @@ export default function ChatPanel() {
       )}
 
       {confirmClear && (
-        <Dialog title="Clear chat" onClose={() => setConfirmClear(false)}>
-          <p className="mb-3 text-sm">Delete every message for everyone? This cannot be undone.</p>
+        <Dialog title={t('Clear chat')} onClose={() => setConfirmClear(false)}>
+          <p className="mb-3 text-sm">{t('Delete every message for everyone? This cannot be undone.')}</p>
           <div className="flex justify-end gap-2">
             <button className={btn} onClick={() => setConfirmClear(false)}>
-              Cancel
+              {t('Cancel')}
             </button>
             <button
               className={btnDanger}
@@ -244,7 +255,7 @@ export default function ChatPanel() {
                 setConfirmClear(false);
               }}
             >
-              Clear chat
+              {t('Clear chat')}
             </button>
           </div>
         </Dialog>

@@ -1,5 +1,6 @@
 import * as D from '../shared/rules-data.js';
-import { computeTarget, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
+import { computeTarget, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
+import { joinMsgs } from '../shared/localization.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import { AppError } from './errors.js';
@@ -14,7 +15,7 @@ export const MAX_TARGETS = 30;
 // A temporary NPC has no sheet, so no Defence: it gets a fixed one.
 export const TEMP_NPC_DEFENCE = 10;
 const int = (v, min, max, what) => {
-  if (!Number.isInteger(v) || v < min || v > max) throw new AppError('bad_value', `${what} must be a whole number from ${min} to ${max}.`);
+  if (!Number.isInteger(v) || v < min || v > max) throw new AppError('bad_value', '{what} must be a whole number from {min} to {max}.', { what: { t: what }, min, max });
   return v;
 };
 
@@ -56,14 +57,13 @@ export function cleanApply(pending, input, targets) {
 const capitalise = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers.
-// -> { lines: [{ text, hidden }] }  the result lines for the chat
+// -> { lines: [{ message, hidden }] }  the result lines for the chat, as messages { key, params }
 export async function applyAttack(db, pending, clean, { emitSheet }) {
   const lines = [];
   const attackerName = pending.characterName;
 
   for (const t of clean.targets) {
     const token = await battle.getToken(db, t.tokenId);
-    const label = `${capitalise(t.defenceKind)} Defence`;
     let hp = null;
     let result;
     const isChar = token.ownerKind === 'character';
@@ -90,19 +90,39 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       result = work(null);
     }
 
-    let text = `${attackerName} attacks ${token.name} (${pending.masteryLabel}): ${clean.total} vs ${label} ${t.defence}, ${result.label}.`;
+    // One chat line, built from sentences so every reader gets it in their own language.
+    const sentences = [
+      {
+        key: '{attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}.',
+        params: {
+          attacker: attackerName,
+          target: token.name,
+          mastery: { t: pending.masteryLabel },
+          total: clean.total,
+          defence: { t: `${capitalise(t.defenceKind)} Defence` },
+          value: t.defence,
+          result: hitParam(result),
+        },
+      },
+    ];
     if (result.hit) {
-      const bonus = result.bonus ? ` + ${result.bonus}` : '';
-      text += ` Damage ${clean.base}${bonus} = ${result.raw}`;
-      if (clean.kind !== 'true') text += ` ${clean.kind}`;
-      if (result.steps.length) text += ` (${result.steps.join(', ')})`;
-      if (result.overridden) text += `, set by the GM to ${result.damage}`;
-      text += result.heal ? `. Heals ${result.heal}.` : `. ${result.damage} damage.`;
-      if (hp) text += ` HP ${hp.before} to ${hp.after}.`;
-      else if (!isChar) text += ' (temporary NPC: no sheet, apply by hand)';
-      if (isChar && clean.statuses.length) text += ` Adds ${clean.statuses.map((s) => (s.stackable ? `${s.name} ${s.stacks}` : s.name)).join(', ')}.`;
+      const formula = result.bonus ? `${clean.base} + ${result.bonus} = ${result.raw}` : `${clean.base} = ${result.raw}`;
+      sentences.push(
+        clean.kind === 'true'
+          ? { key: 'Damage {formula}.', params: { formula } }
+          : { key: 'Damage {formula} {kind}.', params: { formula, kind: { t: capitalise(clean.kind) } } },
+      );
+      if (result.steps.length) sentences.push({ key: 'After resistances: {steps}.', params: { steps: joinMsgs(result.steps) } });
+      if (result.overridden) sentences.push({ key: 'Set by the GM to {n}.', params: { n: result.damage } });
+      sentences.push(result.heal ? { key: 'Heals {n}.', params: { n: result.heal } } : { key: '{n} damage.', params: { n: result.damage } });
+      if (hp) sentences.push({ key: 'HP {from} to {to}.', params: { from: hp.before, to: hp.after } });
+      else if (!isChar) sentences.push({ key: '(temporary NPC: no sheet, apply by hand)' });
+      if (isChar && clean.statuses.length) {
+        const list = clean.statuses.map((s) => ({ t: s.stackable ? `${s.name} ${s.stacks}` : s.name }));
+        sentences.push({ key: 'Adds {list}.', params: { list: joinMsgs(list) } });
+      }
     }
-    lines.push({ text, hidden: token.hidden });
+    lines.push({ message: joinSentences(sentences), hidden: token.hidden });
   }
 
   // The attacker pays AP and, on a natural 1, may gain Exposed.
@@ -114,8 +134,11 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       return sheets.normalizeSheet(next);
     });
     emitSheet(pending.characterId, sheet);
-    if (clean.ap > 0) lines.push({ text: `${attackerName} spends ${clean.ap} AP.`, hidden: false });
-    if (clean.exposed) lines.push({ text: `${attackerName} gains Exposed 1 (natural 1).`, hidden: false });
+    if (clean.ap > 0) lines.push({ message: { key: '{name} spends {n} AP.', params: { name: attackerName, n: clean.ap } }, hidden: false });
+    if (clean.exposed) lines.push({ message: { key: '{name} gains Exposed 1 (natural 1).', params: { name: attackerName } }, hidden: false });
   }
   return { lines };
 }
+
+// Sentences joined into one message: "first. second. third."
+const joinSentences = (list) => joinMsgs(list.map((m) => ({ key: m.key, params: m.params })), ' ');

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Dialog, { btn, btnPrimary, input } from '../Dialog.jsx';
-import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
+import { planRoll, formatExpression, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
+import { useT } from '../../i18n.jsx';
+import { T } from '../../../../shared/localization.js';
 
 // A number that is edited in place and saved when the field loses focus or
 // Enter is pressed. While focused it ignores incoming updates so typing is
@@ -113,10 +115,10 @@ export function RollButton({ label, title = label, onRoll, sheet, kind, rkey, cl
   );
 }
 
-const describeNet = (net) =>
-  net === 0 ? 'Normal' : `${net > 0 ? 'Advantage' : 'Disadvantage'} ${Math.abs(net)}`;
+const describeNet = (net, t) => (net === 0 ? t('Normal') : `${net > 0 ? t('Advantage') : t('Disadvantage')} ${Math.abs(net)}`);
 
 export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll }) {
+  const t = useT();
   const [manual, setManual] = useState(0);
   const [modifier, setModifier] = useState('0');
   const valid = isWholeNumber(modifier) && Math.abs(Number(modifier)) <= 99;
@@ -125,7 +127,7 @@ export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll })
   const plan = planRoll(sheet, { kind, key: rkey, advantage: manual, modifier: valid ? Number(modifier) : 0 });
 
   return (
-    <Dialog title={`Roll: ${title}`} onClose={onClose}>
+    <Dialog title={t('Roll: {title}', { title })} onClose={onClose}>
       <form
         className="flex flex-col gap-3"
         onSubmit={(e) => {
@@ -138,41 +140,45 @@ export function RollOptionsDialog({ title, sheet, kind, rkey, onClose, onRoll })
         {plan.ok && (
           <div className="rounded-lg bg-white/5 p-3" data-testid="roll-preview">
             <div className="text-base font-medium" data-testid="preview-expression">
-              {plan.expression}
+              {formatExpression(plan.terms.map((x) => ({ ...x, label: t(x.label) })))}
             </div>
             {plan.diceCount > 1 && (
               <div className="mt-1 text-xs opacity-70" data-testid="net-mode">
-                {plan.diceCount}d20, keep the {plan.net > 0 ? 'highest' : 'lowest'}: {describeNet(plan.net)} (
-                {plan.sources.map((x) => x.label).join(', ')})
+                {t('{n}d20, keep the {which}: {mode} ({sources})', {
+                  n: plan.diceCount,
+                  which: t(plan.net > 0 ? T('highest') : T('lowest')),
+                  mode: describeNet(plan.net, t),
+                  sources: plan.sources.map((x) => t(x.label)).join(', '),
+                })}
               </div>
             )}
           </div>
         )}
         <div className="flex flex-col gap-1 text-sm">
-          <span>Extra Advantage levels (negative for Disadvantage)</span>
+          <span>{t('Extra Advantage levels (negative for Disadvantage)')}</span>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Fewer levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.max(-MAX_MANUAL_LEVELS, manual - 1))}>
+            <button type="button" aria-label={t('Fewer levels')} className={`${btn} min-w-12`} onClick={() => setManual(Math.max(-MAX_MANUAL_LEVELS, manual - 1))}>
               -
             </button>
             <span className="w-8 text-center text-lg" data-testid="manual-levels">
               {manual}
             </span>
-            <button type="button" aria-label="More levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.min(MAX_MANUAL_LEVELS, manual + 1))}>
+            <button type="button" aria-label={t('More levels')} className={`${btn} min-w-12`} onClick={() => setManual(Math.min(MAX_MANUAL_LEVELS, manual + 1))}>
               +
             </button>
           </div>
         </div>
         <label className="flex flex-col gap-1 text-sm">
-          Custom modifier
-          <IntInput label="Custom modifier" value={modifier} onChange={setModifier} />
+          {t('Custom modifier')}
+          <IntInput label={t('Custom modifier')} value={modifier} onChange={setModifier} />
         </label>
-        {!valid && <p className="text-sm text-red-400">Use a whole number from -99 to 99.</p>}
+        {!valid && <p className="text-sm text-red-400">{t('Use a whole number from -99 to 99.')}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className={btn} onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type="submit" className={btnPrimary} disabled={!valid || !plan.ok} data-testid="roll-confirm">
-            Roll
+            {t('Roll')}
           </button>
         </div>
       </form>

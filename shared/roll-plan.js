@@ -1,5 +1,6 @@
 import * as D from './rules-data.js';
 import { resolveStat, statusEffects } from './status-effects.js';
+import { T } from './localization.js';
 
 // Works out what a roll will be, before any die is thrown: its title, every
 // bonus with its source, and how many d20 are rolled. The server uses it to make
@@ -23,10 +24,10 @@ export function planRoll(sheet, request) {
   const { kind, key } = request;
   const manual = request.advantage ?? 0;
   const modifier = request.modifier ?? 0;
-  const fail = (error) => ({ ok: false, error });
+  const fail = (error, params) => ({ ok: false, error, params });
 
   if (!Number.isInteger(manual) || Math.abs(manual) > MAX_MANUAL_LEVELS) {
-    return fail(`Advantage levels must be a whole number from -${MAX_MANUAL_LEVELS} to ${MAX_MANUAL_LEVELS}.`);
+    return fail('Advantage levels must be a whole number from -{max} to {max}.', { max: MAX_MANUAL_LEVELS });
   }
   if (!Number.isInteger(modifier) || Math.abs(modifier) > 99) {
     return fail('The custom modifier must be a whole number from -99 to 99.');
@@ -59,7 +60,7 @@ export function planRoll(sheet, request) {
     if (!D.MASTERIES.includes(key)) return fail('Unknown Combat Mastery.');
     title = `${D.MASTERY_LABELS[key]} (Combat Mastery Roll)`;
     terms.push({ label: `Mastery: ${D.MASTERY_LABELS[key]}`, value: sheet.masteries[key] });
-    terms.push({ label: 'Experience Modifier', value: sheet.experience });
+    terms.push({ label: T('Experience Modifier'), value: sheet.experience });
   } else {
     return fail('Unknown roll type.');
   }
@@ -67,10 +68,10 @@ export function planRoll(sheet, request) {
   // Statuses apply on their own, even to a quick roll.
   const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
   for (const m of fx.modifiers) terms.push(m);
-  if (modifier !== 0) terms.push({ label: 'Custom', value: modifier });
+  if (modifier !== 0) terms.push({ label: T('Custom'), value: modifier });
 
   const sources = [...fx.levels];
-  if (manual !== 0) sources.push({ label: 'Manual', levels: manual });
+  if (manual !== 0) sources.push({ label: T('Manual'), levels: manual });
   const net = Math.max(-MAX_NET_LEVELS, Math.min(MAX_NET_LEVELS, sources.reduce((sum, s) => sum + s.levels, 0)));
   const mode = net > 0 ? 'advantage' : net < 0 ? 'disadvantage' : 'normal';
 

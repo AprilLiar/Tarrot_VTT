@@ -3,14 +3,16 @@ import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnPrimary } from '../Dialog.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { PicturesManager, usePictures } from '../scene/Pictures.jsx';
+import { useT } from '../../i18n.jsx';
 
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
 
 // The character's picture collection (Scene art, later Battle tokens).
 export function PicturesSection({ s }) {
+  const t = useT();
   return (
-    <section aria-label="Pictures">
-      <h2 className={heading}>Pictures</h2>
+    <section aria-label={t('Pictures')}>
+      <h2 className={heading}>{t('Pictures')}</h2>
       <div className="rounded-xl border border-white/10 bg-white/5 p-3">
         <PicturesManager owner={{ characterId: s.characterId }} />
       </div>
@@ -20,6 +22,7 @@ export function PicturesSection({ s }) {
 
 // A player puts their own PC on the scene, or takes it off again.
 export function StageSection({ s }) {
+  const t = useT();
   const { stage, toast } = useApp();
   const pictures = usePictures({ characterId: s.characterId });
   const [choosing, setChoosing] = useState(false);
@@ -33,15 +36,15 @@ export function StageSection({ s }) {
   }
 
   return (
-    <section aria-label="Stage">
-      <h2 className={heading}>Scene</h2>
+    <section aria-label={t('Stage')}>
+      <h2 className={heading}>{t('Scene')}</h2>
       <div className="rounded-xl border border-white/10 bg-white/5 p-3">
         {!stage.scene ? (
-          <p className="text-sm opacity-70">No scene is active right now.</p>
+          <p className="text-sm opacity-70">{t('No scene is active right now.')}</p>
         ) : (
           <>
             <p className="mb-2 text-sm opacity-70">
-              Scene: <strong>{stage.scene.name}</strong>
+              {t('Scene: {name}', { name: stage.scene.name })}
             </p>
             {onStage ? (
               <button
@@ -52,7 +55,7 @@ export function StageSection({ s }) {
                   if (!r.ok) toast(r.error);
                 }}
               >
-                Leave the stage
+                {t('Leave the stage')}
               </button>
             ) : (
               <button
@@ -60,25 +63,25 @@ export function StageSection({ s }) {
                 data-testid="join-stage"
                 disabled={!pictures}
                 onClick={() => {
-                  if (!pictures?.length) toast('Add a picture below first.');
+                  if (!pictures?.length) toast(t('Add a picture below first.'));
                   else if (pictures.length === 1) summon(pictures[0].id);
                   else setChoosing(true);
                 }}
               >
-                Join the stage
+                {t('Join the stage')}
               </button>
             )}
           </>
         )}
       </div>
       {choosing && (
-        <Dialog title="Choose a picture" onClose={() => setChoosing(false)}>
+        <Dialog title={t('Choose a picture')} onClose={() => setChoosing(false)}>
           <div className="grid grid-cols-3 gap-2">
             {pictures.map((p) => (
               <button
                 key={p.id}
                 className="flex h-28 items-center justify-center overflow-hidden rounded bg-white/5 active:bg-white/15"
-                aria-label={p.name || 'Picture'}
+                aria-label={p.name || t('Picture')}
                 onClick={() => {
                   setChoosing(false);
                   summon(p.id);

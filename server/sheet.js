@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import * as D from '../shared/rules-data.js';
+import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
 
 // The character sheet lives as one JSON document per character
@@ -11,7 +12,7 @@ const MAX_FEATURES = 200;
 const MAX_ITEMS = 500;
 const MAX_STATES = 20;
 
-const bad = (message, code = 'bad_value') => new AppError(code, message);
+const bad = (message, code = 'bad_value', params) => new AppError(code, message, params);
 
 export const apMax = (sheet) => (sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX);
 
@@ -119,7 +120,7 @@ export function normalizeSheet(raw) {
 
 function intIn(value, min, max, what) {
   if (!isInt(value) || value < min || value > max) {
-    throw bad(`${what} must be a whole number from ${min} to ${max}.`);
+    throw bad('{what} must be a whole number from {min} to {max}.', 'bad_value', { what: { t: what }, min, max });
   }
   return value;
 }
@@ -134,7 +135,7 @@ export function applySet(sheet, path, value, character) {
 
   switch (a) {
     case 'ap':
-      if (b === 'current') next.ap.current = intIn(value, 0, apMax(next), 'AP');
+      if (b === 'current') next.ap.current = intIn(value, 0, apMax(next), T('AP'));
       else if (b === 'minion') {
         if (character?.type !== 'npc') throw bad('Only NPCs can be Minions.', 'npc_only');
         if (typeof value !== 'boolean') throw bad('Minion must be true or false.');
@@ -143,44 +144,44 @@ export function applySet(sheet, path, value, character) {
       } else throw bad('Unknown field.', 'bad_path');
       break;
     case 'hp':
-      if (b === 'current') next.hp.current = intIn(value, -99, 9999, 'HP');
-      else if (b === 'max') next.hp.max = intIn(value, 0, 9999, 'Max HP');
+      if (b === 'current') next.hp.current = intIn(value, -99, 9999, T('HP'));
+      else if (b === 'max') next.hp.max = intIn(value, 0, 9999, T('Max HP'));
       else throw bad('Unknown field.', 'bad_path');
       break;
     case 'defence':
       unknownKey(['physical', 'mental']);
-      next.defence[b] = intIn(value, 0, 99, 'Defence');
+      next.defence[b] = intIn(value, 0, 99, T('Defence'));
       break;
     case 'movement':
-      next.movement = intIn(value, 0, D.MOVEMENT_MAX, 'Movement');
+      next.movement = intIn(value, 0, D.MOVEMENT_MAX, T('Movement'));
       break;
     case 'size':
-      next.size = intIn(value, 1, D.SIZE_MAX, 'Size');
+      next.size = intIn(value, 1, D.SIZE_MAX, T('Size'));
       break;
     case 'experience':
-      next.experience = intIn(value, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, 'Experience Modifier');
+      next.experience = intIn(value, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, T('Experience Modifier'));
       break;
     case 'stats':
       unknownKey(D.STATS);
-      next.stats[b] = intIn(value, D.STAT_MIN, D.STAT_MAX, 'Stat');
+      next.stats[b] = intIn(value, D.STAT_MIN, D.STAT_MAX, T('Stat'));
       break;
     case 'xDefence':
       unknownKey(D.SAVE_STATS);
-      next.xDefence[b] = intIn(value, -20, 20, 'Defence');
+      next.xDefence[b] = intIn(value, -20, 20, T('Defence'));
       break;
     case 'masteries':
       unknownKey(D.MASTERIES);
-      next.masteries[b] = intIn(value, D.MASTERY_MIN, D.MASTERY_MAX, 'Combat Mastery');
+      next.masteries[b] = intIn(value, D.MASTERY_MIN, D.MASTERY_MAX, T('Combat Mastery'));
       break;
     case 'skills':
       unknownKey(D.SKILLS.map((s) => s.key));
-      next.skills[b] = intIn(value, 0, D.SKILL_TIER_MAX, 'Mastery tier');
+      next.skills[b] = intIn(value, 0, D.SKILL_TIER_MAX, T('Mastery tier'));
       break;
     case 'resistances': {
       unknownKey(D.DAMAGE_TYPES);
       if (!value || typeof value !== 'object') throw bad('Invalid resistance.');
       const res = normalizeResistance({ ...next.resistances[b], ...value });
-      if (value.flat !== undefined) intIn(value.flat, -99, 99, 'Resistance');
+      if (value.flat !== undefined) intIn(value.flat, -99, 99, T('Resistance'));
       if (isDefaultResistance(res)) delete next.resistances[b];
       else next.resistances[b] = res;
       break;
@@ -188,7 +189,7 @@ export function applySet(sheet, path, value, character) {
     case 'statuses': {
       const st = D.STATUSES.find((s) => s.key === b);
       if (!st) throw bad('Unknown status.', 'bad_path');
-      intIn(value, 0, 99, 'Stacks');
+      intIn(value, 0, 99, T('Stacks'));
       if (value === 0) delete next.statuses[b];
       else next.statuses[b] = st.stackable ? value : 1;
       break;
@@ -201,13 +202,13 @@ export function applySet(sheet, path, value, character) {
 
 function name(v) {
   if (typeof v !== 'string' || !v.trim()) throw bad('A name is required.', 'bad_name');
-  if (v.trim().length > D.NAME_MAX) throw bad(`Names can be at most ${D.NAME_MAX} characters.`, 'bad_name');
+  if (v.trim().length > D.NAME_MAX) throw bad('Names can be at most {max} characters.', 'bad_name', { max: D.NAME_MAX });
   return v.trim();
 }
 
 const desc = (v) => {
   if (v === undefined) return undefined;
-  if (typeof v !== 'string' || v.length > D.TEXT_MAX) throw bad(`Text can be at most ${D.TEXT_MAX} characters.`);
+  if (typeof v !== 'string' || v.length > D.TEXT_MAX) throw bad('Text can be at most {max} characters.', 'bad_value', { max: D.TEXT_MAX });
   return v;
 };
 
@@ -240,7 +241,7 @@ export function applyList(sheet, list, action, p = {}) {
     const arr = next.items;
     if (action === 'add') {
       if (arr.length >= MAX_ITEMS) throw bad('Too many items.', 'limit');
-      const max = p.usesMax === undefined ? 1 : intIn(p.usesMax, 1, D.ITEM_USES_MAX, 'Max uses');
+      const max = p.usesMax === undefined ? 1 : intIn(p.usesMax, 1, D.ITEM_USES_MAX, T('Max uses'));
       arr.push({
         id: randomUUID(),
         name: name(p.name),
@@ -254,10 +255,10 @@ export function applyList(sheet, list, action, p = {}) {
       if (p.name !== undefined) it.name = name(p.name);
       if (p.description !== undefined) it.description = desc(p.description);
       if (p.usesMax !== undefined) {
-        it.uses.max = intIn(p.usesMax, 1, D.ITEM_USES_MAX, 'Max uses');
+        it.uses.max = intIn(p.usesMax, 1, D.ITEM_USES_MAX, T('Max uses'));
         it.uses.current = Math.min(it.uses.current, it.uses.max);
       }
-      if (p.usesCurrent !== undefined) it.uses.current = intIn(p.usesCurrent, 0, it.uses.max, 'Uses');
+      if (p.usesCurrent !== undefined) it.uses.current = intIn(p.usesCurrent, 0, it.uses.max, T('Uses'));
       if (p.states !== undefined) {
         if (!Array.isArray(p.states) || p.states.some((s) => typeof s !== 'string')) throw bad('Invalid states.');
         it.states = p.states;

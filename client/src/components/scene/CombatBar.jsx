@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { btn, btnPrimary } from '../Dialog.jsx';
+import { useT } from '../../i18n.jsx';
 
 const RING = { pc: '#34d399', npc: '#f87171' };
 const small = 'min-h-8 rounded-lg border border-white/20 bg-black/40 px-2 text-xs active:bg-white/20';
@@ -9,6 +10,7 @@ const small = 'min-h-8 rounded-lg border border-white/20 bg-black/40 px-2 text-x
 // The turn order over the Battle map (right edge): everyone sees the order, the round and whose
 // turn it is. The GM also runs the combat: start, roll NPCs, begin, next turn, reorder, edit, end.
 export function CombatBar({ battle }) {
+  const t = useT();
   const { identity, toast } = useApp();
   const isGm = identity.role === 'gm';
   const combat = battle.combat;
@@ -25,7 +27,7 @@ export function CombatBar({ battle }) {
     return (
       <div className="absolute right-2 top-16 z-20" data-no-pan>
         <button className={`${btn} bg-black/55 backdrop-blur`} data-testid="combat-start" onClick={() => run('combat:start')}>
-          Start combat
+          {t('Start combat')}
         </button>
       </div>
     );
@@ -33,7 +35,7 @@ export function CombatBar({ battle }) {
 
   const { order } = combat;
   const inCombat = new Set(order.map((e) => e.tokenId));
-  const addable = battle.tokens.filter((t) => t.kind !== 'prop' && !inCombat.has(t.id));
+  const addable = battle.tokens.filter((tk) => tk.kind !== 'prop' && !inCombat.has(tk.id));
   const move = (i, d) => {
     const ids = order.map((e) => e.tokenId);
     const j = i + d;
@@ -51,7 +53,7 @@ export function CombatBar({ battle }) {
     >
       <div className="flex items-center justify-between">
         <span className="font-semibold" data-testid="combat-round">
-          {combat.phase === 'active' ? `Round ${combat.round}` : 'Rolling Initiative'}
+          {combat.phase === 'active' ? t('Round {n}', { n: combat.round }) : t('Rolling Initiative')}
         </span>
       </div>
 
@@ -91,23 +93,23 @@ export function CombatBar({ battle }) {
                   data-testid="initiative"
                   disabled={!isGm}
                   onClick={() => setEditing(e.tokenId)}
-                  aria-label={isGm ? `Edit initiative of ${e.name}` : undefined}
+                  aria-label={isGm ? t('Edit initiative of {name}', { name: e.name }) : undefined}
                 >
                   {e.initiative ?? '?'}
                 </button>
               )}
               {isGm && (
                 <span className="flex flex-col">
-                  <button className="h-4 text-[10px] leading-none opacity-70" aria-label={`Move ${e.name} up`} onClick={() => move(i, -1)}>
+                  <button className="h-4 text-[10px] leading-none opacity-70" aria-label={t('Move {name} up', { name: e.name })} onClick={() => move(i, -1)}>
                     ^
                   </button>
-                  <button className="h-4 text-[10px] leading-none opacity-70" aria-label={`Move ${e.name} down`} onClick={() => move(i, 1)}>
+                  <button className="h-4 text-[10px] leading-none opacity-70" aria-label={t('Move {name} down', { name: e.name })} onClick={() => move(i, 1)}>
                     v
                   </button>
                 </span>
               )}
               {isGm && (
-                <button className="h-6 w-6 text-xs opacity-60" aria-label={`Remove ${e.name} from combat`} data-testid="combat-remove" onClick={() => run('combat:remove', { tokenId: e.tokenId })}>
+                <button className="h-6 w-6 text-xs opacity-60" aria-label={t('Remove {name} from combat', { name: e.name })} data-testid="combat-remove" onClick={() => run('combat:remove', { tokenId: e.tokenId })}>
                   x
                 </button>
               )}
@@ -121,15 +123,15 @@ export function CombatBar({ battle }) {
           {addable.length > 0 && (
             <select
               className={small}
-              aria-label="Add to combat"
+              aria-label={t('Add to combat')}
               data-testid="combat-add"
               value=""
               onChange={(ev) => ev.target.value && run('combat:add', { tokenId: Number(ev.target.value) })}
             >
-              <option value="">Add to combat...</option>
-              {addable.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              <option value="">{t('Add to combat...')}</option>
+              {addable.map((tk) => (
+                <option key={tk.id} value={tk.id}>
+                  {tk.name}
                 </option>
               ))}
             </select>
@@ -137,19 +139,19 @@ export function CombatBar({ battle }) {
           {combat.phase === 'rolling' ? (
             <>
               <button className={small} data-testid="combat-roll-npcs" onClick={() => run('combat:roll_npcs')}>
-                Roll for NPCs
+                {t('Roll for NPCs')}
               </button>
               <button className={`${btnPrimary} min-h-9 text-sm`} data-testid="combat-begin" onClick={() => run('combat:begin')}>
-                Begin combat
+                {t('Begin combat')}
               </button>
             </>
           ) : (
             <button className={`${btnPrimary} min-h-9 text-sm`} data-testid="combat-next" onClick={() => run('combat:next', { tokenId: combat.activeTokenId ?? undefined })}>
-              Next turn
+              {t('Next turn')}
             </button>
           )}
           <button className={small} data-testid="combat-end" onClick={() => run('combat:end')}>
-            {combat.phase === 'active' ? 'End combat' : 'Cancel combat'}
+            {combat.phase === 'active' ? t('End combat') : t('Cancel combat')}
           </button>
         </div>
       )}

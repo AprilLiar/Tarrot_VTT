@@ -4,6 +4,7 @@ import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
 import * as C from '../combat.js';
 import { normalizeSheet } from '../sheet.js';
+import { english } from '../i18n.js';
 
 const tok = (id, kind = 'pc') => ({ id, kind, ownerKind: 'character', ownerId: id * 10, name: `T${id}`, imageId: null });
 
@@ -32,8 +33,8 @@ describe('turn start and end on a sheet', () => {
     const { sheet, lines } = C.startOfTurn(s, 'Aria');
     expect(sheet.hp.current).toBe(5); // 10 - 2 - 3
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toMatch(/2 damage from Bleeding 2/);
-    expect(lines[1]).toMatch(/3 damage from Burning 4/);
+    expect(english(lines[0])).toMatch(/2 damage from Bleeding 2/);
+    expect(english(lines[1])).toMatch(/3 damage from Burning 4/);
   });
 
   it('Burning on a fire-consuming creature heals it, capped at max HP', () => {
@@ -54,7 +55,7 @@ describe('turn start and end on a sheet', () => {
     s.statuses = { stunned: 1, surprised: 1 };
     const out = C.startOfTurn(s, 'Aria');
     expect(out.sheet.ap.current).toBe(1); // 4 - 1 - 2
-    expect(out.lines[0]).toMatch(/1 AP instead of 4 \(Stunned 1, Surprised 2\)/);
+    expect(english(out.lines[0])).toMatch(/1 AP instead of 4 \(Stunned 1, Surprised 2\)/);
     s.statuses = { stunned: 9 };
     expect(C.startOfTurn(s, 'Aria').sheet.ap.current).toBe(0);
   });

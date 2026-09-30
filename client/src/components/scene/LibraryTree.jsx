@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { call } from '../../AppContext.jsx';
 import { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField, descendantIds } from '../folderUi.jsx';
+import { useT } from '../../i18n.jsx';
 
 // A nested list of folders and items (scenes, temp NPCs) with folder actions.
 // `folderEvent` is the socket event prefix, for example 'scene_folder'.
 // `renderItem(item, { open, toggle })` draws one item; the parent owns item actions.
 export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText, onAddItem }) {
+  const t = useT();
   const [openFolder, setOpenFolder] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [openItem, setOpenItem] = useState(null);
@@ -31,20 +33,20 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
                 <div className="flex flex-wrap gap-2 pb-2">
                   {onAddItem && (
                     <button className={btnPrimary} onClick={() => onAddItem(f.id)}>
-                      Add here
+                      {t('Add here')}
                     </button>
                   )}
                   <button className={btn} onClick={() => setDialog({ kind: 'new', parentId: f.id })}>
-                    Subfolder
+                    {t('Subfolder')}
                   </button>
                   <button className={btn} onClick={() => setDialog({ kind: 'rename', folder: f })}>
-                    Rename
+                    {t('Rename')}
                   </button>
                   <button className={btn} onClick={() => setDialog({ kind: 'move', folder: f })}>
-                    Move
+                    {t('Move')}
                   </button>
                   <button className={btnDanger} onClick={() => setDialog({ kind: 'delete', folder: f })}>
-                    Delete
+                    {t('Delete')}
                   </button>
                 </div>
               )}
@@ -67,7 +69,7 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
       {folders.length === 0 && items.length === 0 && <p className="text-sm opacity-60">{emptyText}</p>}
       <ul>{branch(null, 0)}</ul>
       <button className={`${btn} mt-2 w-full`} data-testid={`new-${folderEvent}`} onClick={() => setDialog({ kind: 'new', parentId: null })}>
-        New folder
+        {t('New folder')}
       </button>
 
       {dialog?.kind === 'new' && <NewFolder folders={folders} eventName={folderEvent} parentId={dialog.parentId} onClose={close} />}
@@ -77,14 +79,14 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
       {dialog?.kind === 'move' && <MoveFolder eventName={folderEvent} folders={folders} folder={dialog.folder} onClose={close} />}
       {dialog?.kind === 'delete' && (
         <ActionDialog
-          title="Delete folder"
-          submitLabel="Delete"
+          title={t('Delete folder')}
+          submitLabel={t('Delete')}
           danger
           onClose={close}
           run={() => call(`${folderEvent}:delete`, { id: dialog.folder.id })}
         >
           <p className="text-sm">
-            Delete the folder <strong>{dialog.folder.name}</strong>? Only empty folders can be deleted.
+            {t('Delete the folder {name}? Only empty folders can be deleted.', { name: dialog.folder.name })}
           </p>
         </ActionDialog>
       )}
@@ -93,47 +95,50 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
 }
 
 function NewFolder({ folders, eventName, parentId, onClose }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [parent, setParent] = useState(parentId);
   return (
     <ActionDialog
-      title="New folder"
-      submitLabel="Create"
+      title={t('New folder')}
+      submitLabel={t('Create')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call(`${eventName}:create`, { name, parentId: parent })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
-      <FolderSelect label="Inside" folders={folders} value={parent} onChange={setParent} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
+      <FolderSelect label={t('Inside')} folders={folders} value={parent} onChange={setParent} />
     </ActionDialog>
   );
 }
 
 function RenameFolder({ eventName, folder, onClose }) {
+  const t = useT();
   const [name, setName] = useState(folder.name);
   return (
     <ActionDialog
-      title="Rename folder"
-      submitLabel="Rename"
+      title={t('Rename folder')}
+      submitLabel={t('Rename')}
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={() => call(`${eventName}:rename`, { id: folder.id, name })}
     >
-      <NameField label="Name" value={name} onChange={setName} />
+      <NameField label={t('Name')} value={name} onChange={setName} />
     </ActionDialog>
   );
 }
 
 function MoveFolder({ eventName, folders, folder, onClose }) {
+  const t = useT();
   const [dest, setDest] = useState(folder.parentId);
   return (
     <ActionDialog
-      title={`Move ${folder.name}`}
-      submitLabel="Move"
+      title={t('Move {name}', { name: folder.name })}
+      submitLabel={t('Move')}
       onClose={onClose}
       run={() => call(`${eventName}:move`, { id: folder.id, parentId: dest })}
     >
-      <FolderSelect label="Move to" folders={folders} value={dest} onChange={setDest} exclude={descendantIds(folders, folder.id)} />
+      <FolderSelect label={t('Move to')} folders={folders} value={dest} onChange={setDest} exclude={descendantIds(folders, folder.id)} />
     </ActionDialog>
   );
 }

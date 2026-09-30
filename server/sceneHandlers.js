@@ -5,6 +5,8 @@ import * as combat from './combat.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
+import { line as chatLine } from './i18n.js';
+import { T } from '../shared/localization.js';
 
 // Socket events for scenes, the stage, temp NPCs and pictures.
 //
@@ -363,9 +365,9 @@ export function registerSceneHandlers(ctx) {
   };
 
   // A chat line from the tracker. Lines about hidden tokens are never sent (they would give them away).
-  function say(text, token) {
+  function say(m, token) {
     if (token?.hidden) return;
-    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: 'Combat' }, text });
+    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: T('Combat') }, ...chatLine(typeof m === 'string' ? { key: m } : m) });
     io.to(CHAT_ROOM).emit('chat:message', message);
   }
 
@@ -379,7 +381,7 @@ export function registerSceneHandlers(ctx) {
     const entry = combat.activeEntry(c);
     if (!entry) return;
     const token = await battle.getToken(db, entry.tokenId);
-    say(`Round ${c.round}: ${token.name}'s turn.`, token);
+    say({ key: "Round {round}: {name}'s turn.", params: { round: c.round, name: token.name } }, token);
     if (entry.ownerKind !== 'character') return;
     let lines = [];
     const sheet = await sheets.updateSheet(db, entry.ownerId, (s) => {
@@ -435,7 +437,7 @@ export function registerSceneHandlers(ctx) {
     } else {
       const n = rollD20();
       combat.setInitiative(c, entry.tokenId, n);
-      say(`${token.name} rolls Initiative: ${n}.`, token);
+      say({ key: '{name} rolls Initiative: {n}.', params: { name: token.name, n } }, token);
     }
   }
 
@@ -454,7 +456,7 @@ export function registerSceneHandlers(ctx) {
     if (sceneId == null) throw new AppError('no_scene', 'There is no active scene.');
     const tokens = await battle.listTokens(db, sceneId, { forGm: true });
     shared.combat = combat.newCombat(sceneId, tokens);
-    say('Combat begins. Roll for Initiative.');
+    say({ key: 'Combat begins. Roll for Initiative.' });
   });
 
   // A player rolls their own PC; the GM can roll anyone (and re-roll).
@@ -488,7 +490,7 @@ export function registerSceneHandlers(ctx) {
   gmCombat('combat:begin', async () => {
     const c = requireCombat();
     combat.begin(c);
-    say('Combat begins. Round 1.');
+    say({ key: 'Combat begins. Round 1.' });
     await beginTurn(c);
   });
 
@@ -529,7 +531,7 @@ export function registerSceneHandlers(ctx) {
   gmCombat('combat:end', async () => {
     const c = requireCombat();
     for (const entry of c.order) await battle.clearBank(db, entry.tokenId).catch(() => {});
-    say(c.phase === 'active' ? `Combat ends after ${c.round} round${c.round === 1 ? '' : 's'}.` : 'Combat cancelled.');
+    say(c.phase === 'active' ? { key: 'Combat ends after {n} round(s).', params: { n: c.round } } : { key: 'Combat cancelled.' });
     shared.combat = null;
   });
 

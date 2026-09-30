@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppProvider, useApp } from './AppContext.jsx';
+import { useState } from 'react';
 import Picker from './components/Picker.jsx';
+import Settings from './components/Settings.jsx';
+import { useT } from './i18n.jsx';
 import Shell from './components/Shell.jsx';
 import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
@@ -25,17 +28,19 @@ const SceneFrame = () => (
 function Screen() {
   const { ready, identity, switchIdentity } = useApp();
   const desktop = useIsDesktop();
+  const t = useT();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (!ready) {
     return (
       <main className="flex h-full items-center justify-center">
         <p data-testid="status" className="text-sm opacity-70">
-          Connecting...
+          {t('Connecting...')}
         </p>
       </main>
     );
   }
-  if (!identity) return <Picker />;
+  if (!identity) return settingsOpen ? <Settings onBack={() => setSettingsOpen(false)} /> : <Picker onSettings={() => setSettingsOpen(true)} />;
 
   // The Display Screen: only the scene, no menus, no chat.
   if (identity.role === 'display') {

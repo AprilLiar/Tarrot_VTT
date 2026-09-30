@@ -8,6 +8,7 @@ import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
+import { useT } from '../../i18n.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
@@ -19,6 +20,7 @@ const MASTERY_GLOW = {
 };
 
 export default function SheetPage({ characterId }) {
+  const t = useT();
   const { identity, toast, setChatOpen } = useApp();
   const [data, setData] = useState(null); // { character, sheet }
   const [error, setError] = useState(null);
@@ -31,7 +33,7 @@ export default function SheetPage({ characterId }) {
       call('sheet:get', { characterId }).then((r) => {
         if (!live) return;
         if (r.ok) setData({ character: r.character, sheet: r.sheet });
-        else setError(r.error ?? 'Could not load the sheet.');
+        else setError(r.error ?? t('Could not load the sheet.'));
       });
     const onUpdated = (u) => {
       if (u.characterId === characterId) setData((d) => (d ? { ...d, sheet: u.sheet } : d));
@@ -50,32 +52,32 @@ export default function SheetPage({ characterId }) {
   const set = useCallback(
     async (path, value) => {
       const r = await call('sheet:set', { characterId, path, value });
-      if (!r.ok) toast(r.error ?? 'That change was not saved.');
+      if (!r.ok) toast(r.error ?? t('That change was not saved.'));
       return r;
     },
-    [characterId, toast],
+    [characterId, toast, t],
   );
 
   const list = useCallback(
     async (listName, action, payload = {}) => {
       const r = await call('sheet:list', { characterId, list: listName, action, ...payload });
-      if (!r.ok) toast(r.error ?? 'That change was not saved.');
+      if (!r.ok) toast(r.error ?? t('That change was not saved.'));
       return r;
     },
-    [characterId, toast],
+    [characterId, toast, t],
   );
 
   const roll = useCallback(
     async (kind, key, opts = {}) => {
       const r = await call('roll:make', { characterId, kind, key, ...opts });
       if (r.ok) setChatOpen(true);
-      else toast(r.error ?? 'The roll failed.');
+      else toast(r.error ?? t('The roll failed.'));
     },
-    [characterId, toast, setChatOpen],
+    [characterId, toast, setChatOpen, t],
   );
 
   if (error) return <p className="p-4 text-red-400">{error}</p>;
-  if (!data) return <p className="p-4 text-sm opacity-70">Loading sheet...</p>;
+  if (!data) return <p className="p-4 text-sm opacity-70">{t('Loading sheet...')}</p>;
 
   const { character, sheet } = data;
   const s = { sheet, character, set, list, roll, characterId };
@@ -85,22 +87,22 @@ export default function SheetPage({ characterId }) {
     <main className="mx-auto flex max-w-3xl flex-col gap-3 p-3 pb-24" data-testid="sheet">
       {identity.role === 'gm' && (
         <Link to="/" className="text-sm text-violet-300 underline">
-          Back to roster
+          {t('Back to roster')}
         </Link>
       )}
       <div className="flex items-baseline justify-between gap-2">
         <h1 className="truncate text-2xl font-semibold" data-testid="sheet-name">
           {character.name}
         </h1>
-        <span className="rounded bg-slate-700 px-2 py-0.5 text-xs">{character.type.toUpperCase()}</span>
+        <span className="rounded bg-slate-700 px-2 py-0.5 text-xs">{character.type === 'pc' ? t('PC') : t('NPC')}</span>
       </div>
 
-      <section className={`${card} grid grid-cols-2 gap-3`} aria-label="Vitals">
+      <section className={`${card} grid grid-cols-2 gap-3`} aria-label={t('Vitals')}>
         <div>
-          <div className="text-xs opacity-60">Action Points</div>
+          <div className="text-xs opacity-60">{t('Action Points')}</div>
           <div className="flex items-center gap-1 text-2xl">
             <div className="w-14">
-              <NumField label="Current AP" testId="ap-current" value={sheet.ap.current} min={0} max={apMax} onCommit={(n) => set('ap.current', n)} className="text-2xl" />
+              <NumField label={t('Current AP')} testId="ap-current" value={sheet.ap.current} min={0} max={apMax} onCommit={(n) => set('ap.current', n)} className="text-2xl" />
             </div>
             <span className="opacity-60">/ {apMax}</span>
           </div>
@@ -113,44 +115,44 @@ export default function SheetPage({ characterId }) {
                 onChange={(e) => set('ap.minion', e.target.checked)}
                 className="h-5 w-5"
               />
-              Minion
+              {t('Minion')}
             </label>
           )}
         </div>
         <div>
-          <div className="text-xs opacity-60">Hit Points</div>
+          <div className="text-xs opacity-60">{t('Hit Points')}</div>
           <div className="flex items-center gap-1 text-2xl">
             <div className="w-16">
-              <NumField label="Current HP" testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-2xl" />
+              <NumField label={t('Current HP')} testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-2xl" />
             </div>
             <span className="opacity-60">/</span>
             <div className="w-16">
-              <NumField label="Max HP" testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-2xl" />
+              <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-2xl" />
             </div>
           </div>
         </div>
         <div>
-          <div className="text-xs opacity-60">Physical Defence</div>
+          <div className="text-xs opacity-60">{t('Physical Defence')}</div>
           <div className="w-16 text-xl">
-            <NumField label="Physical Defence" value={sheet.defence.physical} min={0} max={99} onCommit={(n) => set('defence.physical', n)} />
+            <NumField label={t('Physical Defence')} value={sheet.defence.physical} min={0} max={99} onCommit={(n) => set('defence.physical', n)} />
           </div>
         </div>
         <div>
-          <div className="text-xs opacity-60">Mental Defence</div>
+          <div className="text-xs opacity-60">{t('Mental Defence')}</div>
           <div className="w-16 text-xl">
-            <NumField label="Mental Defence" value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
+            <NumField label={t('Mental Defence')} value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
           </div>
         </div>
         <div>
-          <div className="text-xs opacity-60">Movement (squares per AP)</div>
+          <div className="text-xs opacity-60">{t('Movement (squares per AP)')}</div>
           <div className="w-16 text-xl">
-            <NumField label="Movement" testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
+            <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
           </div>
         </div>
         <div>
-          <div className="text-xs opacity-60">Size (token)</div>
+          <div className="text-xs opacity-60">{t('Size (token)')}</div>
           <select
-            aria-label="Size"
+            aria-label={t('Size')}
             data-testid="size-select"
             className="min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
             value={sheet.size}
@@ -165,9 +167,9 @@ export default function SheetPage({ characterId }) {
         </div>
         <SheetHeight characterId={characterId} />
         <div className="col-span-2">
-          <div className="text-xs opacity-60">Experience Modifier</div>
+          <div className="text-xs opacity-60">{t('Experience Modifier')}</div>
           <div className="w-16 text-xl">
-            <NumField label="Experience Modifier" testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
+            <NumField label={t('Experience Modifier')} testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
           </div>
         </div>
       </section>
@@ -187,20 +189,21 @@ export default function SheetPage({ characterId }) {
 }
 
 function Stats({ s }) {
+  const t = useT();
   const { sheet, set, roll } = s;
   return (
-    <section aria-label="Stats">
-      <h2 className={heading}>Stats</h2>
-      <p className="mb-2 text-xs opacity-50">On a phone, tapping opens the roll options. With a mouse, click rolls at once and right-click opens the options. Statuses apply automatically.</p>
+    <section aria-label={t('Stats')}>
+      <h2 className={heading}>{t('Stats')}</h2>
+      <p className="mb-2 text-xs opacity-50">{t('On a phone, tapping opens the roll options. With a mouse, click rolls at once and right-click opens the options. Statuses apply automatically.')}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {D.STATS.map((stat) => {
           const hasSave = D.SAVE_STATS.includes(stat);
           return (
             <div key={stat} className={`${card} flex flex-col items-center`} data-testid={`stat-${stat}`}>
-              <div className="text-xs uppercase tracking-wide opacity-70">{D.STAT_LABELS[stat]}</div>
+              <div className="text-xs uppercase tracking-wide opacity-70">{t(D.STAT_LABELS[stat])}</div>
               <div className="w-full text-4xl font-semibold">
                 <NumField
-                  label={`${D.STAT_LABELS[stat]} value`}
+                  label={t('{name} value', { name: { t: D.STAT_LABELS[stat] } })}
                   testId={`stat-value-${stat}`}
                   value={sheet.stats[stat]}
                   min={D.STAT_MIN}
@@ -211,8 +214,8 @@ function Stats({ s }) {
               </div>
               <div className="flex w-full gap-1">
                 <RollButton
-                  label="Roll"
-                  title={`${D.STAT_LABELS[stat]} Attribute Roll`}
+                  label={t('Roll')}
+                  title={t(D.STAT_LABELS[stat] + ' Attribute Roll')}
                   testId={`roll-attr-${stat}`}
                   className="min-h-9 w-1/2"
                   sheet={sheet} kind="attribute" rkey={stat}
@@ -220,8 +223,8 @@ function Stats({ s }) {
                 />
                 {hasSave ? (
                   <RollButton
-                    label="Save"
-                    title={`${D.STAT_LABELS[stat]} Save`}
+                    label={t('Save')}
+                    title={t(D.STAT_LABELS[stat] + ' Save')}
                     testId={`roll-save-${stat}`}
                     className="min-h-9 w-1/2"
                   sheet={sheet} kind="save" rkey={stat}
@@ -233,10 +236,10 @@ function Stats({ s }) {
               </div>
               {hasSave && (
                 <div className="mt-1 flex w-full items-center gap-1 text-xs opacity-80">
-                  <span className="whitespace-nowrap">Defence</span>
+                  <span className="whitespace-nowrap">{t('Defence')}</span>
                   <div className="w-12">
                     <NumField
-                      label={`${D.STAT_LABELS[stat]} Defence`}
+                      label={t(D.STAT_LABELS[stat] + ' Defence')}
                       testId={`xdef-${stat}`}
                       value={sheet.xDefence[stat]}
                       min={-20}
@@ -254,7 +257,7 @@ function Stats({ s }) {
         {Object.entries(D.GROUP_SAVES).map(([key, g]) => (
           <RollButton
             key={key}
-            label={`${g.label} Save`}
+            label={t(g.label + ' Save')}
             testId={`roll-save-${key}`}
             className="min-h-11 flex-1 text-sm"
                   sheet={sheet} kind="save" rkey={key}
@@ -267,6 +270,7 @@ function Stats({ s }) {
 }
 
 function Masteries({ s }) {
+  const t = useT();
   const { sheet, set, roll } = s;
   const box = (m) => (
     <div
@@ -276,8 +280,8 @@ function Masteries({ s }) {
       style={{ boxShadow: MASTERY_GLOW[m] }}
     >
       <RollButton
-        label={D.MASTERY_LABELS[m]}
-        title={`${D.MASTERY_LABELS[m]} (Combat Mastery Roll)`}
+        label={t(D.MASTERY_LABELS[m])}
+        title={t(D.MASTERY_LABELS[m] + ' (Combat Mastery Roll)')}
         testId={`roll-mastery-${m}`}
         className="min-h-10 w-full rounded-lg text-xs font-semibold uppercase tracking-wide"
         sheet={sheet}
@@ -287,7 +291,7 @@ function Masteries({ s }) {
       />
       <div className="w-full text-3xl font-semibold">
         <NumField
-          label={`${D.MASTERY_LABELS[m]} value`}
+          label={t('{name} value', { name: { t: D.MASTERY_LABELS[m] } })}
           testId={`mastery-value-${m}`}
           value={sheet.masteries[m]}
           min={D.MASTERY_MIN}
@@ -299,9 +303,9 @@ function Masteries({ s }) {
     </div>
   );
   return (
-    <section aria-label="Combat Masteries" className="py-3">
-      <h2 className={heading}>Combat Masteries</h2>
-      <p className="mb-2 text-xs opacity-50">Tap a name to roll: d20 + the Mastery + your Experience Modifier.</p>
+    <section aria-label={t('Combat Masteries')} className="py-3">
+      <h2 className={heading}>{t('Combat Masteries')}</h2>
+      <p className="mb-2 text-xs opacity-50">{t('Tap a name to roll: d20 + the Mastery + your Experience Modifier.')}</p>
       <div className="flex flex-col items-center gap-4">
         {box('magic')}
         <div className="flex gap-4">
@@ -314,10 +318,11 @@ function Masteries({ s }) {
 }
 
 function Skills({ s }) {
+  const t = useT();
   const { sheet, set, roll } = s;
   return (
-    <section aria-label="Skills">
-      <h2 className={heading}>Skills</h2>
+    <section aria-label={t('Skills')}>
+      <h2 className={heading}>{t('Skills')}</h2>
       <div className={`${card} divide-y divide-white/10 p-0`}>
         {D.SKILLS.map((skill) => {
           const st = D.skillStat(sheet.stats, skill);
@@ -325,14 +330,14 @@ function Skills({ s }) {
           return (
             <div key={skill.key} className="flex min-h-14 items-center gap-2 px-3 py-1" data-testid={`skill-${skill.key}`}>
               <div className="min-w-0 flex-1">
-                <div className="truncate">{skill.label}</div>
+                <div className="truncate">{t(skill.label)}</div>
                 <div className="truncate text-xs opacity-60">
-                  {st.label} ({st.value}) {tier > 0 ? `+ Mastery ${tier}` : ''}
+                  {t(st.label)} ({st.value}) {tier > 0 ? t('+ Mastery {tier}', { tier }) : ''}
                 </div>
               </div>
               <div className="w-10 text-lg">
                 <NumField
-                  label={`${skill.label} Mastery tier`}
+                  label={t('{name} Mastery tier', { name: { t: skill.label } })}
                   testId={`tier-${skill.key}`}
                   value={tier}
                   min={0}
@@ -341,8 +346,8 @@ function Skills({ s }) {
                 />
               </div>
               <RollButton
-                label="Roll"
-                title={skill.label}
+                label={t('Roll')}
+                title={t(skill.label)}
                 testId={`roll-skill-${skill.key}`}
                 className="min-h-9 w-14"
                   sheet={sheet} kind="skill" rkey={skill.key}

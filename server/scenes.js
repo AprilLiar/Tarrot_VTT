@@ -116,7 +116,7 @@ export async function addPicture(db, owner, imageId, name) {
     sql: `SELECT COUNT(*) AS n FROM pictures WHERE ${ownerColumn(owner)} = ?`,
     args: [owner.id],
   })).rows[0].n);
-  if (count >= MAX_PICTURES) throw new AppError('limit', `At most ${MAX_PICTURES} pictures each.`);
+  if (count >= MAX_PICTURES) throw new AppError('limit', 'At most {max} pictures each.', { max: MAX_PICTURES });
   const label = typeof name === 'string' ? name.trim().slice(0, 60) : '';
   const r = await db.execute({
     sql: `INSERT INTO pictures (${ownerColumn(owner)}, image_id, name, position) VALUES (?, ?, ?, ?)`,
@@ -178,7 +178,7 @@ export async function listTempNpcs(db) {
 export const SIZE_MAX = 6;
 
 function cleanSize(size) {
-  if (!Number.isInteger(size) || size < 1 || size > SIZE_MAX) throw new AppError('bad_value', `Size must be from 1 to ${SIZE_MAX} squares.`);
+  if (!Number.isInteger(size) || size < 1 || size > SIZE_MAX) throw new AppError('bad_value', 'Size must be from 1 to {max} squares.', { max: SIZE_MAX });
   return size;
 }
 
@@ -469,7 +469,7 @@ export async function updateSummon(db, id, { pictureId, scale, hidden }) {
   }
   if (scale !== undefined) {
     if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < SCALE_MIN || scale > SCALE_MAX) {
-      throw new AppError('bad_value', `Size must be between ${SCALE_MIN} and ${SCALE_MAX}.`);
+      throw new AppError('bad_value', 'Size must be between {min} and {max}.', { min: SCALE_MIN, max: SCALE_MAX });
     }
     await db.execute({ sql: 'UPDATE stage_summons SET scale = ? WHERE id = ?', args: [scale, id] });
   }

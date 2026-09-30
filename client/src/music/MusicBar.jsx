@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../AppContext.jsx';
 import { useMusicContext } from './MusicContext.jsx';
 import { MusicPanel, VolumeControl } from './MusicPanel.jsx';
+import { useT } from '../i18n.jsx';
 
 // The slim music bar: a spinning record and the first 15 characters of the song
 // name. It only takes up as much room as it needs; everything around it stays
@@ -13,6 +14,7 @@ const shorten = (name) => {
 };
 
 export default function MusicBar() {
+  const t = useT();
   const music = useMusicContext();
   const { identity } = useApp();
   const [open, setOpen] = useState(false);
@@ -25,7 +27,7 @@ export default function MusicBar() {
   // The Display shows the bar only while there is something to hear (or to unlock).
   if (!isGm && !hasTrack && !music.blocked) return null;
 
-  const label = hasTrack ? shorten(s.name) : 'Music';
+  const label = hasTrack ? shorten(s.name) : t('Music');
 
   return (
     <>
@@ -33,7 +35,7 @@ export default function MusicBar() {
         <button
           type="button"
           data-testid="music-bar"
-          title={hasTrack ? s.name : 'Music'}
+          title={hasTrack ? s.name : t('Music')}
           className="pointer-events-auto flex max-w-[22rem] items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-sm text-white backdrop-blur"
           onClick={() => {
             if (music.blocked) music.unlock();
@@ -51,7 +53,7 @@ export default function MusicBar() {
           </span>
           {music.blocked && (
             <span className="shrink-0 rounded-full bg-amber-500/80 px-2 text-xs text-black" data-testid="music-unlock">
-              Click for sound
+              {t('Click for sound')}
             </span>
           )}
         </button>
@@ -59,7 +61,7 @@ export default function MusicBar() {
           <div className="pointer-events-auto absolute right-0 top-full z-50 mt-2 w-56 rounded-xl bg-[#1a1626] p-3 shadow-xl" data-testid="volume-popover">
             <VolumeControl music={music} />
             <button className="mt-2 w-full rounded-lg bg-white/10 py-2 text-sm" onClick={() => setVolumeOpen(false)}>
-              Close
+              {t('Close')}
             </button>
           </div>
         )}
