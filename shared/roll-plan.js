@@ -17,7 +17,7 @@ export function formatExpression(terms) {
 }
 
 // request: { kind: 'attribute'|'save'|'skill'|'mastery'|'weapon', key, advantage?, modifier?, dice? }
-// `dice` are Dice Roll Bonuses [{ sides, sign, source }]: each is rolled next to the d20 and added
+// `bonuses` are extra flat terms [{ label, value }]. `dice` are Dice Roll Bonuses [{ sides, sign, source }]: each is rolled next to the d20 and added
 // (sign 1) or subtracted (sign -1). Their values are only known when the server rolls them.
 // `advantage` is the roller's own extra Advantage levels (negative = Disadvantage)
 // on top of whatever the character's statuses apply automatically.
@@ -77,6 +77,10 @@ export function planRoll(sheet, request) {
   const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
   for (const m of fx.modifiers) terms.push(m);
   if (modifier !== 0) terms.push({ label: T('Custom'), value: modifier });
+  // Roll bonuses that come from elsewhere (a Stance's band): [{ label, value }].
+  for (const b of Array.isArray(request.bonuses) ? request.bonuses : []) {
+    if (Number.isInteger(b?.value) && b.value !== 0) terms.push({ label: String(b.label), value: b.value });
+  }
 
   const bonusDice = Array.isArray(request.dice) ? request.dice : [];
 

@@ -169,7 +169,9 @@ export function findWeapon(sheet, weapon) {
 // choice: { weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId }, enhancements: [{ id, count }] }
 // -> { ok: true, weapon, ap, base, kind, defence, range, advantage, statuses, dice, unique, costs, chosen }
 //  | { ok: false, error, params }
-export function planAttack(sheet, catalog, choice) {
+// `extras` are effects that join the attack without being chosen from the list: [{ name, effect }], such as the
+// band a Stance roll landed in (its effect may also carry a roll `bonus`).
+export function planAttack(sheet, catalog, choice, extras = []) {
   const fail = (error, params) => ({ ok: false, error, params });
   const w = findWeapon(sheet, choice?.weapon);
   if (!w) return fail('Choose a weapon first.');
@@ -196,6 +198,7 @@ export function planAttack(sheet, catalog, choice) {
   const dice = w.cfg.dice.map((d) => ({ ...d, source: w.name }));
   const unique = w.cfg.unique.map((u) => ({ ...u, source: w.name }));
   const costs = { damage: [], statuses: [], items: [] };
+  const bonuses = [];
 
   for (const { e, count } of picked) {
     ap += e.cost.ap * count;
@@ -208,6 +211,16 @@ export function planAttack(sheet, catalog, choice) {
     if (e.cost.damage) costs.damage.push({ amount: e.cost.damage.amount * count, kind: e.cost.damage.kind });
     for (const s of e.cost.statuses) costs.statuses.push({ ...s });
     if (e.cost.item) costs.items.push({ itemId: e.cost.item.itemId, uses: e.cost.item.uses * count });
+  }
+
+  for (const x of extras) {
+    base += x.effect.damage ?? 0;
+    if (range != null) range += x.effect.range ?? 0;
+    advantage += x.effect.advantage ?? 0;
+    if (x.effect.bonus) bonuses.push({ label: x.name, value: x.effect.bonus });
+    for (const st of x.effect.statuses ?? []) statuses.push({ ...st });
+    for (const d of x.effect.dice ?? []) dice.push({ ...d, source: x.name });
+    for (const u of x.effect.unique ?? []) unique.push({ ...u, source: x.name });
   }
 
   // Each item must exist and have enough uses left for everything that spends from it.
@@ -240,6 +253,7 @@ export function planAttack(sheet, catalog, choice) {
     advantage,
     statuses: merged,
     dice,
+    bonuses,
     unique,
     costs,
     chosen: picked.map(({ e, count }) => ({ id: e.id, name: e.name, count })),

@@ -48,6 +48,8 @@ Repository layout:
 | `server/scenes.js`, `server/sceneHandlers.js`, `server/images.js`, `server/folders.js` | Scenes, stage, temp NPCs, pictures, image storage, generic folder trees. |
 | `server/audio.js`, `server/audioHandlers.js` | Playlists, the anchored player state, YouTube link parsing, socket events. |
 | `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
+| `shared/stances.js`, `server/stances.js`, `server/stanceHandlers.js` | Stances: bands and tables, the tree in the database, visibility per viewer, socket events. |
+| `shared/spells.js`, `server/spellHandlers.js` | Spell Stones, scheme rules (`validateScheme`, `layoutScheme`), drafts and finished spells, crafting, spell events. |
 | `shared/arcane.js`, `server/arcane.js` | Weapons and Enhancements: normalising, `planAttack` (what a drafted attack costs and does), token distance, the global Enhancements table. |
 | `LOCALIZATION.md` | The Localization Mapping: every text of the app in English and Russian (a table to read and fix by hand). |
 | `shared/localization.js`, `server/i18n.js`, `client/src/i18n.jsx` | Reading the table, translating with `{placeholders}`, the per-socket language on the server, the language context on the client. |
@@ -59,7 +61,7 @@ Repository layout:
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
-| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `editors` (weapon and Enhancement forms), `useGlobalEnhancements`. |
+| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
@@ -627,7 +629,7 @@ Behaviour:
 - I could not check real YouTube playback in my test environment (it has no access to YouTube), so
   the first Render playtest is the real test of sound.
 
-### Arcane tab (decided, split into four PRs; the General tab is implemented)
+### Arcane tab (decided, split into four PRs; General, Magic and Stances are implemented)
 The Arcane tab is a major part of Combat. Header: **General** (grey, 10% of the width) and three
 sub-tabs sharing the other 90%: **Magic**, **Stances**, **Manifest** (same colours as the sheet's
 Combat Masteries). The GM can also open the Arcane tab **without choosing a character** (the general
@@ -768,6 +770,60 @@ Stones, Spell Combinations, Spell Fine Tuning.
   Space. If any target is farther than the range, a dialog warns and offers "Attack anyway".
 - **Targets** are mirrored in General (the same selection as the Battle remote).
 
+**How the Magic tab is built (answers and my defaults):**
+- **Sub-tabs of Magic:** Stones, Editor, Spell Drafts (the compendium) and Created Spells. The spell being edited
+  survives switching tabs.
+- **Stones:** the count per sign lives on the sheet and is edited in Magic > Stones by the owner or the GM; the
+  palette in the editor shows "xN" for signs with at least 1, but drafting never spends any. The editor lists the
+  12 stones in a column at the right, by type; a tap on one adds it to the table (dragging it onto the table
+  works too on a computer). Rings: Base purple, Modifier cyan, Link dark blue, Release pink.
+- **Table:** Bases side by side in one row that grows sideways, one Modifier or Link to a row (an empty row is
+  always left under the last one), one Release at the bottom; lanes are tinted (Modifiers and Links blue between
+  the two). **Arrows:** tap a stone, then another stone, to draw an arrow (again to remove it); a stone can be
+  removed from the bar that appears. Double tap: write a note (glow, "1" badge, a tap shows the note).
+- **Legal scheme (decided):** at least 1 Base, exactly 1 Release; a Base takes no arrow in; a **Modifier exactly
+  1** in; a **Link 2 or more** in; the **Release exactly 1** in and none out; **every other stone exactly 1 arrow
+  out** (so the scheme is a tree ending at the Release); arrows only go **down** (to a later row), never up or
+  sideways. The reason for each broken rule is listed live; an illegal draft can be saved (marked "Illegal") but not crafted.
+- **Craft:** shows the needed stones (needs / you have), the stones' notes, spends the stones and adds the spell
+  (5 uses if Taurus is in the scheme, else 1; Stabilization 10; icon Fire and a default weapon effect until the
+  player fills it in). It posts a Magic roll (d20 + Magic + Experience) titled "Spell crafting" and a chat line.
+- **Created spells:** name, description, damage type **icon** (twelve plain placeholder glyphs drawn in the app, to be
+  swapped for real art), effect (Weapon or Enhancement, edited by the owner; the GM also sets uses, Stabilization
+  and the **Spell tattoo** tag), uses, Stabilization. A weapon spell is chosen with "Use as weapon" (it rolls the
+  **Magic Mastery**: d20 + Magic + Experience) and an Enhancement spell with "Add to attack". A destroyed spell is
+  greyed out and can only be deleted (the GM can also edit it).
+- **Durability at Apply:** when the GM applies an attack that used a spell, the attacker makes a Magic roll against
+  its Stabilization (posted as a roll card): success +3; failure resets it to 10 and removes 1 use, and at 0 uses
+  the spell is destroyed. A **Spell tattoo** has no uses: it uses a Strength Save; success +3; failure resets
+  Stabilization and adds 1 stack of the new status **Blood Oxydization** (stackable, not automated).
+
+**How the Stances tab is built (answers and my defaults):**
+- **List:** twelve entries, one per sign: a big glyph in the base Stance's colour, the name and a "vibe" text. The
+  default vibe texts are my short drafts (English and Russian in `LOCALIZATION.md`); the GM can replace one with
+  **Edit vibe** (a replaced text is the GM's own and is not translated). The list looks the same in the GM's general
+  Arcane tab and on a character's Arcane tab.
+- **Tree:** a tap on a sign opens the tree: the base Stance in the centre and its variations in rings around it, laid
+  out automatically (each variation has exactly **one parent**, the base or another variation). A circle shows the sign
+  in the Stance's colour (the base is white until the GM changes it; a variation can be any RGB colour). Tapping a
+  circle shows its name, description and table.
+- **Access (decided):** **every Stance, the base ones too, must be Learned** by a character before it can be used in
+  an attack. The GM has two toggles per Stance: **Character-Known** (characters have seen it and can read it; shown
+  greyed out and half transparent) and, when Known is on, **Learned** with a list of PCs and NPCs. A base Stance is
+  Known from the start, a new variation is not (my default). A Stance that is neither Known nor Learned by the
+  viewer's character is hidden from players; the list of who learned it is only the GM's. On a character's tab (the
+  GM sees it too) a Stance that character has not learned is greyed out.
+- **Table:** six bands: Less than 10, 10-14, 15-19, 20-24, 25-29, 30 or more. Each holds an effect: roll bonus,
+  Advantage, Range, extra Damage, statuses (added to targets that are hit), Dice Roll Bonuses and Unique Effects, like an
+  Enhancement. A band can be "-": the band above still applies, drawn as one merged cell. A base Stance starts with a
+  cumulative +1 roll bonus per band (+1 to +6); the GM edits every table.
+- **Using it:** **Use in attack** (a tap again removes it) puts it in the footer; only one Stance per attack. When Done is
+  pressed the Stance roll (d20 + Stances Mastery + Experience Modifier) is made first, as its own roll card, then the
+  band's effect joins the attack (its roll bonus is a term of the attack roll) and the GM's card shows the Stance and
+  the band. A Stance costs no AP of its own (my default). The out-of-range warning ignores what the band adds to
+  the range, and the Stance is only rolled once the attack is sure to go ahead.
+- **Locks and Manifest** come in the next PR.
+
 **Build order (four PRs, each playtestable):** (1) General tab and the footer attack flow (weapon toggle,
 Unarmed Attack, Enhancements, range check, Stance-less attack from the footer, replaces the sheet's
 Attack); (2) Magic (stones, editor, drafts, compendium, craft, Created Spells, tattoos); (3) Stances;
@@ -801,7 +857,10 @@ Implemented:
   `masteries` (magic, stances, manifestation), `skills` (tier 0-10 per skill), `features`,
   `items` (`id, name, description, uses {current, max}, states[], state, weapon`; `weapon` is `null` or
   `{ base, kind, defence, ap, range, statuses, dice, unique }`), `unarmed` (a weapon: 0 Bludgeoning),
-  `enhancements` (the character's own, see Arcane tab), `resistances`
+  `enhancements` (the character's own, see Arcane tab), `stones` (count per sign), `spellDrafts`
+  (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes`), `spells`
+  (`id, name, description, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
+  tattoo, destroyed`), `resistances`
   (per damage type), `statuses` (key to stacks). Every read and write passes through
   `normalizeSheet`, which fills defaults and clamps, so new fields never need a migration.
   Ranges: stats -2 to 7, masteries 1 to 10, Experience 1 to 10, item max uses 1 to 100.
@@ -861,9 +920,9 @@ Implemented:
   `folder:move` `{ id, parentId }`, `folder:delete` `{ id }` (all GM only).
 - `sheet:get` `{ characterId }` returns `{ character, sheet }`. `sheet:set` `{ characterId, path,
   value }` sets one field (paths such as `stats.dexterity`, `hp.max`, `statuses.bleeding`,
-  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements', action: 'add'|
-  'update'|'remove'|'copy'|'use', ... }` (items take an optional `weapon`, Enhancements an `enhancement`); `sheet:set` also takes
-  `unarmed`. Allowed for the GM, or for a player on their own PC only.
+  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements'|'spellDrafts', action: 'add'|
+  'update'|'remove'|'copy'|'use', ... }` (items take an optional `weapon`, Enhancements an `enhancement`, drafts a `draft`); `sheet:set` also takes
+  `unarmed` and `stones.<sign>`. Allowed for the GM, or for a player on their own PC only.
 - `roll:make` `{ characterId, kind: 'attribute'|'save'|'skill', key, mode?, modifier? }` rolls on
   the server from the stored sheet and posts to the chat. Same permission as editing.
 - `chat:get` returns `{ messages }`; `chat:send` `{ text }`; `chat:clear` (GM only). Need an
@@ -939,7 +998,18 @@ Battle (Phase 5a):
   Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
   `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
   `already_in_combat`, `stale`.
-- Attacks: `attack:roll` `{ characterId, weapon: { kind: 'unarmed' } | { kind: 'item', itemId }, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
+- Stances: `stance:list` returns `{ vibes, stances }` (the GM gets every Stance with its `learned` list; a player only
+  those their character knows or has learned, each with `usable`, and no `learned` list). GM only: `stance:save`
+  `{ id, stance }` (change; a base Stance is stored on its first change) or `{ sign, parentId, stance }` (add a
+  variation), `stance:delete` `{ id }` (a variation and everything hanging from it) and `stance:vibe` `{ sign, vibe }`.
+  A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], table: [6 rows] }`; a
+  row is `{ same: true }` or `{ same: false, effect: { bonus, advantage, range, damage, statuses, dice, unique } }`.
+  Every change is followed by `stances:changed` to all clients. Stored in the tables `stances` and `stance_vibes`.
+- Spells: `spell:craft` `{ characterId, draftId }` (spends the stones, posts a Magic roll and a chat line, adds the
+  spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
+  icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),
+  `spell:remove` `{ characterId, id }`. Same permission as editing the sheet.
+- Attacks: `attack:roll` `{ characterId, weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId }, stance?, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
   (the GM, or a player for their own PC) works out the attack with `planAttack`, rolls it, posts the roll in the chat and
   sends `attack:pending` `{ id, characterId, characterName, attackerTokenId, weaponName, enhancements, ap, base, kind, statuses, unique, costs,
   defenceKind, roll, targets }` to the GM room. When a target is out of the weapon's range and `confirmRange` is not true it
@@ -1005,7 +1075,8 @@ Each phase ends in a deploy and playtest checkpoint.
      through resistances, statuses, AP. Covered by `server/test/attack.test.js` and the attack test in
      `e2e/battle.spec.js`.
    - **6b Arcane** (rules received, see Arcane tab; four PRs: General and footer attack flow (implemented,
-     awaiting playtest), Magic, Stances, Manifest and Locks). Covered by `server/test/attack.test.js` and the
+     awaiting playtest), Magic (implemented, awaiting playtest), Stances (implemented, awaiting playtest), Manifest and
+     Locks). Covered by `server/test/attack.test.js` and the
      arcane and attack tests in `e2e/battle.spec.js`.
 7. **Settings and Russian** (implemented, added after the playtest): Settings on the picker with a
    language selector, the whole app in English and Russian, and `LOCALIZATION.md`. Covered by

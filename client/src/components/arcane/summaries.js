@@ -40,3 +40,19 @@ export function enhancementSummary(e, items, t) {
   return out.join('. ');
 }
 
+
+// The effect of a Stance band as short pieces of text, in the viewer's language.
+export function bandParts(e, t) {
+  const parts = [];
+  if (e.bonus) parts.push(t('Roll {n}', { n: signed(e.bonus) }));
+  if (e.advantage) parts.push(t('Advantage {n}', { n: signed(e.advantage) }));
+  if (e.range) parts.push(t('Range {n}', { n: signed(e.range) }));
+  if (e.damage) parts.push(t('Damage {n}', { n: signed(e.damage) }));
+  for (const st of e.statuses) {
+    const info = D.STATUSES.find((x) => x.key === st.key);
+    parts.push(info?.stackable ? `${t(info.name)} ${st.stacks}` : t(info?.name));
+  }
+  for (const d of e.dice) parts.push(`${d.sign < 0 ? '-' : '+'}d${d.sides}`);
+  for (const u of e.unique) parts.push(u.name);
+  return parts;
+}

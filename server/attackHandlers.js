@@ -3,10 +3,12 @@ import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as scenes from './scenes.js';
 import * as arcane from './arcane.js';
+import * as stances from './stances.js';
 import * as D from '../shared/rules-data.js';
 import { buildRoll } from './rolls.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
 import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
+import { resolveBand, BANDS } from '../shared/stances.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
 import { T } from '../shared/localization.js';
@@ -57,7 +59,8 @@ export function registerAttackHandlers(ctx) {
     const c = await requireControl(p.characterId);
     const sheet = await sheets.getSheet(db, c.id);
     const catalog = enhancementCatalog(await arcane.listGlobal(db), sheet);
-    const plan = planAttack(sheet, catalog, { weapon: p.weapon, enhancements: p.enhancements });
+    const choice = { weapon: p.weapon, enhancements: p.enhancements };
+    let plan = planAttack(sheet, catalog, choice);
     if (!plan.ok) throw new AppError('bad_value', plan.error, plan.params);
     if (sheet.ap.current < plan.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
     const picked = [...(shared.targets.get(c.id) ?? [])];
@@ -72,6 +75,10 @@ export function registerAttackHandlers(ctx) {
     }
     if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
 
+    // A Stance must be learned by this character (a base Stance too).
+    const stance = p.stance == null ? null : await stances.getStance(db, p.stance);
+    if (stance && !stance.learned.includes(c.id)) throw new AppError('forbidden', 'That Stance is not learned by this character.');
+
     // Where the attacker stands, and how far each target is (the range is only a suggestion).
     const sceneId = await scenes.getActiveSceneId(db);
     const token = sceneId == null ? null : await battle.tokenForCharacter(db, sceneId, c.id);
@@ -84,12 +91,26 @@ export function registerAttackHandlers(ctx) {
       if (far.length) return { needsConfirm: { range: plan.range, targets: far } };
     }
 
+    // The Stance is rolled once the attack is sure to go ahead: its band adds to the attack (the range check
+    // above ignores what the band adds to the range).
+    let stanceEntry = null;
+    let stanceRoll = null;
+    if (stance) {
+      stanceRoll = buildRoll(sheet, { kind: 'mastery', key: 'stances' });
+      stanceRoll.title = T('Stance roll');
+      const hit = resolveBand(stance.table, stanceRoll.total);
+      plan = planAttack(sheet, catalog, choice, [{ name: stance.name, effect: hit.effect }]);
+      if (!plan.ok) throw new AppError('bad_value', plan.error, plan.params);
+      stanceEntry = { name: stance.name, band: BANDS[hit.band].label, total: stanceRoll.total };
+    }
+
     // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
     const roll = buildRoll(sheet, {
       kind: plan.weapon.mastery ? 'mastery' : 'weapon',
       key: plan.weapon.mastery ?? 'prime',
       advantage: Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, (p.advantage ?? 0) + plan.advantage)),
       modifier: p.modifier ?? 0,
+      bonuses: plan.bonuses,
       dice: plan.dice,
     });
     if (plan.weapon.mastery) roll.title = `${D.MASTERY_LABELS[plan.weapon.mastery]} attack`;
@@ -110,6 +131,7 @@ export function registerAttackHandlers(ctx) {
       enhancements: plan.chosen.map((e) => ({ name: e.name, count: e.count })),
       ap: plan.ap,
       spells: plan.spellIds,
+      stance: stanceEntry,
       base: plan.base,
       kind: plan.kind,
       statuses: plan.statuses,
@@ -126,7 +148,13 @@ export function registerAttackHandlers(ctx) {
     pending.set(attackId, entry);
     while (pending.size > attack.MAX_PENDING) pending.delete(pending.keys().next().value);
 
-    const message = shared.chat.add({ type: 'roll', author: await authorName(), characterId: c.id, characterName: c.name, roll });
+    const author = await authorName();
+    if (stanceRoll) {
+      const card = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll: stanceRoll });
+      io.to(CHAT_ROOM).emit('chat:message', card);
+      say({ key: '{name} uses the {stance} Stance: rolled {total}, band {band}.', params: { name: c.name, stance: stance.name, total: stanceRoll.total, band: { t: stanceEntry.band } } });
+    }
+    const message = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll });
     io.to(CHAT_ROOM).emit('chat:message', message);
     io.to(GM_ROOM).emit('attack:pending', entry);
     return { attackId, message };
