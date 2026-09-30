@@ -142,6 +142,11 @@ export async function deletePicture(db, id) {
   } else {
     await db.execute({ sql: 'DELETE FROM stage_summons WHERE picture_id = ?', args: [id] });
   }
+  if (remaining.length) {
+    await db.execute({ sql: 'UPDATE battle_tokens SET picture_id = ? WHERE picture_id = ?', args: [remaining[0].id, id] });
+  } else {
+    await db.execute({ sql: 'DELETE FROM battle_tokens WHERE picture_id = ?', args: [id] });
+  }
   await deleteImageIfUnused(db, pic.imageId);
   return pic;
 }
@@ -150,24 +155,47 @@ export async function deletePicture(db, id) {
 export async function removeOwnerArt(db, owner) {
   const pics = await listPictures(db, owner);
   await db.execute({ sql: `DELETE FROM stage_summons WHERE ${ownerColumn(owner)} = ?`, args: [owner.id] });
+  await db.execute({ sql: `DELETE FROM battle_tokens WHERE ${ownerColumn(owner)} = ?`, args: [owner.id] });
   await db.execute({ sql: `DELETE FROM pictures WHERE ${ownerColumn(owner)} = ?`, args: [owner.id] });
   for (const p of pics) await deleteImageIfUnused(db, p.imageId);
 }
 
 // ---- Temp NPCs ----------------------------------------------------------------
 
-const toTempNpc = (r) => ({ id: Number(r.id), name: r.name, folderId: n(r.folder_id) });
+const toTempNpc = (r) => ({
+  id: Number(r.id),
+  name: r.name,
+  folderId: n(r.folder_id),
+  isProp: Number(r.is_prop) === 1,
+  size: r.size == null ? 1 : Number(r.size),
+});
 
 export async function listTempNpcs(db) {
-  const r = await db.execute('SELECT id, name, folder_id FROM temp_npcs ORDER BY name COLLATE NOCASE');
+  const r = await db.execute('SELECT id, name, folder_id, is_prop, size FROM temp_npcs ORDER BY name COLLATE NOCASE');
   return r.rows.map(toTempNpc);
 }
 
-export async function createTempNpc(db, { name, folderId = null }) {
+export const SIZE_MAX = 6;
+
+function cleanSize(size) {
+  if (!Number.isInteger(size) || size < 1 || size > SIZE_MAX) throw new AppError('bad_value', `Size must be from 1 to ${SIZE_MAX} squares.`);
+  return size;
+}
+
+// A prop is a temp NPC that is a thing rather than a creature (a crate, a wall, a tree).
+export async function createTempNpc(db, { name, folderId = null, isProp = false, size = 1 }) {
   const clean = cleanName(name);
   const folder = await tempNpcFolders.orRoot(db, folderId);
-  const r = await db.execute({ sql: 'INSERT INTO temp_npcs (name, folder_id) VALUES (?, ?)', args: [clean, folder] });
+  const r = await db.execute({
+    sql: 'INSERT INTO temp_npcs (name, folder_id, is_prop, size) VALUES (?, ?, ?, ?)',
+    args: [clean, folder, isProp === true ? 1 : 0, cleanSize(size)],
+  });
   return Number(r.lastInsertRowid);
+}
+
+export async function setTempNpcSize(db, id, size) {
+  await requireOwner(db, { kind: 'temp_npc', id });
+  await db.execute({ sql: 'UPDATE temp_npcs SET size = ? WHERE id = ?', args: [cleanSize(size), id] });
 }
 
 export async function renameTempNpc(db, id, name) {
@@ -189,21 +217,47 @@ export async function deleteTempNpc(db, id) {
 
 // ---- Scenes -------------------------------------------------------------------
 
+// Grid defaults: a cell is 5% of the picture's width; the grid starts at the top left corner.
+export const DEFAULT_GRID = { cell: 0.05, ox: 0, oy: 0 };
+export const CELL_MIN = 0.01;
+export const CELL_MAX = 0.3;
+
 const toScene = (r) => ({
   id: Number(r.id),
   name: r.name,
   folderId: n(r.folder_id),
   imageId: r.scene_image_id ?? null,
+  battleImageId: r.battle_image_id ?? null,
+  // width / height of the battle picture, sent by the browser when it is uploaded
+  battleAspect: r.battle_aspect == null ? null : Number(r.battle_aspect),
+  grid: {
+    cell: r.grid_cell == null ? DEFAULT_GRID.cell : Number(r.grid_cell),
+    ox: r.grid_ox == null ? DEFAULT_GRID.ox : Number(r.grid_ox),
+    oy: r.grid_oy == null ? DEFAULT_GRID.oy : Number(r.grid_oy),
+  },
 });
 
+const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, battle_image_id, battle_aspect, grid_cell, grid_ox, grid_oy';
+
+// How many whole cells fit on the battle picture with the current grid.
+export function gridSize(scene) {
+  if (!scene.battleAspect) return { cols: 0, rows: 0 };
+  const { cell, ox, oy } = scene.grid;
+  const cellH = cell * scene.battleAspect; // fraction of the picture's height
+  return {
+    cols: Math.max(0, Math.floor((1 - ox) / cell + 1e-9)),
+    rows: Math.max(0, Math.floor((1 - oy) / cellH + 1e-9)),
+  };
+}
+
 export async function listScenes(db) {
-  const r = await db.execute('SELECT id, name, folder_id, scene_image_id FROM scenes ORDER BY name COLLATE NOCASE');
+  const r = await db.execute(`SELECT ${SCENE_COLUMNS} FROM scenes ORDER BY name COLLATE NOCASE`);
   return r.rows.map(toScene);
 }
 
 export async function getScene(db, id) {
   if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid scene.');
-  const r = await db.execute({ sql: 'SELECT id, name, folder_id, scene_image_id FROM scenes WHERE id = ?', args: [id] });
+  const r = await db.execute({ sql: `SELECT ${SCENE_COLUMNS} FROM scenes WHERE id = ?`, args: [id] });
   if (!r.rows.length) throw new AppError('not_found', 'That scene no longer exists.');
   return toScene(r.rows[0]);
 }
@@ -235,17 +289,52 @@ export async function setSceneImage(db, id, imageId) {
   await deleteImageIfUnused(db, scene.imageId);
 }
 
+export async function setBattleImage(db, id, imageId, aspect) {
+  const scene = await getScene(db, id);
+  if (!Number.isFinite(aspect) || aspect < 0.2 || aspect > 5) throw new AppError('bad_value', 'The picture has an unusable shape.');
+  await db.execute({
+    sql: 'UPDATE scenes SET battle_image_id = ?, battle_aspect = ? WHERE id = ?',
+    args: [imageId, aspect, id],
+  });
+  await deleteImageIfUnused(db, scene.battleImageId);
+}
+
+// A new grid keeps every token inside the picture: anything outside is pulled back in.
+export async function setGrid(db, id, { cell, ox, oy }) {
+  const scene = await getScene(db, id);
+  const ok = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  if (!ok(cell, CELL_MIN, CELL_MAX) || !ok(ox, 0, 1) || !ok(oy, 0, 1)) throw new AppError('bad_value', 'That grid does not fit.');
+  const next = { ...scene, grid: { cell, ox, oy } };
+  const { cols, rows } = gridSize(next);
+  if (scene.battleAspect && (cols < 1 || rows < 1)) throw new AppError('bad_value', 'That grid leaves no room on the picture.');
+  await db.execute({ sql: 'UPDATE scenes SET grid_cell = ?, grid_ox = ?, grid_oy = ? WHERE id = ?', args: [cell, ox, oy, id] });
+  return { cols, rows };
+}
+
 export async function deleteScene(db, id) {
   const scene = await getScene(db, id);
   await db.execute({ sql: 'DELETE FROM stage_summons WHERE scene_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM battle_tokens WHERE scene_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM battle_marks WHERE scene_id = ?', args: [id] });
   await db.execute({ sql: 'UPDATE scene_state SET active_scene_id = NULL WHERE active_scene_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM scenes WHERE id = ?', args: [id] });
   await deleteImageIfUnused(db, scene.imageId);
+  await deleteImageIfUnused(db, scene.battleImageId);
 }
 
 export async function getActiveSceneId(db) {
   const r = await db.execute('SELECT active_scene_id FROM scene_state WHERE id = 1');
   return r.rows.length ? n(r.rows[0].active_scene_id) : null;
+}
+
+export async function getMode(db) {
+  const r = await db.execute('SELECT mode FROM scene_state WHERE id = 1');
+  return r.rows.length && r.rows[0].mode === 'battle' ? 'battle' : 'scene';
+}
+
+export async function setMode(db, mode) {
+  if (mode !== 'scene' && mode !== 'battle') throw new AppError('bad_value', 'Unknown mode.');
+  await db.execute({ sql: 'UPDATE scene_state SET mode = ? WHERE id = 1', args: [mode] });
 }
 
 export async function setActiveScene(db, id) {

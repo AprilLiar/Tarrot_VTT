@@ -58,6 +58,9 @@ export const DAMAGE_TYPES = [
   'bludgeoning', 'slashing', 'piercing', 'soul', 'decay', 'psychic',
 ];
 
+export const MOVEMENT_DEFAULT = 5;
+export const MOVEMENT_MAX = 99;
+export const SIZE_MAX = 6; // a token covers up to 6 x 6 squares
 export const AP_MAX = 4;
 export const AP_MAX_MINION = 2;
 export const ITEM_USES_MAX = 100;

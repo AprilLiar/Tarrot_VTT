@@ -3,6 +3,7 @@ import { ROSTER_SCHEMA } from './roster.js';
 import { IMAGE_SCHEMA } from './images.js';
 import { SCENE_SCHEMA } from './scenes.js';
 import { AUDIO_SCHEMA } from './audio.js';
+import { BATTLE_SCHEMA } from './battle.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
 // file otherwise. Same client and same SQL either way.
@@ -24,11 +25,21 @@ const SCHEMA = [
   ...IMAGE_SCHEMA,
   ...SCENE_SCHEMA,
   ...AUDIO_SCHEMA,
+  ...BATTLE_SCHEMA,
 ];
 
 // New columns on existing tables cannot use IF NOT EXISTS, so each one is
 // added only when PRAGMA table_info shows it missing.
-const COLUMNS = [{ table: 'characters', column: 'sheet', ddl: 'sheet TEXT' }];
+const COLUMNS = [
+  { table: 'characters', column: 'sheet', ddl: 'sheet TEXT' },
+  { table: 'scenes', column: 'battle_aspect', ddl: 'battle_aspect REAL' },
+  { table: 'scenes', column: 'grid_cell', ddl: 'grid_cell REAL' },
+  { table: 'scenes', column: 'grid_ox', ddl: 'grid_ox REAL' },
+  { table: 'scenes', column: 'grid_oy', ddl: 'grid_oy REAL' },
+  { table: 'scene_state', column: 'mode', ddl: "mode TEXT NOT NULL DEFAULT 'scene'" },
+  { table: 'temp_npcs', column: 'is_prop', ddl: 'is_prop INTEGER NOT NULL DEFAULT 0' },
+  { table: 'temp_npcs', column: 'size', ddl: 'size INTEGER NOT NULL DEFAULT 1' },
+];
 
 export async function initSchema(db) {
   await db.batch(SCHEMA, 'write');

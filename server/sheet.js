@@ -87,6 +87,9 @@ export function normalizeSheet(raw) {
       mental: clampInt(r.defence?.mental, 0, 99, 0),
     },
     experience: clampInt(r.experience, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, D.EXPERIENCE_MIN),
+    // Squares this character can move for 1 AP, and the size of its token (N x N squares).
+    movement: clampInt(r.movement, 0, D.MOVEMENT_MAX, D.MOVEMENT_DEFAULT),
+    size: clampInt(r.size, 1, D.SIZE_MAX, 1),
     stats: {},
     xDefence: {},
     masteries: {},
@@ -147,6 +150,12 @@ export function applySet(sheet, path, value, character) {
     case 'defence':
       unknownKey(['physical', 'mental']);
       next.defence[b] = intIn(value, 0, 99, 'Defence');
+      break;
+    case 'movement':
+      next.movement = intIn(value, 0, D.MOVEMENT_MAX, 'Movement');
+      break;
+    case 'size':
+      next.size = intIn(value, 1, D.SIZE_MAX, 'Size');
       break;
     case 'experience':
       next.experience = intIn(value, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, 'Experience Modifier');

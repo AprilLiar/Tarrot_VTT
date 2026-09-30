@@ -289,6 +289,8 @@ export function registerHandlers(io, socket, db, shared) {
     isPlayer,
     isDisplay,
     requireControl,
+    emitSheet,
+    shared,
     rooms: { GM_ROOM, VIEW_ROOM, charRoom },
   });
 
