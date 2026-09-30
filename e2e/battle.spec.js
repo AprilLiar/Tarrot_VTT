@@ -213,7 +213,7 @@ test('a phone player moves with the D-pad, sees their Movement, and picks a targ
   await gmCtx.close();
 });
 
-test('drawing, areas, pings and the ruler on the Display are shared, and the GM can clear them', async ({ browser }) => {
+test('tools: a static tool bar with options beside it; drawing, eraser, Clean, areas (Arc), Erase, pings and the ruler are shared', async ({ browser }) => {
   const gmCtx = await desktop(browser);
   const gm = await open(gmCtx, 'pick-gm');
   await battleScene(gm, `Tools-${uid()}`);
@@ -222,24 +222,67 @@ test('drawing, areas, pings and the ruler on the Display are shared, and the GM 
   await expect(tv.getByTestId('battle-map')).toBeVisible();
   const map = await tv.getByTestId('battle-map').boundingBox();
   const at = (fx, fy) => [map.x + fx * map.width, map.y + fy * map.height];
+  const drag = async (from, to) => {
+    await tv.mouse.move(...at(...from));
+    await tv.mouse.down();
+    await tv.mouse.move(...at(...to), { steps: 8 });
+    await tv.mouse.up();
+  };
 
-  // Draw
+  // The tool bar itself never moves or changes size when a tool is picked; its options open beside it.
+  const bar = () => tv.getByTestId('battle-tools').boundingBox();
+  const before = await bar();
   await tv.getByTestId('tool-draw').click();
-  await tv.mouse.move(...at(0.2, 0.3));
-  await tv.mouse.down();
-  await tv.mouse.move(...at(0.4, 0.5), { steps: 6 });
-  await tv.mouse.up();
-  await expect(gm.getByTestId('battle-drawing')).toHaveCount(1);
+  await expect(tv.getByTestId('tool-options')).toBeVisible();
+  const during = await bar();
+  expect(during).toEqual(before);
+  const options = await tv.getByTestId('tool-options').boundingBox();
+  expect(options.x).toBeGreaterThanOrEqual(before.x + before.width);
+  await tv.getByTestId('tool-template').click();
+  expect(await bar()).toEqual(before);
+  await tv.getByTestId('tool-ping').click();
+  await expect(tv.getByTestId('tool-options')).toHaveCount(0);
+  expect(await bar()).toEqual(before);
 
-  // Area: a cone dragged to the right
+  // Draw two lines. The eraser rubs a piece out of the second, which then becomes two drawings.
+  await tv.getByTestId('tool-draw').click();
+  await drag([0.2, 0.3], [0.4, 0.5]);
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(1);
+  await drag([0.55, 0.8], [0.95, 0.8]);
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(2);
+  await tv.getByTestId('draw-mode-eraser').click();
+  await drag([0.75, 0.7], [0.75, 0.9]);
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(3);
+  // Clean removes every drawing (the GM's screen shows it too).
+  await tv.getByTestId('clear-drawings').click();
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(0);
+
+  // Area: an Arc dragged to the right, then removed with the Erase tool by clicking it.
+  await tv.getByTestId('tool-template').click();
+  await tv.getByTestId('template-shape').selectOption('arc');
+  await tv.getByTestId('template-size').fill('4');
+  await drag([0.5, 0.5], [0.7, 0.5]);
+  await expect(gm.getByTestId('battle-template')).toHaveCount(1);
+  await tv.getByTestId('tool-erase').click();
+  await tv.mouse.click(...at(0.6, 0.5));
+  await expect(gm.getByTestId('battle-template')).toHaveCount(0);
+
+  // A drawing can be removed whole by clicking on it with Erase too, even a thin one.
+  await tv.getByTestId('tool-draw').click();
+  await tv.getByTestId('draw-mode-pen').click();
+  await drag([0.2, 0.3], [0.4, 0.5]);
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(1);
+  await tv.getByTestId('tool-erase').click();
+  await tv.mouse.click(...at(0.3, 0.4));
+  await expect(gm.getByTestId('battle-drawing')).toHaveCount(0);
+
+  // Areas have their own Clean.
   await tv.getByTestId('tool-template').click();
   await tv.getByTestId('template-shape').selectOption('cone');
-  await tv.getByTestId('template-size').fill('4');
-  await tv.mouse.move(...at(0.5, 0.5));
-  await tv.mouse.down();
-  await tv.mouse.move(...at(0.7, 0.5), { steps: 6 });
-  await tv.mouse.up();
+  await drag([0.5, 0.5], [0.7, 0.5]);
   await expect(gm.getByTestId('battle-template')).toHaveCount(1);
+  await tv.getByTestId('clear-templates').click();
+  await expect(gm.getByTestId('battle-template')).toHaveCount(0);
 
   // Ping: a ring appears on the GM's screen
   await tv.getByTestId('tool-ping').click();
@@ -254,16 +297,6 @@ test('drawing, areas, pings and the ruler on the Display are shared, and the GM 
   await expect(tv.getByTestId('ruler-distance')).toHaveText('4 squares');
   await tv.mouse.up();
   await expect(tv.getByTestId('ruler-distance')).toHaveCount(0);
-
-  // Erase one drawing from the Display
-  await tv.getByTestId('tool-erase').click();
-  await tv.getByTestId('battle-drawing').dispatchEvent('click');
-  await expect(gm.getByTestId('battle-drawing')).toHaveCount(0);
-
-  // Only the GM can clear everything
-  await expect(tv.getByTestId('clear-templates')).toHaveCount(0);
-  await gm.getByTestId('clear-templates').click();
-  await expect(tv.getByTestId('battle-template')).toHaveCount(0);
 
   await tvCtx.close();
   await gmCtx.close();
@@ -380,6 +413,7 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await p.getByTestId('attack-open').click();
   await expect(p.getByTestId('attack-target-name')).toHaveText(npc);
   await p.getByTestId('attack-mastery-stances').click();
+  await p.getByTestId('attack-defence-physical').click();
   await p.getByTestId('attack-ap-2').click();
   await expect(p.getByTestId('attack-preview')).toContainText('Mastery: Stances');
   await p.getByTestId('attack-roll').click();
@@ -388,8 +422,11 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   const card = gm.getByTestId('attack-card');
   await expect(card).toBeVisible();
   await expect(card.getByTestId('attack-target')).toHaveAttribute('data-name', npc);
+  // Only these can be changed on the card: Total, Base damage, damage type, AP cost and statuses.
+  await expect(card.getByLabel('Natural roll')).toHaveCount(0);
+  await expect(card.getByLabel('Add a target')).toHaveCount(0);
+  await expect(card.getByTestId('attack-exposed')).toHaveCount(0);
   await card.getByLabel('Attack total').fill('25');
-  await card.getByLabel('Natural roll').fill('12');
   await card.getByLabel('Base damage').fill('4');
   await card.getByTestId('attack-kind').selectOption('fire');
   await expect(card.getByTestId('attack-outcome')).toContainText('Brutal Hit');
@@ -400,14 +437,113 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   // The attacker spent 2 AP.
   await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
 
-  // A second attack can be discarded.
+  // A second attack can be discarded. The chat, being closed on the GM's screen, pops the roll up briefly.
   await p.getByTestId('attack-open').click();
   await p.getByTestId('attack-roll').click();
+  await expect(gm.getByTestId('chat-popup').first()).toContainText('Stances attack');
   await expect(gm.getByTestId('attack-card')).toBeVisible();
   await gm.getByTestId('attack-discard').click();
   await expect(gm.getByTestId('attack-card')).toHaveCount(0);
   await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
 
   await ctx.close();
+  await gmCtx.close();
+});
+
+test('targets can be selected many at once and deselected; attacks are blocked without a target or enough AP', async ({ browser }) => {
+  const pc = `Ranger-${uid()}`;
+  const wolf = `Wolf-${uid()}`;
+  const bear = `Bear-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, wolf, 'NPC');
+  await createCharacter(gm, bear, 'NPC');
+  await battleScene(gm, `Woods-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, wolf);
+  await placeToken(gm, bear);
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await expect(p.getByTestId('remote-ap')).toHaveText('4/4');
+
+  // No target yet: the Attack button is greyed out and says why.
+  await expect(p.getByTestId('attack-open')).toBeDisabled();
+  await expect(p.getByTestId('attack-blocked')).toContainText('Select a target');
+
+  const option = (name) => p.getByTestId('target-option').filter({ hasText: name });
+  await option(wolf).click();
+  await option(bear).click();
+  await expect(option(wolf)).toHaveAttribute('aria-pressed', 'true');
+  await expect(option(bear)).toHaveAttribute('aria-pressed', 'true');
+  await expect(token(gm, wolf)).toHaveAttribute('data-targeted', 'true');
+  await expect(token(gm, bear)).toHaveAttribute('data-targeted', 'true');
+  // Tapping a selected character again deselects it.
+  await option(wolf).click();
+  await expect(option(wolf)).toHaveAttribute('aria-pressed', 'false');
+  await expect(token(gm, wolf)).toHaveAttribute('data-targeted', 'false');
+  await expect(token(gm, bear)).toHaveAttribute('data-targeted', 'true');
+  await expect(p.getByTestId('attack-open')).toBeEnabled();
+
+  // With 1 AP the 2 AP attack is greyed out.
+  await p.getByTestId('ap-current').fill('1');
+  await p.getByTestId('ap-current').press('Enter');
+  await expect(p.getByTestId('remote-ap')).toHaveText('1/4');
+  await p.getByTestId('attack-open').click();
+  await expect(p.getByTestId('attack-ap-2')).toBeDisabled();
+  await expect(p.getByTestId('attack-ap-1')).toBeEnabled();
+  await p.getByTestId('attack-ap-1').click();
+  await p.getByTestId('attack-roll').click();
+  await expect(gm.getByTestId('attack-card')).toBeVisible();
+  await expect(gm.getByTestId('attack-target')).toHaveCount(1);
+  await gm.getByTestId('attack-discard').click();
+
+  // With 0 AP there is no attack at all.
+  await p.getByTestId('ap-current').fill('0');
+  await p.getByTestId('ap-current').press('Enter');
+  await expect(p.getByTestId('attack-open')).toBeDisabled();
+  await expect(p.getByTestId('attack-blocked')).toContainText('No AP');
+
+  await p.getByTestId('clear-target').click();
+  await expect(token(gm, bear)).toHaveAttribute('data-targeted', 'false');
+  await ctx.close();
+  await gmCtx.close();
+});
+
+test('the token menu can set a height and remove the token', async ({ browser }) => {
+  const npc = `Bat-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Cave-${uid()}`);
+  await placeToken(gm, npc);
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await expect(token(tv, npc)).toBeVisible();
+  await expect(tv.getByTestId('token-height')).toHaveCount(0);
+
+  await token(gm, npc).click({ button: 'right' });
+  await gm.getByTestId('menu-height').click();
+  await gm.getByLabel('Height in Spaces').fill('3');
+  await gm.getByTestId('height-set').click();
+  await expect(gm.getByTestId('token-height')).toHaveText('+3 sp.');
+  await expect(tv.getByTestId('token-height')).toHaveText('+3 sp.');
+  await expect(token(tv, npc)).toHaveAttribute('data-height', '3');
+
+  // 0 puts it back on the ground.
+  await token(gm, npc).click({ button: 'right' });
+  await gm.getByTestId('menu-height').click();
+  await gm.getByLabel('Height in Spaces').fill('0');
+  await gm.getByTestId('height-set').click();
+  await expect(tv.getByTestId('token-height')).toHaveCount(0);
+
+  await token(gm, npc).click({ button: 'right' });
+  await gm.getByTestId('menu-remove').click();
+  await expect(token(gm, npc)).toHaveCount(0);
+  await expect(token(tv, npc)).toHaveCount(0);
+
+  await tvCtx.close();
   await gmCtx.close();
 });

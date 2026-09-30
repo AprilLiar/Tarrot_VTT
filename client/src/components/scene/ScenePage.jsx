@@ -323,6 +323,10 @@ function SceneView() {
             await call('stage:update', { id: menuTarget.id, hidden: !menuTarget.hidden });
             setMenu(null);
           }}
+          onRemove={async () => {
+            await call('stage:dismiss', { id: menuTarget.id });
+            setMenu(null);
+          }}
         />
       )}
 

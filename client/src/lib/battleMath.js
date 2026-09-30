@@ -62,9 +62,10 @@ export function templateShape(t, grid, aspect) {
     ];
     return { type: 'polygon', points: p.map((q) => q.join(',')).join(' ') };
   }
-  // cone: a 90 degree wedge
-  const a1 = rad - Math.PI / 4;
-  const a2 = rad + Math.PI / 4;
+  // cone: a 90 degree wedge; arc: a 180 degree one (a half circle)
+  const half = t.shape === 'arc' ? Math.PI / 2 : Math.PI / 4;
+  const a1 = rad - half;
+  const a2 = rad + half;
   const p1 = [o.x + Math.cos(a1) * len, o.y + Math.sin(a1) * len];
   const p2 = [o.x + Math.cos(a2) * len, o.y + Math.sin(a2) * len];
   return { type: 'path', d: `M ${o.x} ${o.y} L ${p1[0]} ${p1[1]} A ${len} ${len} 0 0 1 ${p2[0]} ${p2[1]} Z` };

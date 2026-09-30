@@ -391,6 +391,10 @@ Implemented behaviour (Phase 3):
   way when the kept die is a 20 or a 1. A natural 20 shows "Critical" and a natural 1 shows "Critical
   Failure" on every d20 roll (the Exposed status is not applied automatically). (decided)
 - Damage will get its own breakdown of the same shape when attacks arrive in Phase 6. (decided)
+- **Popups:** while the chat is closed, every new message (text or roll, one line) rises from the
+  bottom right corner above the Chat button, stays for two seconds and fades out by itself.
+  Several messages stack upwards and never overlap. With the chat open there are no popups.
+  (decided)
 - Author names come from the server-side identity: a player's messages carry the PC's name, the
   GM's carry "GM". A GM rolling for an NPC posts as the GM with the NPC's name on the card.
 
@@ -440,22 +444,32 @@ Decided:
   Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
   Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
-  token for the same circles as the Scene (Token Settings, Hide/Reveal).
+  token for its circles: **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove**
+  (**Remove** takes the token off the map). **Set Height** is the number of Spaces the character is
+  in the air (0 to 99); it shows as "+X sp." above the token for everyone and changes nothing else
+  yet.
 - **Dragging** a token (GM and Display) is free and snaps to a square for everyone; it costs no
   movement.
-- **Tools** (GM and Display, side toolbar): Move, Draw (freehand), Ping, Ruler, Area, Erase.
-  Areas are circle, cone (90 degrees), line and square templates sized in squares and rotated by
-  dragging. Drawings and areas are shared and stay until erased; the GM can clear all. At most 300
-  marks. Pings show a ring for a few seconds on every map.
+- **Tools** (GM and Display): Move, Draw, Ping, Ruler, Area, Erase, on a **static bar** on the left
+  (it never moves or changes size). Picking a tool opens its options in a separate panel to the right
+  of the bar. Pings show a ring for a few seconds on every map. At most 300 marks.
+  - **Draw:** a freehand Pen (colours, three widths) or an **Eraser** (three sizes) that rubs out just
+    the part of a drawing under it, splitting the drawing where it is cut; **Clean** removes all
+    drawings.
+  - **Area:** circle, cone (90 degrees), **arc** (a 180 degree cone), line and square templates sized
+    in squares and rotated by dragging; **Clean** removes all areas.
+  - **Erase:** click any drawing or area to remove it whole.
+  - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
+    Display alike (a decision of mine: they share the same tools).
 - **Ruler:** counts squares with diagonals alternating 1 and 2.
 - **Movement (phone D-pad):** each sheet has **Movement** (squares per AP, default 5, 0 to 99).
   On the character's own turn every square costs from the Movement bank; when the bank is empty
   the next step needs 1 AP and banks a fresh Movement (the phone asks to confirm spending AP).
   Diagonal steps alternate cost 1 and 2. A **Free Movement** checkbox lets a step cost nothing.
   Outside the character's own turn (and before combat) steps are free.
-- **Targeting:** from the phone a player picks a token (any visible token) as their target, or
-  clears it. Targets live in server memory; the target is shown on the map with a pulsing ring.
-  Using a target for rolls and damage comes with Phase 6.
+- **Targeting:** from the phone a player selects any number of visible tokens as targets (tap to
+  select, tap again to deselect). Targets live in server memory; each selected token shows a pulsing
+  ring on the map. Attacks use them (see Targeting and attacks).
 - Turn order, initiative, rounds and turn-start effects: see the Combat tracker below.
 
 #### Combat tracker (implemented in Phase 5b)
@@ -490,31 +504,38 @@ Decided:
 - **Attack data:** while magic is a placeholder there are no stored attacks. The GM types base
   damage, damage type and the rest on the confirm card each time. (Arcane abilities will plug into the
   same card later, together with Enhancements that spend extra AP.)
-- **Flow:** on the Battle remote (phone, or the GM on an NPC's sheet) the player taps **Attack**,
-  picks a Combat Mastery (Magic, Stances, Manifest) and the base AP cost (**1 or 2 AP**, as attacks are
-  1 or 2 AP by base), and may add Advantage levels or a custom modifier. The server rolls it
-  (d20 + Mastery + Experience Modifier, plus status effects), posts the roll in the chat, and a
-  **confirm card** pops up on the GM's screen (desktop or phone). Attacks that the GM postpones
-  ("Later") wait in a badge; the GM can also **Discard** one.
-- **The card** shows the roll and lets the GM change every value: attack total, natural roll, the
-  critical range (natural roll at or above it, default 20), base damage, damage type (the twelve types
-  or True, which ignores resistances), AP cost, statuses added to every target that is hit (with
-  stacks), and whether the attacker gains Exposed (pre-ticked on a natural 1).
-- **Targets:** the card starts with the attacker's current target. The GM adds or removes any visible
-  token, or adds **all tokens inside a drawn area** (circle, cone, line or square template; a token
-  counts when its centre is inside). One roll is compared with each target's Defence, one row per
-  target: Physical or Mental Defence (default from the sheet, editable), a live outcome line, and an
-  optional "set damage" that replaces the calculated number.
+- **Flow:** on the Battle remote (phone, or the GM on an NPC's sheet) the player first selects the
+  targets (see Targets), then taps **Attack**, picks a Combat Mastery (Magic, Stances, Manifest), the
+  Defence it is rolled against (**Physical or Mental**) and the base AP cost (**1 or 2 AP**), and may
+  add Advantage levels or a custom modifier. **AP is checked:** the Attack button is greyed out with
+  no AP or no target, and any AP cost above the character's current AP is greyed out (the server
+  refuses it too). The server rolls it (d20 + Mastery + Experience Modifier, plus status effects) and
+  posts the roll in the chat; a **confirm card** pops up on the GM's screen (desktop or phone).
+  Attacks that the GM postpones ("Later") wait in a badge; the GM can also **Discard** one.
+- **The card** is deliberately small (changed after the playtest): the GM sets only the **Total**,
+  **Base damage**, **Damage type** (the twelve types, or True, which ignores resistances), **AP
+  cost** and **Add status** (with stacks; added to every target that is hit). Everything else is
+  automatic: the natural roll, the critical range (natural 20), Exposed on a natural 1, the targets and
+  each target's Defence. Below the fields the card lists each target with its Defence and the outcome
+  as it will be applied (read only).
+- **Targets:** the player chooses them. On the Battle remote a tap on a character selects it and a
+  second tap deselects it, so any number of characters can be selected (each shows a pulsing ring on
+  the map); "Clear targets" deselects all. The GM cannot change the targets on the card. An area spell
+  hits whoever the player selected (no automatic pick from drawn areas). A temp NPC has no sheet, so
+  its Defence is a fixed **10** (my default, open to change).
+- **The roll card in the chat** shows a roll made against something as two large numbers: the
+  **Attack Value** and the **Target Value** (the Defence being rolled against; with several
+  targets, one Target Value per target, named).
 - **Damage per target:** Hit Severity (see Hit severity and damage; below the Defence is a Miss, a
   natural 20 always hits) gives the bonus; damage is base + severity bonus + 2 for a critical, then
   the target's resistance for that damage type (flat, then Half/Double; Immunity 0; Consumption heals
   half). HP never goes below 0 or above max.
 - **Apply:** subtracts the damage from each target's HP, adds the chosen statuses to targets that were
   hit, spends the attacker's AP (my default: at Apply, not at the roll, so a discarded card costs
-  nothing), and posts one result line per target in the chat (lines about hidden tokens are not
+  nothing), gives the attacker Exposed 1 on a natural 1, and posts one result line per target in the chat (lines about hidden tokens are not
   posted). A temp NPC has no sheet: the line says so and the GM applies it by hand. A miss changes
   nothing but the AP.
-- **Not yet:** automatic Exposed from natural 1 on other rolls, statuses that change attack rolls
+- **Not yet:** automatic Exposed from a natural 1 on other rolls, statuses that change attack rolls
   (Blinded, Prone and so on), reactions, and stored attacks and abilities.
 
 ### Mobile remote (implemented in Phase 5a)
@@ -626,8 +647,8 @@ Battle (Phase 5a):
 - `scenes` gains `battle_aspect` (picture width / height), `grid_cell`, `grid_ox`, `grid_oy`
   (fractions of the picture); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
   and `size`.
-- `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank)`:
-  one token per owner per scene; `bank` is the leftover Movement squares. Tokens keep whole-square
+- `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank, height)`:
+  one token per owner per scene; `height` is the Spaces in the air; `bank` is the leftover Movement squares. Tokens keep whole-square
   positions and are clamped back onto the map when the grid changes.
 - `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)`.
 - Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
@@ -714,10 +735,11 @@ Battle (Phase 5a):
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
 - GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
-  `{ id }`, `battle:update` `{ id, pictureId?, hidden? }`, `battle:clear_bank` `{ id }`,
-  `mark:clear` `{ kind? }`, `temp_npc:set_size` `{ id, size }`.
+  `{ id }`, `battle:update` `{ id, pictureId?, hidden?, height? }`, `battle:clear_bank` `{ id }`,
+  `temp_npc:set_size` `{ id, size }`.
 - GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
-  `mark:remove` `{ id }`, `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
+  `mark:remove` `{ id }`, `mark:clear` `{ kind? }` (Clean), `mark:erase` `{ x, y, r }` (the eraser: picture
+  fractions and a radius in picture widths; splits the drawings it cuts), `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
   `battle:pinged`.
 - `combat:*`: `combat:start` (GM), `combat:roll` `{ tokenId }` (the GM, or a player for their own PC,
   once), `combat:roll_npcs` (GM), `combat:set_initiative` `{ tokenId, value }` (GM), `combat:begin`
@@ -729,19 +751,19 @@ Battle (Phase 5a):
   Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
   `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
   `already_in_combat`, `stale`.
-- Attacks (Phase 6a): `attack:roll` `{ characterId, mastery, ap (1 or 2), advantage?, modifier? }`
+- Attacks (Phase 6a): `attack:roll` `{ characterId, mastery, ap (1 or 2), defence ('physical' | 'mental'), advantage?, modifier? }`
   (the GM, or a player for their own PC) posts the roll in the chat and sends `attack:pending`
-  `{ id, characterId, characterName, attackerTokenId, mastery, masteryLabel, ap, roll, targets }` to
+  `{ id, characterId, characterName, attackerTokenId, mastery, masteryLabel, ap, defenceKind, roll, targets }` to
   the GM room. GM only: `attack:list` `{ attacks }`, `attack:targets` `{ tokenIds }` (name, Defences,
-  resistances and HP of each), `attack:apply` `{ id, total, natural, critThreshold, base, kind, ap,
-  exposed, statuses: [{ key, stacks }], targets: [{ tokenId, defenceKind, defence, override }] }` and
+  resistances and HP of each), `attack:apply` `{ id, total, base, kind, ap, statuses: [{ key, stacks }] }` and
   `attack:cancel` `{ id }`; both send `attack:resolved` `{ id }` to the GM room. Pending attacks live in
-  server memory (at most 30). The rules code is in `shared/damage.js` (used by the server and by the
+  server memory (at most 30). The roll posted in the chat carries `roll.against` = `{ label, targets: [{ name,
+  value }] }` (the numbers to beat). New error codes: `no_ap`, `no_target`. The rules code is in `shared/damage.js` (used by the server and by the
   card's live preview) and `shared/templates.js` (which tokens are inside an area).
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
-  needs AP. `battle:target` `{ characterId, tokenId | null }`: set or clear the target of a PC
-  (the GM or that PC's player).
+  needs AP. `battle:target` `{ characterId, tokenId | null }`: toggles a token in the selected targets of a PC
+  (the GM or that PC's player), or clears them all with `null`.
 
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.

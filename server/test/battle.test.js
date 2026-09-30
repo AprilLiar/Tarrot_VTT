@@ -397,13 +397,102 @@ describe('targeting', () => {
     expect((await stageOf(g)).battle.tokens.find((t) => t.id === bt).targetedBy).toEqual([]);
     expect((await g.call('battle:target', { characterId: b, tokenId: bt })).ok).toBe(true); // the GM can target for anyone
   });
+
+  it('selects many tokens; tapping a selected one again deselects it', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const b = await withPicture(g, 'Bob');
+    const c = await withPicture(g, 'Cid');
+    await g.call('battle:add', { characterId: a });
+    const bt = (await g.call('battle:add', { characterId: b })).id;
+    const ct = (await g.call('battle:add', { characterId: c })).id;
+    const p = await player(a);
+    const by = async (id) => (await stageOf(g)).battle.tokens.find((t) => t.id === id).targetedBy;
+    await p.call('battle:target', { characterId: a, tokenId: bt });
+    await p.call('battle:target', { characterId: a, tokenId: ct });
+    expect(await by(bt)).toEqual([a]);
+    expect(await by(ct)).toEqual([a]);
+    await p.call('battle:target', { characterId: a, tokenId: bt });
+    expect(await by(bt)).toEqual([]);
+    expect(await by(ct)).toEqual([a]);
+    await p.call('battle:target', { characterId: a, tokenId: null });
+    expect(await by(ct)).toEqual([]);
+  });
+});
+
+describe('height', () => {
+  it('the GM sets how many Spaces a token is in the air; everyone sees it', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const t = (await g.call('battle:add', { characterId: a })).id;
+    const d = await display();
+    expect((await stageOf(d)).battle.tokens[0].height).toBe(0);
+    expect((await g.call('battle:update', { id: t, height: 3 })).ok).toBe(true);
+    expect((await stageOf(d)).battle.tokens[0].height).toBe(3);
+    expect(await g.call('battle:update', { id: t, height: -1 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await g.call('battle:update', { id: t, height: 1.5 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await d.call('battle:update', { id: t, height: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+});
+
+describe('the eraser', () => {
+  const line = { color: '#ff0000', width: 4, points: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((x) => [x, 0.5]) };
+
+  it('rubs out part of a drawing and splits it in two', async () => {
+    const g = await gm();
+    const d = await display();
+    await battleScene(g);
+    await g.call('mark:add', { kind: 'draw', data: line });
+    expect((await d.call('mark:erase', { x: 0.5, y: 0.5, r: 0.06 })).ok).toBe(true);
+    const marks = (await stageOf(g)).battle.marks;
+    expect(marks).toHaveLength(2);
+    expect(marks[0].points.map((p) => p[0])).toEqual([0.1, 0.2, 0.3, 0.4]);
+    expect(marks[1].points.map((p) => p[0])).toEqual([0.6, 0.7, 0.8, 0.9]);
+    expect(marks[0]).toMatchObject({ color: '#ff0000', width: 4 });
+  });
+
+  it('cuts where a long segment passes through the eraser, removes what is left too small, and ignores misses', async () => {
+    const g = await gm();
+    await battleScene(g);
+    await g.call('mark:add', { kind: 'draw', data: { color: '#ff0000', width: 4, points: [[0.1, 0.5], [0.9, 0.5]] } });
+    await g.call('mark:erase', { x: 0.5, y: 0.5, r: 0.05 });
+    expect((await stageOf(g)).battle.marks).toHaveLength(0); // both halves were a single point
+    await g.call('mark:add', { kind: 'draw', data: line });
+    await g.call('mark:erase', { x: 0.5, y: 0.1, r: 0.05 });
+    expect((await stageOf(g)).battle.marks).toHaveLength(1);
+    // A big rub leaves the two ends; rubbing an end out removes that piece for good.
+    await g.call('mark:erase', { x: 0.5, y: 0.5, r: 0.2 });
+    expect((await stageOf(g)).battle.marks).toHaveLength(2);
+    await g.call('mark:erase', { x: 0.15, y: 0.5, r: 0.1 });
+    expect((await stageOf(g)).battle.marks).toHaveLength(1);
+  });
+
+  it('is limited to the GM and the Display and to sensible numbers', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const p = await player(a);
+    expect(await p.call('mark:erase', { x: 0.5, y: 0.5, r: 0.05 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await g.call('mark:erase', { x: 2, y: 0.5, r: 0.05 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await g.call('mark:erase', { x: 0.5, y: 0.5, r: 5 })).toMatchObject({ ok: false, code: 'bad_value' });
+  });
+
+  it('accepts an arc template', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const r = await g.call('mark:add', { kind: 'template', data: { shape: 'arc', x: 3, y: 2, size: 3, angle: 0, color: '#00aaff' } });
+    expect(r.ok).toBe(true);
+    expect((await stageOf(g)).battle.marks[0].shape).toBe('arc');
+  });
 });
 
 describe('drawings, templates and pings', () => {
   const stroke = { color: '#ff0000', width: 4, points: [[0.1, 0.1], [0.4, 0.4]] };
   const cone = { shape: 'cone', x: 3, y: 2, size: 4, angle: 90, color: '#00aaff' };
 
-  it('the GM and the Display can add and erase; only the GM can clear; players cannot touch them', async () => {
+  it('the GM and the Display can add, erase and clean; players cannot touch them', async () => {
     const g = await gm();
     const d = await display();
     await battleScene(g);
@@ -419,7 +508,8 @@ describe('drawings, templates and pings', () => {
     expect(marks.map((m) => m.kind)).toEqual(['draw', 'template']);
     expect(marks[1]).toMatchObject({ shape: 'cone', angle: 90 });
     expect((await d.call('mark:remove', { id: s1 })).ok).toBe(true);
-    expect(await d.call('mark:clear', {})).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await p.call('mark:clear', {})).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await d.call('mark:clear', { kind: 'draw' })).ok).toBe(true);
     expect((await g.call('mark:clear', { kind: 'template' })).ok).toBe(true);
     expect((await stageOf(g)).battle.marks).toHaveLength(0);
     expect(t1).toBeGreaterThan(0);

@@ -11,6 +11,8 @@ import { AppError } from './errors.js';
 
 export const MAX_PENDING = 30;
 export const MAX_TARGETS = 30;
+// A temporary NPC has no sheet, so no Defence: it gets a fixed one.
+export const TEMP_NPC_DEFENCE = 10;
 const int = (v, min, max, what) => {
   if (!Number.isInteger(v) || v < min || v > max) throw new AppError('bad_value', `${what} must be a whole number from ${min} to ${max}.`);
   return v;
@@ -20,46 +22,34 @@ const int = (v, min, max, what) => {
 export async function targetInfo(db, tokenId) {
   const token = await battle.getToken(db, tokenId);
   const base = { tokenId: token.id, name: token.name, ownerKind: token.ownerKind, hidden: token.hidden };
-  if (token.ownerKind !== 'character') return { ...base, sheet: false };
+  if (token.ownerKind !== 'character') return { ...base, sheet: false, defence: { physical: TEMP_NPC_DEFENCE, mental: TEMP_NPC_DEFENCE } };
   const sheet = await sheets.getSheet(db, token.ownerId);
   return { ...base, sheet: true, defence: sheet.defence, resistances: sheet.resistances, hp: sheet.hp };
 }
 
-// Checks and cleans what the GM sends from the card.
-export function cleanApply(pending, input) {
+// Checks and cleans what the GM sends from the card: only the total, the base damage, the damage type,
+// the AP cost and the statuses. Everything else comes from the roll itself and from the targets the
+// player selected (`targets` here are worked out by the caller, with each target's Defence).
+export function cleanApply(pending, input, targets) {
   const i = input ?? {};
-  const kind = i.kind;
-  if (!DAMAGE_KINDS.includes(kind)) throw new AppError('bad_value', 'Choose a damage type.');
-  if (!Array.isArray(i.targets) || i.targets.length < 1 || i.targets.length > MAX_TARGETS) {
-    throw new AppError('bad_value', `An attack needs 1 to ${MAX_TARGETS} targets.`);
-  }
-  const seen = new Set();
-  const targets = i.targets.map((t) => {
-    if (!Number.isInteger(t?.tokenId) || seen.has(t.tokenId)) throw new AppError('bad_value', 'Each target can be listed once.');
-    seen.add(t.tokenId);
-    if (t.defenceKind !== 'physical' && t.defenceKind !== 'mental') throw new AppError('bad_value', 'Defence must be Physical or Mental.');
-    return {
-      tokenId: t.tokenId,
-      defenceKind: t.defenceKind,
-      defence: int(t.defence, -99, 999, 'Defence'),
-      override: t.override == null ? null : int(t.override, 0, 9999, 'Damage'),
-    };
-  });
+  if (!DAMAGE_KINDS.includes(i.kind)) throw new AppError('bad_value', 'Choose a damage type.');
+  if (!targets.length) throw new AppError('no_target', 'None of the targets is on the map any more.');
   const statuses = (Array.isArray(i.statuses) ? i.statuses : []).map((s) => {
     const info = D.STATUSES.find((x) => x.key === s?.key);
     if (!info) throw new AppError('bad_value', 'Unknown status.');
     return { key: info.key, name: info.name, stackable: info.stackable, stacks: int(s.stacks, 1, 10, 'Status stacks') };
   });
+  const natural = pending.roll.natural;
   return {
     total: int(i.total ?? pending.roll.total, -999, 999, 'Attack total'),
-    natural: int(i.natural ?? pending.roll.natural, 1, 20, 'Natural roll'),
-    critThreshold: int(i.critThreshold ?? DEFAULT_CRIT, 2, 20, 'Critical range'),
+    natural,
+    critThreshold: DEFAULT_CRIT,
     base: int(i.base, 0, 999, 'Base damage'),
-    kind,
+    kind: i.kind,
     ap: int(i.ap ?? pending.ap, 0, 20, 'AP cost'),
-    exposed: i.exposed === true,
+    exposed: natural === 1, // a natural 1 exposes the attacker
     statuses,
-    targets,
+    targets: targets.map((t) => ({ tokenId: t.tokenId, defenceKind: pending.defenceKind, defence: t.defence[pending.defenceKind], override: null })),
   };
 }
 

@@ -58,8 +58,9 @@ export function useZoomPan() {
       // Only a drag that starts on the picture pans it. Menus, drawers and dialogs
       // sit inside the same element but must keep their own clicks.
       if (!e.target.closest('[data-pan-surface]') || e.target.closest('[data-no-pan]')) return;
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // The pointer is captured only once it really drags (below): capturing at once would swallow plain
+      // clicks on things inside the picture (a drawing to erase, an area to remove).
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, captured: false });
       const pts = [...pointers.current.values()];
       const v = viewRef.current;
       if (pts.length === 1) gesture.current = { type: 'pan', sx: pts[0].x, sy: pts[0].y, vx: v.x, vy: v.y };
@@ -69,8 +70,13 @@ export function useZoomPan() {
       }
     },
     onPointerMove(e) {
-      if (!pointers.current.has(e.pointerId)) return;
-      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const p = pointers.current.get(e.pointerId);
+      if (!p) return;
+      if (!p.captured && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 4) {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        p.captured = true;
+      }
+      pointers.current.set(e.pointerId, { ...p, x: e.clientX, y: e.clientY });
       const pts = [...pointers.current.values()];
       const g = gesture.current;
       const { w, h, left, top } = size();

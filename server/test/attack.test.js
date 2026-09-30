@@ -69,6 +69,15 @@ describe('areas', () => {
     expect(tokenInTemplate(t, tok(6, 2), grid, aspect)).toBe(false);
   });
 
+  it('an arc is a 180 degree half circle', () => {
+    const t = { shape: 'arc', ...centre(4, 2), size: 3, angle: 0 };
+    expect(tokenInTemplate(t, tok(6, 2), grid, aspect)).toBe(true);
+    expect(tokenInTemplate(t, tok(5, 4), grid, aspect)).toBe(true); // 45 degrees down
+    expect(tokenInTemplate(t, tok(4, 4), grid, aspect)).toBe(true); // straight down: the edge of the half circle
+    expect(tokenInTemplate(t, tok(3, 2), grid, aspect)).toBe(false); // behind
+    expect(tokenInTemplate(t, tok(8, 2), grid, aspect)).toBe(false); // too far
+  });
+
   it('a line runs one square wide in its direction', () => {
     const t = { shape: 'line', ...centre(1, 2), size: 4, angle: 0 };
     expect(tokensInTemplate(t, [tok(2, 2), tok(5, 2), tok(6, 2), tok(3, 3)], grid, aspect).map((x) => x.col)).toEqual([2, 5]);
@@ -160,50 +169,63 @@ async function setup() {
   const p = await player(a.id);
   return { g, a, o, p };
 }
+const roll = (ctx, extra = {}) => ctx.p.call('attack:roll', { characterId: ctx.a.id, mastery: 'stances', ap: 2, defence: 'physical', ...extra });
 
 describe('rolling an attack', () => {
-  it('rolls the Mastery, posts it in the chat and sends a pending attack to the GM', async () => {
-    const { g, a, o, p } = await setup();
+  it('rolls the Mastery, shows the number to beat, posts it in the chat and sends a pending attack to the GM', async () => {
+    const ctx = await setup();
+    const { g, a, o, p } = ctx;
     await p.call('battle:target', { characterId: a.id, tokenId: o.token });
     const seen = nextPending(g);
-    const r = await p.call('attack:roll', { characterId: a.id, mastery: 'stances', ap: 2 });
+    const r = await roll(ctx);
     expect(r.ok).toBe(true);
     const pending = await seen;
-    expect(pending).toMatchObject({ characterId: a.id, mastery: 'stances', ap: 2, attackerTokenId: a.token, targets: [o.token] });
+    expect(pending).toMatchObject({ characterId: a.id, mastery: 'stances', ap: 2, defenceKind: 'physical', attackerTokenId: a.token, targets: [o.token] });
     expect(pending.roll.title).toBe('Stances attack');
-    expect(pending.roll.total).toBeGreaterThanOrEqual(2 - 0); // d20 + Mastery + Experience
+    expect(pending.roll.against).toEqual({ label: 'Physical Defence', targets: [{ name: 'Ogre', value: 12 }] });
     const card = server.shared.chat.history().find((m) => m.type === 'roll');
-    expect(card.roll.title).toBe('Stances attack');
+    expect(card.roll.against.targets[0]).toEqual({ name: 'Ogre', value: 12 });
     expect((await g.call('attack:list')).attacks).toHaveLength(1);
   });
 
-  it('checks who rolls, which Mastery and the AP cost', async () => {
-    const { g, a, o, p } = await setup();
-    expect(await p.call('attack:roll', { characterId: o.id, mastery: 'magic', ap: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
-    expect(await p.call('attack:roll', { characterId: a.id, mastery: 'luck', ap: 1 })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await p.call('attack:roll', { characterId: a.id, mastery: 'magic', ap: 3 })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect((await g.call('attack:roll', { characterId: o.id, mastery: 'magic', ap: 1 })).ok).toBe(true); // the GM rolls for an NPC
+  it('needs a target, enough AP, a Mastery and a Defence, and only the owner rolls', async () => {
+    const ctx = await setup();
+    const { g, a, o, p } = ctx;
+    expect(await roll(ctx)).toMatchObject({ ok: false, code: 'no_target' });
+    await p.call('battle:target', { characterId: a.id, tokenId: o.token });
+    expect(await p.call('attack:roll', { characterId: o.id, mastery: 'magic', ap: 1, defence: 'physical' })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await roll(ctx, { mastery: 'luck' })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await roll(ctx, { ap: 3 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await roll(ctx, { defence: 'spiritual' })).toMatchObject({ ok: false, code: 'bad_value' });
+    await g.call('sheet:set', { characterId: a.id, path: 'ap.current', value: 1 });
+    expect(await roll(ctx, { ap: 2 })).toMatchObject({ ok: false, code: 'no_ap' });
+    expect((await roll(ctx, { ap: 1 })).ok).toBe(true);
     expect(await p.call('attack:list')).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+
+  it('every selected target goes on the attack', async () => {
+    const ctx = await setup();
+    const { a, o, p } = ctx;
+    const b = await fighter(ctx.g, 'Bandit', 'npc');
+    await p.call('battle:target', { characterId: a.id, tokenId: o.token });
+    await p.call('battle:target', { characterId: a.id, tokenId: b.token });
+    const seen = nextPending(ctx.g);
+    await roll(ctx, { defence: 'mental' });
+    const pending = await seen;
+    expect(pending.targets).toEqual([o.token, b.token]);
+    expect(pending.roll.against.label).toBe('Mental Defence');
+    expect(pending.roll.against.targets.map((t) => t.name)).toEqual(['Ogre', 'Bandit']);
   });
 });
 
 describe('the confirm card', () => {
-  async function pendingAttack(ctx, targets) {
+  async function pendingAttack(ctx, tokenIds = [ctx.o.token]) {
+    for (const t of tokenIds) await ctx.p.call('battle:target', { characterId: ctx.a.id, tokenId: t });
     const seen = nextPending(ctx.g);
-    await ctx.p.call('attack:roll', { characterId: ctx.a.id, mastery: 'manifestation', ap: 1 });
-    const pending = await seen;
-    return { ...pending, targets };
+    await roll(ctx, { mastery: 'manifestation', ap: 1 });
+    return seen;
   }
-  const card = (pending, extra = {}) => ({
-    id: pending.id,
-    total: 20,
-    natural: 10,
-    base: 4,
-    kind: 'fire',
-    ap: 1,
-    targets: [{ tokenId: pending.targets[0], defenceKind: 'physical', defence: 12 }],
-    ...extra,
-  });
+  const card = (pending, extra = {}) => ({ id: pending.id, total: 20, base: 4, kind: 'fire', ap: 1, ...extra });
 
   it('shows what the card needs about a target', async () => {
     const ctx = await setup();
@@ -216,7 +238,7 @@ describe('the confirm card', () => {
   it('applies damage through resistances, statuses, AP and a chat line', async () => {
     const ctx = await setup();
     await ctx.g.call('sheet:set', { characterId: ctx.o.id, path: 'resistances.fire', value: { flat: 2 } });
-    const pending = await pendingAttack(ctx, [ctx.o.token]);
+    const pending = await pendingAttack(ctx);
     const r = await ctx.g.call('attack:apply', card(pending, { statuses: [{ key: 'burning', stacks: 2 }] }));
     expect(r.ok).toBe(true);
     // 20 vs 12: difference 8, a Heavy Hit: 4 + 1 = 5, fire resistance 2 leaves 3.
@@ -232,7 +254,7 @@ describe('the confirm card', () => {
 
   it('a miss changes nothing but still costs AP; nothing is applied twice', async () => {
     const ctx = await setup();
-    const pending = await pendingAttack(ctx, [ctx.o.token]);
+    const pending = await pendingAttack(ctx);
     const miss = card(pending, { total: 3, statuses: [{ key: 'burning', stacks: 1 }] });
     expect((await ctx.g.call('attack:apply', miss)).ok).toBe(true);
     const ogre = await sheetOf(ctx.g, ctx.o.id);
@@ -243,42 +265,41 @@ describe('the confirm card', () => {
     expect(await ctx.g.call('attack:apply', miss)).toMatchObject({ ok: false, code: 'not_found' });
   });
 
-  it('several targets, a temp NPC and a GM override; the attacker may gain Exposed', async () => {
+  it('hits every selected target, a temp NPC uses a fixed Defence, and a natural 1 exposes the attacker', async () => {
     const ctx = await setup();
     const d = (await ctx.g.call('temp_npc:create', { name: 'Dummy' })).id;
     await ctx.g.call('picture:add', { tempNpcId: d, data: png() });
     const dummy = (await ctx.g.call('battle:add', { tempNpcId: d })).id;
-    const pending = await pendingAttack(ctx, [ctx.o.token]);
-    const r = await ctx.g.call('attack:apply', card(pending, {
-      natural: 1,
-      exposed: true,
-      targets: [
-        { tokenId: ctx.o.token, defenceKind: 'physical', defence: 12, override: 10 },
-        { tokenId: dummy, defenceKind: 'mental', defence: 5 },
-      ],
-    }));
+    const pending = await pendingAttack(ctx, [ctx.o.token, dummy]);
+    server.shared.attacks.get(pending.id).roll.natural = 1;
+    const r = await ctx.g.call('attack:apply', card(pending, { total: 25 }));
     expect(r.ok).toBe(true);
-    expect((await sheetOf(ctx.g, ctx.o.id)).hp.current).toBe(20);
-    expect(texts().some((t) => /Dummy .*temporary NPC/.test(t))).toBe(true);
+    expect((await sheetOf(ctx.g, ctx.o.id)).hp.current).toBe(24); // Brutal Hit: 4 + 2 = 6
+    expect(texts().some((t) => /Dummy .*Physical Defence 10.*temporary NPC/.test(t))).toBe(true);
     expect((await sheetOf(ctx.g, ctx.a.id)).statuses.exposed).toBe(1);
   });
 
-  it('is GM only and rejects bad numbers', async () => {
+  it('is GM only, cannot change targets, and rejects bad numbers', async () => {
     const ctx = await setup();
-    const pending = await pendingAttack(ctx, [ctx.o.token]);
+    const pending = await pendingAttack(ctx);
     expect(await ctx.p.call('attack:apply', card(pending))).toMatchObject({ ok: false, code: 'forbidden' });
     expect(await ctx.g.call('attack:apply', card(pending, { kind: 'love' }))).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await ctx.g.call('attack:apply', card(pending, { targets: [] }))).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await ctx.g.call('attack:apply', card(pending, { base: -1 }))).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await ctx.g.call('attack:apply', card(pending, { statuses: [{ key: 'nope', stacks: 1 }] }))).toMatchObject({ ok: false, code: 'bad_value' });
-    // Nothing was consumed by the failures.
+    // Nothing was consumed by the failures, and a target list in the payload is ignored.
     expect((await ctx.g.call('attack:list')).attacks).toHaveLength(1);
     expect((await sheetOf(ctx.g, ctx.o.id)).hp.current).toBe(30);
+    const other = await fighter(ctx.g, 'Bystander', 'npc');
+    await ctx.g.call('sheet:set', { characterId: other.id, path: 'hp.max', value: 10 });
+    await ctx.g.call('sheet:set', { characterId: other.id, path: 'hp.current', value: 10 });
+    await ctx.g.call('attack:apply', card(pending, { targets: [{ tokenId: other.token, defenceKind: 'physical', defence: 0 }] }));
+    expect((await sheetOf(ctx.g, other.id)).hp.current).toBe(10);
+    expect((await sheetOf(ctx.g, ctx.o.id)).hp.current).toBeLessThan(30);
   });
 
   it('can be cancelled', async () => {
     const ctx = await setup();
-    const pending = await pendingAttack(ctx, [ctx.o.token]);
+    const pending = await pendingAttack(ctx);
     expect((await ctx.g.call('attack:cancel', { id: pending.id })).ok).toBe(true);
     expect((await ctx.g.call('attack:list')).attacks).toHaveLength(0);
     expect(await ctx.g.call('attack:cancel', { id: pending.id })).toMatchObject({ ok: false, code: 'not_found' });

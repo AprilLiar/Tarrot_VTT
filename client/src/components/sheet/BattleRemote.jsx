@@ -33,7 +33,7 @@ export function BattleRemote({ s }) {
   if (stage.mode !== 'battle' || !battle?.imageId) return null;
 
   const token = battle.tokens.find((t) => t.ownerKind === 'character' && t.ownerId === s.characterId);
-  const target = battle.tokens.find((t) => t.targetedBy.includes(s.characterId));
+  const targets = battle.tokens.filter((t) => t.targetedBy.includes(s.characterId));
   const others = battle.tokens.filter((t) => t !== token);
   const apMax = s.sheet.ap.minion ? 2 : 4;
   const combat = battle.combat;
@@ -58,6 +58,7 @@ export function BattleRemote({ s }) {
     if (!r.ok) toast(r.error);
   }
 
+  // Tapping a character selects it; tapping it again deselects it. `null` clears every target.
   async function aim(tokenId) {
     const r = await call('battle:target', { characterId: s.characterId, tokenId });
     if (!r.ok) toast(r.error);
@@ -142,34 +143,44 @@ export function BattleRemote({ s }) {
           </>
         )}
 
-        <button className={`${btnPrimary} mt-3 w-full`} data-testid="attack-open" onClick={() => setAttacking(true)}>
+        <button
+          className={`${btnPrimary} mt-3 w-full`}
+          data-testid="attack-open"
+          disabled={s.sheet.ap.current < 1 || targets.length === 0}
+          onClick={() => setAttacking(true)}
+        >
           Attack
         </button>
+        {(s.sheet.ap.current < 1 || targets.length === 0) && (
+          <p className="mt-1 text-center text-xs opacity-60" data-testid="attack-blocked">
+            {s.sheet.ap.current < 1 ? 'No AP left to attack.' : 'Select a target below first.'}
+          </p>
+        )}
 
-        <div className="mt-3 text-sm opacity-70">Target</div>
+        <div className="mt-3 text-sm opacity-70">Targets (tap again to deselect)</div>
         <div className="mt-1 flex flex-col gap-1" data-testid="target-list">
           {others.length === 0 && <p className="text-sm opacity-60">Nobody else is on the map.</p>}
           {others.map((t) => (
             <button
               key={t.id}
               data-testid="target-option"
-              aria-pressed={target?.id === t.id}
-              className={`${btn} flex justify-between ${target?.id === t.id ? 'ring-2 ring-amber-400' : ''}`}
-              onClick={() => aim(target?.id === t.id ? null : t.id)}
+              aria-pressed={targets.some((x) => x.id === t.id)}
+              className={`${btn} flex justify-between ${targets.some((x) => x.id === t.id) ? 'ring-2 ring-amber-400' : ''}`}
+              onClick={() => aim(t.id)}
             >
               <span className="truncate">{t.name}</span>
               <span className="text-xs opacity-60">{t.kind.toUpperCase()}</span>
             </button>
           ))}
-          {target && (
+          {targets.length > 0 && (
             <button className={btn} data-testid="clear-target" onClick={() => aim(null)}>
-              Clear target
+              Clear targets
             </button>
           )}
         </div>
       </div>
 
-      {attacking && <AttackDialog s={s} target={target} onClose={() => setAttacking(false)} />}
+      {attacking && <AttackDialog s={s} targets={targets} onClose={() => setAttacking(false)} />}
 
       {ask && (
         <Dialog title="Spend AP to move?" onClose={() => setAsk(null)}>
@@ -200,19 +211,21 @@ export function BattleRemote({ s }) {
 
 // Picks the Combat Mastery, the AP cost and any Advantage, then rolls. The roll goes to the chat and the
 // GM gets a card to confirm it (they choose the damage and the targets there).
-function AttackDialog({ s, target, onClose }) {
+function AttackDialog({ s, targets, onClose }) {
   const { toast } = useApp();
   const [mastery, setMastery] = useState(MASTERIES[0]);
   const [ap, setAp] = useState(1);
+  const [defence, setDefence] = useState('physical');
   const [manual, setManual] = useState(0);
   const [modifier, setModifier] = useState('0');
   const [busy, setBusy] = useState(false);
-  const valid = isWholeNumber(modifier) && Math.abs(Number(modifier)) <= 99;
+  const have = s.sheet.ap.current;
+  const valid = isWholeNumber(modifier) && Math.abs(Number(modifier)) <= 99 && ap <= have;
   const plan = planRoll(s.sheet, { kind: 'mastery', key: mastery, advantage: manual, modifier: valid ? Number(modifier) : 0 });
 
   async function roll() {
     setBusy(true);
-    const r = await call('attack:roll', { characterId: s.characterId, mastery, ap, advantage: manual, modifier: Number(modifier) });
+    const r = await call('attack:roll', { characterId: s.characterId, mastery, ap, defence, advantage: manual, modifier: Number(modifier) });
     setBusy(false);
     if (!r.ok) toast(r.error);
     else onClose();
@@ -222,7 +235,7 @@ function AttackDialog({ s, target, onClose }) {
     <Dialog title="Attack" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <div className="text-sm opacity-80">
-          Target: <span data-testid="attack-target-name">{target ? target.name : 'none chosen (the GM can add targets)'}</span>
+          Targets: <span data-testid="attack-target-name">{targets.map((t) => t.name).join(', ')}</span>
         </div>
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Combat Mastery">
           {MASTERIES.map((m) => (
@@ -238,13 +251,33 @@ function AttackDialog({ s, target, onClose }) {
             </button>
           ))}
         </div>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Defence it is rolled against">
+          {[
+            ['physical', 'vs Physical Defence'],
+            ['mental', 'vs Mental Defence'],
+          ].map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={defence === id} data-testid={`attack-defence-${id}`} className={`${btn} ${defence === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setDefence(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="AP cost">
           {[1, 2].map((n) => (
-            <button key={n} role="radio" aria-checked={ap === n} data-testid={`attack-ap-${n}`} className={`${btn} ${ap === n ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setAp(n)}>
+            <button
+              key={n}
+              role="radio"
+              aria-checked={ap === n}
+              aria-disabled={n > have}
+              disabled={n > have}
+              data-testid={`attack-ap-${n}`}
+              className={`${btn} ${ap === n ? 'ring-2 ring-violet-400' : ''} disabled:opacity-30`}
+              onClick={() => setAp(n)}
+            >
               {n} AP
             </button>
           ))}
         </div>
+        <div className="text-xs opacity-60">You have {have} AP.</div>
         {plan.ok && (
           <div className="rounded-lg bg-white/5 p-3 text-sm" data-testid="attack-preview">
             {plan.expression}

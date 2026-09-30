@@ -1,18 +1,19 @@
 import { useLayoutEffect, useState } from 'react';
 
 // The half-transparent circles next to a character (Foundry style).
-export function TokenMenu({ s, anchor, containerRef, onSettings, onToggleHidden, onClose }) {
+export function TokenMenu({ s, anchor, containerRef, onSettings, onToggleHidden, onHeight, onRemove, onClose }) {
   const [pos, setPos] = useState(null);
+  const count = 2 + (onHeight ? 1 : 0) + (onRemove ? 1 : 0); // circles shown
   useLayoutEffect(() => {
     const box = containerRef.current?.getBoundingClientRect();
     if (!box || !anchor) return;
     const r = anchor.getBoundingClientRect();
     const onLeft = r.left + r.width / 2 < box.left + box.width / 2;
     setPos({
-      top: Math.min(Math.max(r.top - box.top + r.height / 2 - 60, 8), box.height - 130),
+      top: Math.min(Math.max(r.top - box.top + r.height / 2 - 60, 8), box.height - (56 + 72 * count)),
       left: onLeft ? Math.min(r.right - box.left + 8, box.width - 80) : Math.max(r.left - box.left - 72, 8),
     });
-  }, [anchor, containerRef, s.id]);
+  }, [anchor, containerRef, s.id, count]);
   if (!pos) return null;
   const circle =
     'flex h-16 w-16 items-center justify-center rounded-full border border-white/50 bg-black/45 text-center text-xs font-medium leading-tight text-white backdrop-blur active:bg-black/70';
@@ -26,6 +27,16 @@ export function TokenMenu({ s, anchor, containerRef, onSettings, onToggleHidden,
         <button className={circle} data-testid="menu-hide" onClick={onToggleHidden}>
           {s.hidden ? 'Reveal' : 'Hide'}
         </button>
+        {onHeight && (
+          <button className={circle} data-testid="menu-height" onClick={onHeight}>
+            Set Height
+          </button>
+        )}
+        {onRemove && (
+          <button className={circle} data-testid="menu-remove" onClick={onRemove}>
+            Remove
+          </button>
+        )}
       </div>
     </>
   );
