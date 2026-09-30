@@ -197,7 +197,7 @@ function General({ s, draft, setDraft }) {
       <section aria-label={t('Weapons')}>
         <h3 className={heading}>{t('Weapons')}</h3>
         <p className="mb-2 text-xs opacity-50">{t('Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet).')}</p>
-        <div className="flex flex-col gap-2" role="radiogroup" aria-label={t('Weapons')}>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label={t('Weapons')}>
           {weapons.map((w) => (
             <div key={w.id} className={`${card} ${draft.weapon === w.id ? 'ring-2 ring-violet-400' : ''} ${w.item ? 'bg-amber-500/10' : ''}`}>
               <button role="radio" aria-checked={draft.weapon === w.id} data-testid="weapon-option" data-name={w.name} className="w-full text-left" onClick={() => setDraft({ ...draft, weapon: w.id })}>
@@ -217,9 +217,9 @@ function General({ s, draft, setDraft }) {
 
       <section aria-label={t('Enhancements')}>
         <h3 className={heading}>{t('Enhancements')}</h3>
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {[...mine, ...own].map(renderEnhancement)}
-          <button className={btn} data-testid="add-enhancement" onClick={() => setDialog({ type: 'enhancement', enhancement: null })}>
+          <button className={`${btn} col-span-full`} data-testid="add-enhancement" onClick={() => setDialog({ type: 'enhancement', enhancement: null })}>
             {t('New Enhancement')}
           </button>
         </div>
@@ -405,7 +405,7 @@ function GlobalGeneral() {
     <section aria-label={t('Enhancements for everyone')}>
       <h3 className={heading}>{t('Enhancements for everyone')}</h3>
       <p className="mb-2 text-xs opacity-50">{t('These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab.')}</p>
-      <div className="flex flex-col gap-2">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {globals.map((e) => (
           <div key={e.id} className={card} data-testid="global-enhancement" data-name={e.name}>
             <div className="font-medium">{e.name}</div>
@@ -421,8 +421,8 @@ function GlobalGeneral() {
             </div>
           </div>
         ))}
-        {globals.length === 0 && <p className="text-sm opacity-60">{t('None yet')}</p>}
-        <button className={btn} data-testid="add-enhancement" onClick={() => setDialog({ enhancement: null })}>
+        {globals.length === 0 && <p className="col-span-full text-sm opacity-60">{t('None yet')}</p>}
+        <button className={`${btn} col-span-full`} data-testid="add-enhancement" onClick={() => setDialog({ enhancement: null })}>
           {t('New Enhancement')}
         </button>
       </div>

@@ -9,11 +9,15 @@ import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
+import { ShieldIcon, BrainIcon } from './DefenceIcons.jsx';
+import { tint, skillTint } from './tints.js';
 import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
 import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
+// A small block of the vitals: tight, so more of the sheet fits on the screen.
+const tile = 'rounded-xl border border-white/10 bg-white/5 px-3 py-2';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
 
 const MASTERY_GLOW = {
@@ -89,25 +93,25 @@ export default function SheetPage({ characterId }) {
   const apMax = sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX;
 
   return (
-    <main className={`mx-auto flex flex-col gap-3 p-3 pb-24 ${view === 'arcane' ? 'w-full' : 'max-w-3xl'}`} data-testid="sheet">
-      {identity.role === 'gm' && (
-        <Link to="/" className="text-sm text-violet-300 underline">
-          {t('Back to roster')}
-        </Link>
-      )}
-      <div className="flex items-baseline justify-between gap-2">
-        <h1 className="truncate text-2xl font-semibold" data-testid="sheet-name">
+    <main className="mx-auto flex w-full max-w-[2000px] flex-col gap-3 p-3 pb-24" data-testid="sheet">
+      {/* One header row: who, and the Sheet | Arcane switch. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {identity.role === 'gm' && (
+          <Link to="/" className="text-sm text-violet-300 underline">
+            {t('Back to roster')}
+          </Link>
+        )}
+        <h1 className="min-w-0 truncate text-2xl font-semibold" data-testid="sheet-name">
           {character.name}
         </h1>
         <span className="rounded bg-slate-700 px-2 py-0.5 text-xs">{character.type === 'pc' ? t('PC') : t('NPC')}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label={t('View')}>
-        {[['sheet', t('Sheet')], ['arcane', t('Arcane')]].map(([id, text]) => (
-          <button key={id} role="tab" aria-selected={view === id} data-testid={`view-${id}`} className={`${btn} ${view === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setView(id)}>
-            {text}
-          </button>
-        ))}
+        <div className="ml-auto grid w-full max-w-xs grid-cols-2 gap-2 sm:w-auto sm:min-w-[16rem]" role="tablist" aria-label={t('View')}>
+          {[['sheet', t('Sheet')], ['arcane', t('Arcane')]].map(([id, text]) => (
+            <button key={id} role="tab" aria-selected={view === id} data-testid={`view-${id}`} className={`${btn} min-h-10 ${view === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setView(id)}>
+              {text}
+            </button>
+          ))}
+        </div>
       </div>
 
       {view === 'arcane' ? (
@@ -116,88 +120,95 @@ export default function SheetPage({ characterId }) {
         </div>
       ) : (
         <>
-      <section className={`${card} grid grid-cols-2 gap-3`} aria-label={t('Vitals')}>
-        <div>
-          <div className="text-xs opacity-60">{t('Action Points')}</div>
-          <ApCubes current={sheet.ap.current} max={apMax} onChange={(n) => set('ap.current', n)} testId="ap-current" />
-          {character.type === 'npc' && (
-            <label className="mt-1 flex min-h-8 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                data-testid="minion"
-                checked={sheet.ap.minion}
-                onChange={(e) => set('ap.minion', e.target.checked)}
-                className="h-5 w-5"
-              />
-              {t('Minion')}
-            </label>
-          )}
-        </div>
-        <div>
-          <div className="text-xs opacity-60">{t('Hit Points')}</div>
-          <div className="flex items-center gap-1 text-2xl">
-            <div className="w-16">
-              <NumField label={t('Current HP')} testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-2xl" />
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start" data-testid="sheet-columns">
+        <div className="flex min-w-0 flex-col gap-3">
+          <section className="grid grid-cols-2 gap-2" aria-label={t('Vitals')}>
+            <div className={`${tile} col-span-2`}>
+              <div className="text-xs opacity-60">{t('Action Points')}</div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <ApCubes current={sheet.ap.current} max={apMax} onChange={(n) => set('ap.current', n)} testId="ap-current" />
+                {character.type === 'npc' && (
+                  <label className="flex min-h-8 items-center gap-2 text-sm">
+                    <input type="checkbox" data-testid="minion" checked={sheet.ap.minion} onChange={(e) => set('ap.minion', e.target.checked)} className="h-5 w-5" />
+                    {t('Minion')}
+                  </label>
+                )}
+              </div>
             </div>
-            <span className="opacity-60">/</span>
-            <div className="w-16">
-              <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-2xl" />
+            <div className={`${tile} col-span-2`}>
+              <div className="text-xs opacity-60">{t('Hit Points')}</div>
+              <div className="flex items-center gap-1 text-2xl">
+                <div className="w-16">
+                  <NumField label={t('Current HP')} testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-2xl" />
+                </div>
+                <span className="opacity-60">/</span>
+                <div className="w-16">
+                  <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-2xl" />
+                </div>
+              </div>
             </div>
-          </div>
+            <div className={`${tile} relative overflow-hidden`}>
+              <ShieldIcon />
+              <div className="relative text-xs opacity-60">{t('Physical Defence')}</div>
+              <div className="relative w-16 text-2xl">
+                <NumField label={t('Physical Defence')} value={sheet.defence.physical} min={0} max={99} onCommit={(n) => set('defence.physical', n)} />
+              </div>
+            </div>
+            <div className={`${tile} relative overflow-hidden`}>
+              <BrainIcon />
+              <div className="relative text-xs opacity-60">{t('Mental Defence')}</div>
+              <div className="relative w-16 text-2xl">
+                <NumField label={t('Mental Defence')} value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
+              </div>
+            </div>
+            <div className={tile}>
+              <div className="text-xs opacity-60">{t('Movement (squares per AP)')}</div>
+              <div className="w-16 text-xl">
+                <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
+              </div>
+            </div>
+            <div className={tile}>
+              <div className="text-xs opacity-60">{t('Size (token)')}</div>
+              <select
+                aria-label={t('Size')}
+                data-testid="size-select"
+                className="min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
+                value={sheet.size}
+                onChange={(e) => set('size', Number(e.target.value))}
+              >
+                {Array.from({ length: D.SIZE_MAX }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}x{n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={tile}>
+              <div className="text-xs opacity-60">{t('Experience Modifier')}</div>
+              <div className="w-16 text-xl">
+                <NumField label={t('Experience Modifier')} testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
+              </div>
+            </div>
+            <SheetHeight characterId={characterId} />
+          </section>
+          <Masteries s={s} />
+          <BattleRemote s={s} onAttack={() => setView('arcane')} />
         </div>
-        <div>
-          <div className="text-xs opacity-60">{t('Physical Defence')}</div>
-          <div className="w-16 text-xl">
-            <NumField label={t('Physical Defence')} value={sheet.defence.physical} min={0} max={99} onCommit={(n) => set('defence.physical', n)} />
-          </div>
-        </div>
-        <div>
-          <div className="text-xs opacity-60">{t('Mental Defence')}</div>
-          <div className="w-16 text-xl">
-            <NumField label={t('Mental Defence')} value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
-          </div>
-        </div>
-        <div>
-          <div className="text-xs opacity-60">{t('Movement (squares per AP)')}</div>
-          <div className="w-16 text-xl">
-            <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
-          </div>
-        </div>
-        <div>
-          <div className="text-xs opacity-60">{t('Size (token)')}</div>
-          <select
-            aria-label={t('Size')}
-            data-testid="size-select"
-            className="min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
-            value={sheet.size}
-            onChange={(e) => set('size', Number(e.target.value))}
-          >
-            {Array.from({ length: D.SIZE_MAX }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}x{n}
-              </option>
-            ))}
-          </select>
-        </div>
-        <SheetHeight characterId={characterId} />
-        <div className="col-span-2">
-          <div className="text-xs opacity-60">{t('Experience Modifier')}</div>
-          <div className="w-16 text-xl">
-            <NumField label={t('Experience Modifier')} testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
-          </div>
-        </div>
-      </section>
 
-      <BattleRemote s={s} onAttack={() => setView('arcane')} />
-      <Stats s={s} />
-      <Masteries s={s} />
-      <Skills s={s} />
-      <Features s={s} />
-      <Inventory s={s} />
-      <Resistances s={s} />
-      <Statuses s={s} />
-      <StageSection s={s} />
-      <PicturesSection s={s} />
+        <div className="flex min-w-0 flex-col gap-3">
+          <Stats s={s} />
+          <Skills s={s} />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <Features s={s} />
+          <Inventory s={s} />
+          <Resistances s={s} />
+          <Statuses s={s} />
+          <StageSection s={s} />
+          <PicturesSection s={s} />
+        </div>
+      </div>
         </>
       )}
     </main>
@@ -215,9 +226,9 @@ function Stats({ s }) {
         {D.STATS.map((stat) => {
           const hasSave = D.SAVE_STATS.includes(stat);
           return (
-            <div key={stat} className={`${card} flex flex-col items-center`} data-testid={`stat-${stat}`}>
+            <div key={stat} className={`${card} flex flex-col items-center`} style={tint([stat])} data-testid={`stat-${stat}`}>
               <div className="text-xs uppercase tracking-wide opacity-70">{t(D.STAT_LABELS[stat])}</div>
-              <div className="w-full text-4xl font-semibold">
+              <div className="w-full text-3xl font-semibold">
                 <NumField
                   label={t('{name} value', { name: { t: D.STAT_LABELS[stat] } })}
                   testId={`stat-value-${stat}`}
@@ -225,7 +236,7 @@ function Stats({ s }) {
                   min={D.STAT_MIN}
                   max={D.STAT_MAX}
                   onCommit={(n) => set(`stats.${stat}`, n)}
-                  className="text-4xl"
+                  className="text-3xl"
                 />
               </div>
               <div className="flex w-full gap-1">
@@ -292,7 +303,7 @@ function Masteries({ s }) {
     <div
       key={m}
       data-testid={`mastery-${m}`}
-      className="flex w-32 flex-col items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-2"
+      className="flex min-w-0 flex-col items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-2"
       style={{ boxShadow: MASTERY_GLOW[m] }}
     >
       <RollButton
@@ -319,15 +330,13 @@ function Masteries({ s }) {
     </div>
   );
   return (
-    <section aria-label={t('Combat Masteries')} className="py-3">
+    <section aria-label={t('Combat Masteries')}>
       <h2 className={heading}>{t('Combat Masteries')}</h2>
       <p className="mb-2 text-xs opacity-50">{t('Tap a name to roll: d20 + the Mastery + your Experience Modifier.')}</p>
-      <div className="flex flex-col items-center gap-4">
+      <div className="grid grid-cols-3 gap-3 px-1 pb-2">
         {box('magic')}
-        <div className="flex gap-4">
-          {box('stances')}
-          {box('manifestation')}
-        </div>
+        {box('stances')}
+        {box('manifestation')}
       </div>
     </section>
   );
@@ -339,12 +348,12 @@ function Skills({ s }) {
   return (
     <section aria-label={t('Skills')}>
       <h2 className={heading}>{t('Skills')}</h2>
-      <div className={`${card} divide-y divide-white/10 p-0`}>
+      <div className={`${card} divide-y divide-white/10 overflow-hidden p-0`}>
         {D.SKILLS.map((skill) => {
           const st = D.skillStat(sheet.stats, skill);
           const tier = sheet.skills[skill.key];
           return (
-            <div key={skill.key} className="flex min-h-14 items-center gap-2 px-3 py-1" data-testid={`skill-${skill.key}`}>
+            <div key={skill.key} className="flex min-h-12 items-center gap-2 px-3 py-0.5" style={skillTint(skill)} data-testid={`skill-${skill.key}`}>
               <div className="min-w-0 flex-1">
                 <div className="truncate">{t(skill.label)}</div>
                 <div className="truncate text-xs opacity-60">

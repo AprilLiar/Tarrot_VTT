@@ -3,6 +3,31 @@
 html, body, #root { height: 100%; }
 body { margin: 0; background: #0f0d14; color: #e8e4f0; }
 
+/* Scroll bars in the colours of the interface, everywhere. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #5b3fa8 #14111d;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: #14111d;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #5b3fa8;
+  border-radius: 9999px;
+  border: 2px solid #14111d;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+}
+*::-webkit-scrollbar-corner {
+  background: #14111d;
+}
+
 /* The spinning record in the music bar. */
 .record {
   width: 1.25rem;

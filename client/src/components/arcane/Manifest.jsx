@@ -53,9 +53,9 @@ function Tarot({ s }) {
   const send = (event, payload) => call(event, { characterId: s.characterId, ...payload });
 
   return (
-    <section aria-label={t('Tarot Cards')} className="flex flex-col gap-2">
-      <h3 className={heading}>{t('Tarot Cards')}</h3>
-      {cards.length === 0 && <p className="text-sm opacity-60">{t('No Tarot Cards yet.')}</p>}
+    <section aria-label={t('Tarot Cards')} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <h3 className={`${heading} col-span-full`}>{t('Tarot Cards')}</h3>
+      {cards.length === 0 && <p className="col-span-full text-sm opacity-60">{t('No Tarot Cards yet.')}</p>}
       {cards.map((c) => (
         <div
           key={c.id}
@@ -82,7 +82,7 @@ function Tarot({ s }) {
           )}
         </div>
       ))}
-      <div className="flex flex-wrap gap-2">
+      <div className="col-span-full flex flex-wrap gap-2">
         {cards.length > 1 && (
           <button className={btnPrimary} data-testid="tarot-swap" onClick={() => setDialog({ swap: true })}>
             {t('Swap Card')}
@@ -180,9 +180,9 @@ function Manifestations({ s, draft, setDraft }) {
   const send = (event, payload) => call(event, { characterId: s.characterId, ...payload });
 
   return (
-    <section aria-label={t('Manifestations')} className="flex flex-col gap-2">
-      <h3 className={heading}>{t('Manifestations')}</h3>
-      {s.sheet.manifestations.length === 0 && <p className="text-sm opacity-60">{t('No Manifestations yet.')}</p>}
+    <section aria-label={t('Manifestations')} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <h3 className={`${heading} col-span-full`}>{t('Manifestations')}</h3>
+      {s.sheet.manifestations.length === 0 && <p className="col-span-full text-sm opacity-60">{t('No Manifestations yet.')}</p>}
       {s.sheet.manifestations.map((m) => {
         const isWeapon = m.effect.kind === 'weapon';
         const key = `manifest:${m.id}`;
@@ -217,7 +217,7 @@ function Manifestations({ s, draft, setDraft }) {
         );
       })}
       {gm && (
-        <button className={btn} data-testid="manifestation-add" onClick={() => setDialog({ edit: null })}>
+        <button className={`${btn} col-span-full`} data-testid="manifestation-add" onClick={() => setDialog({ edit: null })}>
           {t('Add Manifestation')}
         </button>
       )}
