@@ -28,7 +28,7 @@ Statuses: `decided`, `open`, `implemented`.
 - **Database:** Turso / libSQL in production, local `local.db` file in development. (decided)
 - **Hosting:** Render free tier (sleeps when idle, about 30-60s wake-up; no persistent disk). Keep
   boot and reads light. (decided)
-- **Tests:** Vitest for server logic, Playwright with a mobile viewport for flows. (decided)
+- **Tests:** Vitest for server logic, Playwright with a mobile viewport for flows. E2e tests run one at a time because they share one stage. (decided)
 - **Reference:** `AprilLiar/Custom-VTT` (Dogfight) for Scene, Music player, image pipeline, socket
   patterns. Tarrot is a rewrite from scratch, not a copy. (decided)
 - **Workflow:** merge to `main` = deploy. README updated in the same PR; CI job `readme-updated`
