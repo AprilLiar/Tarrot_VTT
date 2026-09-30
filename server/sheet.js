@@ -3,6 +3,7 @@ import * as D from '../shared/rules-data.js';
 import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
 import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
+import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
 
 // The character sheet lives as one JSON document per character
 // (characters.sheet). Every write goes through `normalizeSheet`, so a sheet
@@ -103,9 +104,14 @@ export function normalizeSheet(raw) {
     // The Unarmed Attack every character has (it can be changed, never removed) and the character's own Enhancements.
     unarmed: normalizeWeapon(r.unarmed, defaultUnarmed()),
     enhancements: (Array.isArray(r.enhancements) ? r.enhancements : []).slice(0, MAX_ENHANCEMENTS).map((e) => normalizeEnhancement(e, randomUUID())),
+    // Magic: how many Spell Stones of each sign, the schemes saved as drafts, and the finished spells.
+    stones: {},
+    spellDrafts: (Array.isArray(r.spellDrafts) ? r.spellDrafts : []).slice(0, MAX_SPELLS).map((d) => normalizeDraft(d, randomUUID())),
+    spells: (Array.isArray(r.spells) ? r.spells : []).slice(0, MAX_SPELLS).map((sp) => normalizeSpell(sp, randomUUID())),
     resistances: {},
     statuses: {},
   };
+  for (const sign of SIGNS) sheet.stones[sign] = clampInt(r.stones?.[sign], 0, MAX_STONE_COUNT, 0);
   sheet.ap.current = clampInt(r.ap?.current, 0, apMax(sheet), apMax(sheet));
   for (const s of D.STATS) sheet.stats[s] = clampInt(r.stats?.[s], D.STAT_MIN, D.STAT_MAX, 0);
   for (const s of D.SAVE_STATS) sheet.xDefence[s] = clampInt(r.xDefence?.[s], -20, 20, 0);
@@ -166,6 +172,10 @@ export function applySet(sheet, path, value, character) {
       break;
     case 'experience':
       next.experience = intIn(value, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, T('Experience Modifier'));
+      break;
+    case 'stones':
+      unknownKey(SIGNS);
+      next.stones[b] = intIn(value, 0, MAX_STONE_COUNT, T('Spell Stones'));
       break;
     case 'unarmed':
       if (!value || typeof value !== 'object') throw bad('Invalid weapon.');
@@ -302,6 +312,24 @@ export function applyList(sheet, list, action, p = {}) {
     } else if (action === 'update') {
       const i = find(arr, p.id);
       arr[i] = { ...normalizeEnhancement(p.enhancement, p.id), id: p.id };
+    } else if (action === 'remove') {
+      arr.splice(find(arr, p.id), 1);
+    } else throw bad('Unknown action.', 'bad_action');
+    return normalizeSheet(next);
+  }
+
+  if (list === 'spellDrafts') {
+    const arr = next.spellDrafts;
+    if (action === 'add') {
+      if (arr.length >= MAX_SPELLS) throw bad('Too many spells.', 'limit');
+      const d = normalizeDraft({ ...p.draft, id: undefined }, randomUUID());
+      d.id = randomUUID();
+      d.name = name(p.draft?.name);
+      arr.push(d);
+    } else if (action === 'update') {
+      const i = find(arr, p.id);
+      name(p.draft?.name);
+      arr[i] = { ...normalizeDraft(p.draft, p.id), id: p.id };
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

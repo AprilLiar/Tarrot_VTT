@@ -256,6 +256,7 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 
 | Status | Stacks | Draft rule |
 |---|---|---|
+| Blood Oxydization | yes | The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. |
 | Bleeding | yes | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). |
 | Blinded | no | Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage. |
 | Burning | yes | X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack. |
@@ -771,9 +772,6 @@ Stones, Spell Combinations, Spell Fine Tuning.
 Unarmed Attack, Enhancements, range check, Stance-less attack from the footer, replaces the sheet's
 Attack); (2) Magic (stones, editor, drafts, compendium, craft, Created Spells, tattoos); (3) Stances;
 (4) Manifest and Locks.
-
-Still open (to ask before PR 2): how many arrows a Modifier and the Release may take, and how a Base
-shows in the scheme when its row is wide.
 
 ### Game data (planned)
 Base building blocks (Zodiacs, Tarrot cards and effects, spontaneous-casting tables keyed by

@@ -3,6 +3,7 @@ import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as scenes from './scenes.js';
 import * as arcane from './arcane.js';
+import * as D from '../shared/rules-data.js';
 import { buildRoll } from './rolls.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
 import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
@@ -21,6 +22,11 @@ export function registerAttackHandlers(ctx) {
 
   const say = (m) => {
     const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: T('Combat') }, ...chatLine(m) });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+  };
+  // A roll made for the attacker as part of applying (a spell's durability check), as a roll card.
+  const postRoll = (entry, roll) => {
+    const message = shared.chat.add({ type: 'roll', author: { role: 'player', name: entry.characterName }, characterId: entry.characterId, characterName: entry.characterName, roll });
     io.to(CHAT_ROOM).emit('chat:message', message);
   };
   const get = (id) => {
@@ -78,13 +84,15 @@ export function registerAttackHandlers(ctx) {
       if (far.length) return { needsConfirm: { range: plan.range, targets: far } };
     }
 
+    // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
     const roll = buildRoll(sheet, {
-      kind: 'weapon',
-      key: 'prime',
+      kind: plan.weapon.mastery ? 'mastery' : 'weapon',
+      key: plan.weapon.mastery ?? 'prime',
       advantage: Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, (p.advantage ?? 0) + plan.advantage)),
       modifier: p.modifier ?? 0,
       dice: plan.dice,
     });
+    if (plan.weapon.mastery) roll.title = `${D.MASTERY_LABELS[plan.weapon.mastery]} attack`;
     // The number to beat, shown big next to the total on the roll card.
     roll.against = {
       label: `${plan.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
@@ -101,6 +109,7 @@ export function registerAttackHandlers(ctx) {
       weaponName: plan.weapon.name,
       enhancements: plan.chosen.map((e) => ({ name: e.name, count: e.count })),
       ap: plan.ap,
+      spells: plan.spellIds,
       base: plan.base,
       kind: plan.kind,
       statuses: plan.statuses,
@@ -159,7 +168,11 @@ export function registerAttackHandlers(ctx) {
     pending.delete(p.id);
     try {
       const { lines } = await attack.applyAttack(db, entry, clean, { emitSheet });
-      for (const l of lines) if (!l.hidden) say(l.message);
+      for (const l of lines) {
+        if (l.hidden) continue;
+        if (l.roll) postRoll(entry, l.roll);
+        else say(l.message);
+      }
     } catch (err) {
       pending.set(p.id, entry);
       throw err;

@@ -3,7 +3,9 @@ import { computeTarget, applyResistance, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } 
 import { joinMsgs } from '../shared/localization.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
+import { buildRoll } from './rolls.js';
 import { AppError } from './errors.js';
+import { STABILIZATION_START, STABILIZATION_STEP, TATTOO_STATUS, usable } from '../shared/spells.js';
 
 // Attacks. A player (or the GM, for an NPC) drafts a weapon and Enhancements in the Arcane tab and rolls; the roll waits as a
 // "pending attack" in server memory until the GM confirms it on a card. The card carries every number
@@ -159,6 +161,41 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
     if (clean.ap > 0) lines.push({ message: { key: '{name} spends {n} AP.', params: { name: attackerName, n: clean.ap } }, hidden: false });
     for (const m of notes) lines.push({ message: m, hidden: false });
     if (clean.exposed) lines.push({ message: { key: '{name} gains Exposed 1 (natural 1).', params: { name: attackerName } }, hidden: false });
+  }
+  // Every spell used loses a little durability: a Magic roll against its Stabilization (a Spell tattoo
+  // uses a Strength Save instead). The spell itself worked either way.
+  if (pending.characterId != null && (pending.spells ?? []).length) {
+    const durability = [];
+    const sheet = await sheets.updateSheet(db, pending.characterId, (s) => {
+      const next = structuredClone(s);
+      for (const id of pending.spells) {
+        const sp = next.spells.find((x) => x.id === id);
+        if (!sp || !usable(sp)) continue;
+        const roll = sp.tattoo ? buildRoll(next, { kind: 'save', key: 'strength' }) : buildRoll(next, { kind: 'mastery', key: 'magic' });
+        roll.against = { label: 'Stabilization', targets: [{ name: sp.name, value: sp.stabilization }] };
+        durability.push({ roll });
+        if (roll.total >= sp.stabilization) {
+          sp.stabilization += STABILIZATION_STEP;
+          durability.push({ message: { key: '{spell} holds: Stabilization rises to {n}.', params: { spell: sp.name, n: sp.stabilization } } });
+        } else if (sp.tattoo) {
+          sp.stabilization = STABILIZATION_START;
+          next.statuses = { ...next.statuses, [TATTOO_STATUS]: (next.statuses?.[TATTOO_STATUS] ?? 0) + 1 };
+          durability.push({ message: { key: '{spell} bites {name}: Blood Oxydization {n}.', params: { spell: sp.name, name: attackerName, n: next.statuses[TATTOO_STATUS] } } });
+        } else {
+          sp.stabilization = STABILIZATION_START;
+          sp.uses.current = Math.max(0, sp.uses.current - 1);
+          if (sp.uses.current === 0) sp.destroyed = true;
+          durability.push({
+            message: sp.destroyed
+              ? { key: '{spell} falters and is destroyed.', params: { spell: sp.name } }
+              : { key: '{spell} falters: Stabilization resets to {n} and it loses a use ({left} left).', params: { spell: sp.name, n: sp.stabilization, left: sp.uses.current } },
+          });
+        }
+      }
+      return sheets.normalizeSheet(next);
+    });
+    emitSheet(pending.characterId, sheet);
+    for (const d of durability) lines.push({ ...d, hidden: false });
   }
   // Unique Effects have no automation: they are only told to the table.
   for (const u of pending.unique ?? []) {
