@@ -344,3 +344,20 @@ export function EnhancementDialog({ enhancement, items, onClose, onSave }) {
     </FormDialog>
   );
 }
+
+// The effect of a spell or a Manifestation: a Weapon or an Enhancement, with the fields of each.
+export function EffectEditor({ kind, setKind, weapon, setWeapon, enh, setEnh, items }) {
+  const t = useT();
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Effect')}>
+        {['weapon', 'enhancement'].map((k) => (
+          <button type="button" key={k} role="radio" aria-checked={kind === k} data-testid={`effect-${k}`} className={`${btn} ${kind === k ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setKind(k)}>
+            {k === 'weapon' ? t('Weapon') : t('Enhancement')}
+          </button>
+        ))}
+      </div>
+      {kind === 'weapon' ? <WeaponFields form={weapon} setForm={setWeapon} /> : <EnhancementFields f={enh} setF={setEnh} items={items} withName={false} />}
+    </>
+  );
+}

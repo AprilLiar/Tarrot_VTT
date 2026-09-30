@@ -113,6 +113,7 @@ export const DEFAULT_ENHANCEMENTS = [
 // A spell can be used while it is not destroyed and has uses left (a Spell tattoo has no uses).
 const spellUsable = (sp) => !sp.destroyed && (sp.tattoo || sp.uses.current > 0);
 export const SPELL_PREFIX = 'spell:';
+export const MANIFEST_PREFIX = 'manifest:';
 
 // Every Enhancement a character can pick: the defaults, the global ones, the character's own, and its
 // finished spells whose effect is an Enhancement (used like any other, once per attack).
@@ -124,6 +125,9 @@ export function enhancementCatalog(globals, sheet) {
     ...(sheet?.spells ?? [])
       .filter((sp) => sp.effect.kind === 'enhancement' && spellUsable(sp))
       .map((sp) => ({ ...sp.effect.enhancement, id: `${SPELL_PREFIX}${sp.id}`, name: sp.name, description: sp.description, repeatable: false, origin: 'spell', spellId: sp.id })),
+    ...(sheet?.manifestations ?? [])
+      .filter((m) => m.effect.kind === 'enhancement')
+      .map((m) => ({ ...m.effect.enhancement, id: `${MANIFEST_PREFIX}${m.id}`, name: m.name, description: m.description, repeatable: false, origin: 'manifestation', manifestationId: m.id })),
   ];
 }
 
@@ -153,6 +157,11 @@ export function tokenDistance(a, b) {
 // The weapon a choice points at: { name, cfg, ... } or null. A spell rolls the Magic Mastery (`mastery`),
 // the others the Prime stat.
 export function findWeapon(sheet, weapon) {
+  if (weapon?.kind === 'manifestation') {
+    const m = (sheet.manifestations ?? []).find((x) => x.id === weapon.manifestationId);
+    if (m && m.effect.kind === 'weapon') return { name: m.name, cfg: m.effect.weapon, manifestationId: m.id, mastery: 'manifestation' };
+    return null;
+  }
   if (weapon?.kind === 'spell') {
     const sp = (sheet.spells ?? []).find((x) => x.id === weapon.spellId);
     if (sp && sp.effect.kind === 'weapon' && spellUsable(sp)) return { name: sp.name, cfg: sp.effect.weapon, spellId: sp.id, mastery: 'magic' };
@@ -258,6 +267,7 @@ export function planAttack(sheet, catalog, choice, extras = []) {
     costs,
     chosen: picked.map(({ e, count }) => ({ id: e.id, name: e.name, count })),
     // The spells this attack uses up a little of (durability is checked when the attack is applied).
+    manifestationIds: [...(w.manifestationId ? [w.manifestationId] : []), ...picked.filter(({ e }) => e.manifestationId).map(({ e }) => e.manifestationId)],
     spellIds: [...(w.spellId ? [w.spellId] : []), ...picked.filter(({ e }) => e.spellId).map(({ e }) => e.spellId)],
   };
 }

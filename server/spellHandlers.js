@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
 import { AppError } from './errors.js';
+import { listLocks, lockedError } from './locks.js';
+import { magicLocked, stonesLocked, combinationsLocked } from '../shared/locks.js';
 import { line as chatLine } from './i18n.js';
 import { T } from '../shared/localization.js';
 import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, normalizeEffect, MAX_SPELLS, STABILIZATION_START } from '../shared/spells.js';
@@ -25,6 +27,10 @@ export function registerSpellHandlers(ctx) {
 
   on('spell:craft', { needsIdentity: true }, async (p) => {
     const c = await requireControl(p.characterId);
+    if (!isGm()) {
+      const locks = await listLocks(db);
+      if (magicLocked(locks) || stonesLocked(locks) || combinationsLocked(locks)) throw lockedError();
+    }
     const before = await sheets.getSheet(db, c.id);
     const draft = before.spellDrafts.find((d) => d.id === p.draftId);
     if (!draft) throw new AppError('not_found', 'That draft no longer exists.');
@@ -61,6 +67,7 @@ export function registerSpellHandlers(ctx) {
 
   on('spell:update', { needsIdentity: true }, async (p) => {
     const c = await requireControl(p.characterId);
+    if (!isGm() && magicLocked(await listLocks(db))) throw lockedError();
     const patch = p.patch && typeof p.patch === 'object' ? p.patch : {};
     const gm = isGm();
     const gmOnly = ['uses', 'stabilization', 'tattoo'];
@@ -98,6 +105,7 @@ export function registerSpellHandlers(ctx) {
 
   on('spell:remove', { needsIdentity: true }, async (p) => {
     const c = await requireControl(p.characterId);
+    if (!isGm() && magicLocked(await listLocks(db))) throw lockedError();
     const sheet = await sheets.updateSheet(db, c.id, (s) => {
       const next = structuredClone(s);
       find(next, p.id);

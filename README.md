@@ -48,6 +48,8 @@ Repository layout:
 | `server/scenes.js`, `server/sceneHandlers.js`, `server/images.js`, `server/folders.js` | Scenes, stage, temp NPCs, pictures, image storage, generic folder trees. |
 | `server/audio.js`, `server/audioHandlers.js` | Playlists, the anchored player state, YouTube link parsing, socket events. |
 | `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
+| `shared/locks.js`, `server/locks.js`, `server/lockHandlers.js` | The locks of the Arcane tab: keys, what each covers, emptying a sheet for players, the table and the socket events. |
+| `shared/manifest.js`, `server/manifestHandlers.js` | Tarot Cards and Manifestations of a character, and the events that change them. |
 | `shared/stances.js`, `server/stances.js`, `server/stanceHandlers.js` | Stances: bands and tables, the tree in the database, visibility per viewer, socket events. |
 | `shared/spells.js`, `server/spellHandlers.js` | Spell Stones, scheme rules (`validateScheme`, `layoutScheme`), drafts and finished spells, crafting, spell events. |
 | `shared/arcane.js`, `server/arcane.js` | Weapons and Enhancements: normalising, `planAttack` (what a drafted attack costs and does), token distance, the global Enhancements table. |
@@ -61,7 +63,7 @@ Repository layout:
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
-| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`. |
+| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
@@ -629,7 +631,7 @@ Behaviour:
 - I could not check real YouTube playback in my test environment (it has no access to YouTube), so
   the first Render playtest is the real test of sound.
 
-### Arcane tab (decided, split into four PRs; General, Magic and Stances are implemented)
+### Arcane tab (decided, built in four PRs: General, Magic, Stances, Manifest and Locks; all implemented)
 The Arcane tab is a major part of Combat. Header: **General** (grey, 10% of the width) and three
 sub-tabs sharing the other 90%: **Magic**, **Stances**, **Manifest** (same colours as the sheet's
 Combat Masteries). The GM can also open the Arcane tab **without choosing a character** (the general
@@ -822,7 +824,33 @@ Stones, Spell Combinations, Spell Fine Tuning.
   band's effect joins the attack (its roll bonus is a term of the attack roll) and the GM's card shows the Stance and
   the band. A Stance costs no AP of its own (my default). The out-of-range warning ignores what the band adds to
   the range, and the Stance is only rolled once the attack is sure to go ahead.
-- **Locks and Manifest** come in the next PR.
+**How the Manifest tab is built (answers and my defaults):**
+- **Look:** a gold background. Two sub-sections, **Tarot Cards** and **Manifestations**. Nothing is editable by a
+  player: they read and make the choices below; the GM makes everything.
+- **Tarot Cards:** the character's cards with name and effect text; the active card has a golden frame and glow; only
+  one is active (the first card added becomes active). **Swap Card** (a dialog listing the cards) changes it, for the
+  player too and at any time; a card has no mechanics yet (text only). Only the GM adds, edits, deletes and sees
+  **Transfer** (moves a card to another character; the receiver gets it as a new card, active if it has none).
+- **Manifestations:** a name, a description and an effect that is a **Weapon or an Enhancement**, set up exactly like a
+  spell's. A Manifestation weapon rolls the **Manifest Mastery** (d20 + Manifest + Experience Modifier); a Manifestation
+  Enhancement joins any attack. They have no uses or durability of their own (decided): only what their Weapon or
+  Enhancement costs. They are chosen with **Use as weapon** or **Add to attack**.
+
+**How the Locks are built (answers and my defaults):**
+- **Locking mode:** in the GM's general Arcane tab (no character) a lock button at the top right turns locking mode
+  on. Then a tap on the **tab that is already open** locks or unlocks it (General cannot be locked), and a tap on a
+  **part** toggles its lock: in the Stances list a tap on a sign (instead of opening it), and in the general Magic and
+  Manifest tabs the tiles Spell Stones, Spell Combinations, Spell Fine Tuning, Tarot Cards and Manifestations.
+- **What each covers:** a locked tab covers everything in it. Spell Stones = the Stones sub-tab; Spell Combinations =
+  the Editor and Spell Drafts (crafting too); Spell Fine Tuning = the rune row (a locked one keeps the runes where they were); Tarot
+  Cards and Manifestations = their sub-sections; Stances have one lock per Zodiac. Created Spells stay visible unless the whole Magic tab is locked.
+- **Who:** one setting for everyone, applied to **player characters only**. The GM (and NPC sheets, which are the GM's)
+  sees everything with a small lock on what is locked. A player sees a heavily blurred picture with "You have not
+  learned what this means for now" in place of the part.
+- **Enforced by the server too (decided):** the data sent to players leaves out what is locked (the sheet's stones,
+  drafts, spells, Tarot Cards and Manifestations, and a locked Zodiac's Stances), and a player's actions on locked
+  things are refused with `locked`: attacks with a locked spell, Manifestation or Stance, crafting, changing stones,
+  drafts or spells, swapping the Tarot Card. The GM is never held back. Changing a lock re-sends the players' sheets.
 
 **Build order (four PRs, each playtestable):** (1) General tab and the footer attack flow (weapon toggle,
 Unarmed Attack, Enhancements, range check, Stance-less attack from the footer, replaces the sheet's
@@ -860,7 +888,8 @@ Implemented:
   `enhancements` (the character's own, see Arcane tab), `stones` (count per sign), `spellDrafts`
   (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes`), `spells`
   (`id, name, description, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
-  tattoo, destroyed`), `resistances`
+  tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description }], active }`), `manifestations` (`id, name,
+  description, effect` like a spell's), `resistances`
   (per damage type), `statuses` (key to stacks). Every read and write passes through
   `normalizeSheet`, which fills defaults and clamps, so new fields never need a migration.
   Ranges: stats -2 to 7, masteries 1 to 10, Experience 1 to 10, item max uses 1 to 100.
@@ -998,6 +1027,13 @@ Battle (Phase 5a):
   Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
   `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
   `already_in_combat`, `stale`.
+- Locks: `lock:list` returns `{ locks: [key] }` (anyone); GM only: `lock:toggle` `{ key }` flips one and everyone gets
+  `locks:changed` `{ locks }`; the players' sheets are sent again. Keys: `tab:magic`, `tab:stances`, `tab:manifest`,
+  `stones`, `combinations`, `fine_tuning`, `tarot`, `manifestations`, `stances:<sign>`. Stored in the table
+  `arcane_locks`. Error code `locked`.
+- Manifest (GM only unless noted; `characterId` is the character): `tarot:add` `{ card }`, `tarot:update` `{ id, card }`,
+  `tarot:remove` `{ id }`, `tarot:swap` `{ id }` (the owner may too), `tarot:transfer` `{ fromId, toId, id }`,
+  `manifestation:add` `{ manifestation }`, `manifestation:update` `{ id, manifestation }`, `manifestation:remove` `{ id }`.
 - Stances: `stance:list` returns `{ vibes, stances }` (the GM gets every Stance with its `learned` list; a player only
   those their character knows or has learned, each with `usable`, and no `learned` list). GM only: `stance:save`
   `{ id, stance }` (change; a base Stance is stored on its first change) or `{ sign, parentId, stance }` (add a
@@ -1009,7 +1045,7 @@ Battle (Phase 5a):
   spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
   icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),
   `spell:remove` `{ characterId, id }`. Same permission as editing the sheet.
-- Attacks: `attack:roll` `{ characterId, weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId }, stance?, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
+- Attacks: `attack:roll` `{ characterId, weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId } | { kind: 'manifestation', manifestationId }, stance?, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
   (the GM, or a player for their own PC) works out the attack with `planAttack`, rolls it, posts the roll in the chat and
   sends `attack:pending` `{ id, characterId, characterName, attackerTokenId, weaponName, enhancements, ap, base, kind, statuses, unique, costs,
   defenceKind, roll, targets }` to the GM room. When a target is out of the weapon's range and `confirmRange` is not true it
@@ -1076,8 +1112,8 @@ Each phase ends in a deploy and playtest checkpoint.
      `e2e/battle.spec.js`.
    - **6b Arcane** (rules received, see Arcane tab; four PRs: General and footer attack flow (implemented,
      awaiting playtest), Magic (implemented, awaiting playtest), Stances (implemented, awaiting playtest), Manifest and
-     Locks). Covered by `server/test/attack.test.js` and the
-     arcane and attack tests in `e2e/battle.spec.js`.
+     Locks (implemented, awaiting playtest)). Covered by `server/test/attack.test.js`, `spells.test.js`, `stances.test.js`,
+     `manifest.test.js` and the arcane, magic, stances and manifest specs in `e2e/`.
 7. **Settings and Russian** (implemented, added after the playtest): Settings on the picker with a
    language selector, the whole app in English and Russian, and `LOCALIZATION.md`. Covered by
    `server/test/localization.test.js` and `e2e/language.spec.js`.

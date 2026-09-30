@@ -6,6 +6,8 @@ import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
 import { TargetPicker, useTargets } from '../sheet/TargetPicker.jsx';
 import Magic, { emptyWork } from './Magic.jsx';
 import Stances from './Stances.jsx';
+import Manifest from './Manifest.jsx';
+import { LockProvider, Lockable, LockIcon, LockTile, useLocks } from './Locks.jsx';
 import { useStances } from './useStances.js';
 import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapon } from './editors.jsx';
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
@@ -16,8 +18,8 @@ import * as D from '../../../../shared/rules-data.js';
 import { useT } from '../../i18n.jsx';
 
 // The Arcane tab: everything a character attacks with. This part has the General sub-tab (weapons and
-// Enhancements), Magic (stones, schemes, spells) and the footer that makes the attack; Stances and Manifest
-// come later.
+// Enhancements), Magic (stones, schemes, spells), Stances, Manifest (Tarot Cards and Manifestations) and the
+// footer that makes the attack. The GM can lock tabs and parts of them for the players (see Locks).
 // Without a character (the GM's general Arcane tab) it edits what is shared by every character.
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -37,43 +39,94 @@ const TABS = [
 export const emptyDraft = () => ({ weapon: 'unarmed', counts: {}, stance: null, advantage: 0, modifier: '0' });
 
 export default function ArcanePage({ s, draft, setDraft }) {
+  const [locking, setLocking] = useState(false); // the GM's locking mode (only in the general tab, without a character)
+  return (
+    <LockProvider locking={locking && !s}>
+      <Arcane s={s} draft={draft} setDraft={setDraft} locking={locking} setLocking={setLocking} />
+    </LockProvider>
+  );
+}
+
+function Arcane({ s, draft, setDraft, locking, setLocking }) {
   const t = useT();
+  const { identity } = useApp();
+  const { has, toggle, gm } = useLocks();
   const [tab, setTab] = useState('general');
   const [work, setWork] = useState(emptyWork); // the spell being built in Magic (kept while switching tabs)
+  const canLock = !s && identity.role === 'gm';
+
+  // In locking mode a tap on the tab that is already open locks it (or unlocks it).
+  function pick(id) {
+    if (canLock && locking && id !== 'general' && tab === id) toggle(`tab:${id}`);
+    else setTab(id);
+  }
+
   return (
     <div data-testid="arcane" className="flex flex-col gap-3">
-      <div className="flex overflow-hidden rounded-xl text-sm font-medium" role="tablist" aria-label={t('Arcane')}>
-        {TABS.map((x) => (
-          <button
-            key={x.id}
-            role="tab"
-            aria-selected={tab === x.id}
-            data-testid={`arcane-tab-${x.id}`}
-            style={{ width: x.width }}
-            className={`${x.bg} min-h-11 truncate px-1 ${tab === x.id ? `ring-2 ring-inset ${x.active}` : 'opacity-70'}`}
-            onClick={() => setTab(x.id)}
-          >
-            {t(x.label)}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 overflow-hidden rounded-xl text-sm font-medium" role="tablist" aria-label={t('Arcane')}>
+          {TABS.map((x) => (
+            <button
+              key={x.id}
+              role="tab"
+              aria-selected={tab === x.id}
+              data-testid={`arcane-tab-${x.id}`}
+              data-locked={has(`tab:${x.id}`) ? 'true' : 'false'}
+              style={{ width: x.width }}
+              className={`${x.bg} flex min-h-11 items-center justify-center gap-1 truncate px-1 ${tab === x.id ? `ring-2 ring-inset ${x.active}` : 'opacity-70'}`}
+              onClick={() => pick(x.id)}
+            >
+              {t(x.label)}
+              {has(`tab:${x.id}`) && <LockIcon size={14} />}
+            </button>
+          ))}
+        </div>
+        {canLock && (
+          <button className={`${locking ? btnPrimary : btn} !px-3`} data-testid="lock-mode" aria-pressed={locking} aria-label={t('Locking mode')} title={t('Locking mode')} onClick={() => setLocking(!locking)}>
+            <LockIcon size={18} />
           </button>
-        ))}
+        )}
       </div>
-      {tab === 'general' && (s ? <General s={s} draft={draft} setDraft={setDraft} /> : <GlobalGeneral />)}
-      {tab === 'magic' && (s ? <Magic s={s} draft={draft} setDraft={setDraft} work={work} setWork={setWork} /> : <GmOnlyNote />)}
-      {tab === 'stances' && <Stances s={s} draft={draft} setDraft={setDraft} />}
-      {tab === 'manifest' && (
-        <p className={`${card} text-sm opacity-70`} data-testid="arcane-later">
-          {t('This part of the Arcane tab is not built yet.')}
+      {locking && canLock && (
+        <p className="text-xs opacity-70" data-testid="lock-hint">
+          {t('Locking mode: tap an open tab again to lock it, and tap a part to lock it. Players see a blur where something is locked; you see everything.')}
         </p>
       )}
-      {s && <AttackFooter s={s} draft={draft} setDraft={setDraft} />}
+      {tab === 'general' && (s ? <General s={s} draft={draft} setDraft={setDraft} /> : <GlobalGeneral />)}
+      {tab === 'magic' && (
+        <Lockable id="tab:magic">
+          {s ? (
+            <Magic s={s} draft={draft} setDraft={setDraft} work={work} setWork={setWork} />
+          ) : (
+            <LockParts note={t('Open a character\'s Arcane tab to work with its Magic. Here you can lock its parts for the players.')} parts={[['stones', t('Spell Stones')], ['combinations', t('Spell Combinations')], ['fine_tuning', t('Spell Fine Tuning')]]} />
+          )}
+        </Lockable>
+      )}
+      {tab === 'stances' && (
+        <Lockable id="tab:stances">
+          <Stances s={s} draft={draft} setDraft={setDraft} />
+        </Lockable>
+      )}
+      {tab === 'manifest' && (
+        <Lockable id="tab:manifest">
+          {s ? <Manifest s={s} draft={draft} setDraft={setDraft} /> : <LockParts note={t('Open a character\'s Arcane tab to work with its Tarot Cards and Manifestations. Here you can lock them for the players.')} parts={[['tarot', t('Tarot Cards')], ['manifestations', t('Manifestations')]]} />}
+        </Lockable>
+      )}
+      {s && !(gm === false && has(`tab:${tab}`)) && <AttackFooter s={s} draft={draft} setDraft={setDraft} />}
     </div>
   );
 }
 
-// Magic belongs to a character; the general tab has nothing to show for it yet.
-function GmOnlyNote() {
-  const t = useT();
-  return <p className={`${card} text-sm opacity-70`}>{t('Open a character\'s Arcane tab to work with its Magic.')}</p>;
+// Parts of a tab that need a character to show anything: only their locks can be set here.
+function LockParts({ note, parts }) {
+  return (
+    <div className="flex flex-col gap-2" data-testid="lock-parts">
+      <p className={`${card} text-sm opacity-70`}>{note}</p>
+      {parts.map(([id, text]) => (
+        <LockTile key={id} id={id} label={text} />
+      ))}
+    </div>
+  );
 }
 
 // ---- The character's General tab ---------------------------------------------------------------------
@@ -199,6 +252,7 @@ function General({ s, draft, setDraft }) {
 export function weaponChoice(draft) {
   if (draft.weapon === 'unarmed') return { kind: 'unarmed' };
   if (draft.weapon.startsWith('spell:')) return { kind: 'spell', spellId: draft.weapon.slice('spell:'.length) };
+  if (draft.weapon.startsWith('manifest:')) return { kind: 'manifestation', manifestationId: draft.weapon.slice('manifest:'.length) };
   return { kind: 'item', itemId: draft.weapon };
 }
 

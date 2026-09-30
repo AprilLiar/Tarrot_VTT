@@ -3,6 +3,7 @@ import * as D from '../shared/rules-data.js';
 import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
 import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
+import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../shared/manifest.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
 
 // The character sheet lives as one JSON document per character
@@ -108,6 +109,9 @@ export function normalizeSheet(raw) {
     stones: {},
     spellDrafts: (Array.isArray(r.spellDrafts) ? r.spellDrafts : []).slice(0, MAX_SPELLS).map((d) => normalizeDraft(d, randomUUID())),
     spells: (Array.isArray(r.spells) ? r.spells : []).slice(0, MAX_SPELLS).map((sp) => normalizeSpell(sp, randomUUID())),
+    // Manifest: Tarot Cards (one is active) and Manifestations, both made by the GM.
+    tarot: normalizeTarot(r.tarot, randomUUID),
+    manifestations: (Array.isArray(r.manifestations) ? r.manifestations : []).slice(0, MAX_MANIFESTATIONS).map((m) => normalizeManifestation(m, randomUUID())),
     resistances: {},
     statuses: {},
   };

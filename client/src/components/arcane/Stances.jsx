@@ -6,6 +6,7 @@ import { IntInput } from '../sheet/fields.jsx';
 import { DiceList, StatusList, UniqueList, isNum } from './editors.jsx';
 import { bandParts } from './summaries.js';
 import { useStances } from './useStances.js';
+import { Blurred, LockIcon, useLocks } from './Locks.jsx';
 import { BANDS, SIGN_VIBES, blankEffect, groupTable } from '../../../../shared/stances.js';
 import { STONES, stoneInfo } from '../../../../shared/spells.js';
 import * as D from '../../../../shared/rules-data.js';
@@ -34,8 +35,20 @@ export default function Stances({ s, draft, setDraft }) {
   const { identity } = useApp();
   const gm = identity.role === 'gm';
   const { stances, vibes, ready } = useStances();
+  const { has, locking, toggle } = useLocks();
   const [open, setOpen] = useState(null); // the sign whose tree is shown
   if (!ready) return <p className="text-sm opacity-60">{t('Loading...')}</p>;
+  // A locked Zodiac is a blur for players (the server does not even send its Stances).
+  if (open && !gm && has(`stances:${open}`)) {
+    return (
+      <div className="flex flex-col gap-3">
+        <button className={`${btn} self-start`} data-testid="stance-back" onClick={() => setOpen(null)}>
+          {t('Back')}
+        </button>
+        <Blurred />
+      </div>
+    );
+  }
   if (open) return <Tree sign={open} all={stances.filter((x) => x.sign === open)} vibes={vibes} s={s} draft={draft} setDraft={setDraft} gm={gm} onBack={() => setOpen(null)} />;
 
   return (
@@ -44,13 +57,18 @@ export default function Stances({ s, draft, setDraft }) {
         const base = stances.find((st) => st.id === `base:${x.sign}`);
         const count = stances.filter((st) => st.sign === x.sign && st.parentId).length;
         return (
-          <button key={x.sign} className={`${card} flex items-center gap-3 text-left`} data-testid={`stance-sign-${x.sign}`} onClick={() => setOpen(x.sign)}>
+          <button key={x.sign} className={`${card} flex items-center gap-3 text-left ${locking ? 'border-dashed border-amber-400/60' : ''}`} data-testid={`stance-sign-${x.sign}`} data-locked={has(`stances:${x.sign}`) ? 'true' : 'false'} onClick={() => (locking ? toggle(`stances:${x.sign}`) : setOpen(x.sign))}>
             <Glyph sign={x.sign} color={base?.color ?? '#ffffff'} size={64} />
             <span className="min-w-0 flex-1">
               <span className="block text-lg font-medium">{t(x.name)}</span>
               <span className="block text-sm opacity-70">{vibes[x.sign] ?? t(SIGN_VIBES[x.sign])}</span>
               {count > 0 && <span className="block text-xs opacity-50">{t('Variations: {n}', { n: count })}</span>}
             </span>
+            {has(`stances:${x.sign}`) && (
+              <span className="text-amber-300">
+                <LockIcon size={20} />
+              </span>
+            )}
           </button>
         );
       })}

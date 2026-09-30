@@ -53,8 +53,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {from} wants to give you {item}. | {from} хочет отдать вам предмет: {item}. |
 | Decline | Отказаться |
 | Accept | Принять |
-| This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
-| Open a character's Arcane tab to work with its Magic. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. |
+| Locking mode | Режим блокировки |
+| Locking mode: tap an open tab again to lock it, and tap a part to lock it. Players see a blur where something is locked; you see everything. | Режим блокировки: коснитесь открытой вкладки ещё раз, чтобы заблокировать её, и коснитесь части, чтобы заблокировать её. Игроки видят размытие на месте заблокированного; вы видите всё. |
+| Open a character's Arcane tab to work with its Magic. Here you can lock its parts for the players. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. Здесь можно заблокировать её части для игроков. |
+| Spell Stones | Камни заклинаний |
+| Spell Combinations | Комбинации заклинаний |
+| Spell Fine Tuning | Тонкая настройка заклинания |
+| Open a character's Arcane tab to work with its Tarot Cards and Manifestations. Here you can lock them for the players. | Откройте вкладку Аркана персонажа, чтобы работать с его картами Таро и Проявлениями. Здесь можно заблокировать их для игроков. |
+| Tarot Cards | Карты Таро |
+| Manifestations | Проявления |
 | Unarmed Attack | Атака без оружия |
 | Default | Стандартное |
 | Everyone | Для всех |
@@ -97,12 +104,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Enhancements for everyone | Усиления для всех |
 | These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИП, помимо Мощной и Точной атаки. Чтобы создать усиление для одного персонажа, откройте его вкладку Аркана. |
 | None yet | Пока нет |
+| You have not learned what this means for now | Вы пока не постигли, что это значит |
+| Locked | Заблокировано |
+| Open | Открыто |
 | Stones | Камни |
 | Editor | Редактор |
 | Spell Drafts | Черновики заклинаний |
 | Created Spells | Созданные заклинания |
 | Magic | Магия |
-| Spell Stones | Камни заклинаний |
 | How many of each Spell Stone this character has. Crafting a spell spends them; drafting does not. | Сколько камней каждого вида у этого персонажа. Создание заклинания тратит их, черновик — нет. |
 | {name} stones | Камни: {name} |
 | A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
@@ -117,7 +126,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove stone | Убрать камень |
 | Legal scheme | Схема допустима |
 | Illegal | Недопустимо |
-| Spell Fine Tuning | Тонкая настройка заклинания |
 | Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
 | Move left | Сдвинуть влево |
 | Move right | Сдвинуть вправо |
@@ -154,12 +162,28 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Edit spell | Изменить заклинание |
 | Grant | Выдать |
 | Icon | Значок |
-| Effect | Эффект |
 | Set by the GM | Задаёт ГМ |
 | Spell tattoo (no uses; durability is a Strength Save) | Татуировка-заклинание (без использований; прочность — спасбросок Силы) |
 | Uses left | Осталось использований |
 | Max uses | Макс. использований |
 | Stabilization | Стабилизация |
+| Manifest | Проявление |
+| No Tarot Cards yet. | Карт Таро пока нет. |
+| Transfer | Передать |
+| Swap Card | Сменить карту |
+| Add Tarot Card | Добавить карту Таро |
+| Choose the card that becomes active. | Выберите карту, которая станет активной. |
+| Delete Tarot Card | Удалить карту Таро |
+| Edit Tarot Card | Изменить карту Таро |
+| Add | Добавить |
+| Effect | Эффект |
+| Transfer {name} | Передать: {name} |
+| Nobody to send it to. | Некому отправить. |
+| Send to | Отправить кому |
+| No Manifestations yet. | Проявлений пока нет. |
+| Add Manifestation | Добавить Проявление |
+| Delete Manifestation | Удалить Проявление |
+| Edit Manifestation | Изменить Проявление |
 | Bases | Сборы |
 | Modifiers and Links | Модификаторы и связи |
 | Release | Форма |
@@ -185,7 +209,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Empty brings back the default text. | Пустое поле возвращает стандартный текст. |
 | Edit Stance | Изменить Стойку |
 | New variation of {name} | Новая вариация: {name} |
-| Add | Добавить |
 | Colour of the circle | Цвет круга |
 | Character-Known (characters have seen it and can read it) | Известна персонажам (они видели её и могут читать) |
 | Learned by (can use it in attacks) | Изучили (могут использовать в атаках) |
@@ -336,8 +359,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Give | Передать |
 | Send offer | Отправить предложение |
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
-| Nobody to send it to. | Некому отправить. |
-| Send to | Отправить кому |
 | (empty) | (пусто) |
 | Use | Использовать |
 | Uses | Использования |
@@ -650,7 +671,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Mastery: Stances | Мастерство: Стойки |
 | Stances (Combat Mastery Roll) | Стойки (проверка боевого мастерства) |
 | Stances attack | Атака: Стойки |
-| Manifest | Проявление |
 | Mastery: Manifest | Мастерство: Проявление |
 | Manifest (Combat Mastery Roll) | Проявление (проверка боевого мастерства) |
 | Manifest attack | Атака: Проявление |
@@ -942,7 +962,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
 | Only PNG, JPEG and WebP images are accepted. | Принимаются только изображения PNG, JPEG и WebP. |
+| Unknown lock. | Неизвестная блокировка. |
+| That part of the Arcane tab is locked. | Эта часть вкладки Аркана заблокирована. |
 | A name is required. | Нужно указать имя. |
+| Too many cards. | Слишком много карт. |
+| Too many Manifestations. | Слишком много Проявлений. |
 | Names can be at most {max} characters. | Имя может содержать не более {max} символов. |
 | Invalid id. | Неверный идентификатор. |
 | Type must be PC or NPC. | Тип должен быть «Игрок» или «НПС». |
@@ -1049,6 +1073,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
+| Open a character's Arcane tab to work with its Magic. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. |
 | Targets: | Цели: |
 | You have {n} AP. | У вас {n} ОД. |
 | Roll attack | Бросить атаку |

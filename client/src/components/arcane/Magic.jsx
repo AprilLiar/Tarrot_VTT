@@ -5,10 +5,11 @@ import { FormDialog } from '../sheet/SheetLists.jsx';
 import { NumField } from '../sheet/fields.jsx';
 import { SchemeView } from './SchemeView.jsx';
 import { DamageIcon, ICON_KEYS } from './DamageIcon.jsx';
-import { EnhancementFields, WeaponFields, enhancementToForm, enhancementValid, formToEnhancement, formToWeapon, isNum, weaponToForm, weaponValid } from './editors.jsx';
+import { EffectEditor, enhancementToForm, enhancementValid, formToEnhancement, formToWeapon, isNum, weaponToForm, weaponValid } from './editors.jsx';
 import { weaponSummary, enhancementSummary } from './summaries.js';
 import { KINDS, KIND_COLORS, MAX_NOTE, MAX_STONE_COUNT, RUNES, STONES, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
 import * as D from '../../../../shared/rules-data.js';
+import { Lockable } from './Locks.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The Magic tab: Spell Stones, the scheme editor, the compendium of saved drafts, and finished spells.
@@ -50,9 +51,21 @@ export default function Magic({ s, draft, setDraft, work, setWork }) {
           </button>
         ))}
       </div>
-      {sub === 'stones' && <Stones s={s} />}
-      {sub === 'editor' && <Editor s={s} work={work} setWork={setWork} />}
-      {sub === 'drafts' && <Drafts s={s} setWork={setWork} goEditor={() => setSub('editor')} goSpells={() => setSub('spells')} />}
+      {sub === 'stones' && (
+        <Lockable id="stones">
+          <Stones s={s} />
+        </Lockable>
+      )}
+      {sub === 'editor' && (
+        <Lockable id="combinations">
+          <Editor s={s} work={work} setWork={setWork} />
+        </Lockable>
+      )}
+      {sub === 'drafts' && (
+        <Lockable id="combinations">
+          <Drafts s={s} setWork={setWork} goEditor={() => setSub('editor')} goSpells={() => setSub('spells')} />
+        </Lockable>
+      )}
       {sub === 'spells' && <Spells s={s} draft={draft} setDraft={setDraft} />}
     </div>
   );
@@ -205,6 +218,7 @@ function Editor({ s, work, setWork }) {
         )}
       </div>
 
+      <Lockable id="fine_tuning">
       <section aria-label={t('Spell Fine Tuning')} className={card}>
         <h3 className={heading}>{t('Spell Fine Tuning')}</h3>
         <p className="mb-2 text-xs opacity-50">{t('Runes are a placeholder for now: put them in the order you want.')}</p>
@@ -222,6 +236,7 @@ function Editor({ s, work, setWork }) {
           ))}
         </div>
       </section>
+      </Lockable>
 
       <button className={btnPrimary} data-testid="spell-save" disabled={busy || !work.name.trim()} onClick={save}>
         {work.id ? t('Save changes') : t('Save to Spell Drafts')}
@@ -456,14 +471,7 @@ function SpellDialog({ s, spell, gm, onClose }) {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Effect')}>
-        {['weapon', 'enhancement'].map((k) => (
-          <button type="button" key={k} role="radio" aria-checked={kind === k} data-testid={`effect-${k}`} className={`${btn} ${kind === k ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setKind(k)}>
-            {k === 'weapon' ? t('Weapon') : t('Enhancement')}
-          </button>
-        ))}
-      </div>
-      {kind === 'weapon' ? <WeaponFields form={weapon} setForm={setWeapon} /> : <EnhancementFields f={enh} setF={setEnh} items={items} withName={false} />}
+      <EffectEditor kind={kind} setKind={setKind} weapon={weapon} setWeapon={setWeapon} enh={enh} setEnh={setEnh} items={items} />
       {gm && (
         <div className="flex flex-col gap-2 rounded-lg border border-white/10 p-2">
           <div className="text-xs uppercase tracking-wide opacity-60">{t('Set by the GM')}</div>
