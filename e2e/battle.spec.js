@@ -429,8 +429,9 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await card.getByLabel('Attack total').fill('25');
   await card.getByLabel('Base damage').fill('4');
   await card.getByTestId('attack-kind').selectOption('fire');
+  // 4 + 2 for a Brutal Hit (+2 more when the random natural roll happens to be a 20).
   await expect(card.getByTestId('attack-outcome')).toContainText('Brutal Hit');
-  await expect(card.getByTestId('attack-outcome')).toContainText('6 damage'); // 4 + 2 for a Brutal Hit
+  await expect(card.getByTestId('attack-outcome')).toContainText(/(6|8) damage/);
   await card.getByTestId('attack-apply').click();
   await expect(card).toHaveCount(0);
 
@@ -512,7 +513,7 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   await gmCtx.close();
 });
 
-test('the token menu can set a height and remove the token', async ({ browser }) => {
+test('the token menu stands on both sides of the token; the Display has the whole menu; height uses buttons only', async ({ browser }) => {
   const npc = `Bat-${uid()}`;
   const gmCtx = await desktop(browser);
   const gm = await open(gmCtx, 'pick-gm');
@@ -524,26 +525,139 @@ test('the token menu can set a height and remove the token', async ({ browser })
   await expect(token(tv, npc)).toBeVisible();
   await expect(tv.getByTestId('token-height')).toHaveCount(0);
 
+  // Two circles on each side, the columns centred on the token, none hanging below it.
+  // (Move the token away from the screen edge first, where the columns cannot both fit.)
+  const map = await gm.getByTestId('battle-map').boundingBox();
+  const start = await token(gm, npc).boundingBox();
+  await gm.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await gm.mouse.down();
+  await gm.mouse.move(map.x + (5.5 / 10) * map.width, map.y + (2.5 / 5) * map.height, { steps: 8 });
+  await gm.mouse.up();
+  await expect(token(gm, npc)).toHaveAttribute('data-col', '5');
   await token(gm, npc).click({ button: 'right' });
-  await gm.getByTestId('menu-height').click();
-  await gm.getByLabel('Height in Spaces').fill('3');
-  await gm.getByTestId('height-set').click();
+  const t = await token(gm, npc).boundingBox();
+  const left = await gm.getByTestId('token-menu-left').boundingBox();
+  const right = await gm.getByTestId('token-menu-right').boundingBox();
+  await expect(gm.getByTestId('token-menu-left').getByRole('button')).toHaveCount(2);
+  await expect(gm.getByTestId('token-menu-right').getByRole('button')).toHaveCount(2);
+  expect(left.x + left.width).toBeLessThanOrEqual(t.x);
+  expect(right.x).toBeGreaterThanOrEqual(t.x + t.width);
+  const cy = t.y + t.height / 2;
+  expect(Math.abs(left.y + left.height / 2 - cy)).toBeLessThan(12);
+  expect(Math.abs(right.y + right.height / 2 - cy)).toBeLessThan(12);
+  await gm.getByTestId('token-menu-backdrop').click({ position: { x: 5, y: 5 } });
+
+  // The Display: a plain click on the token opens the same menu. Height goes Up and Down, and Reset.
+  await token(tv, npc).click();
+  await expect(tv.getByTestId('token-menu-right')).toBeVisible();
+  await tv.getByTestId('menu-height').click();
+  await expect(tv.getByTestId('height-value')).toHaveText('0');
+  await expect(tv.getByTestId('height-down')).toBeDisabled();
+  await expect(tv.getByTestId('height-reset')).toBeDisabled();
+  await tv.getByTestId('height-up').click();
+  await tv.getByTestId('height-up').click();
+  await tv.getByTestId('height-up').click();
+  await expect(tv.getByTestId('height-value')).toHaveText('3');
   await expect(gm.getByTestId('token-height')).toHaveText('+3 sp.');
   await expect(tv.getByTestId('token-height')).toHaveText('+3 sp.');
   await expect(token(tv, npc)).toHaveAttribute('data-height', '3');
-
-  // 0 puts it back on the ground.
-  await token(gm, npc).click({ button: 'right' });
-  await gm.getByTestId('menu-height').click();
-  await gm.getByLabel('Height in Spaces').fill('0');
-  await gm.getByTestId('height-set').click();
+  await tv.getByTestId('height-down').click();
+  await expect(gm.getByTestId('token-height')).toHaveText('+2 sp.');
+  await tv.getByTestId('height-reset').click();
   await expect(tv.getByTestId('token-height')).toHaveCount(0);
+  await tv.getByTestId('height-close').click();
 
+  // Hide and Remove from the Display too.
+  await token(tv, npc).click();
+  await tv.getByTestId('menu-hide').click();
+  await expect(token(tv, npc)).toHaveCount(0);
+  await expect(token(gm, npc)).toHaveAttribute('data-hidden', 'true');
   await token(gm, npc).click({ button: 'right' });
-  await gm.getByTestId('menu-remove').click();
+  await gm.getByTestId('menu-hide').click(); // Reveal
+  await expect(token(tv, npc)).toBeVisible();
+  await token(tv, npc).click();
+  await tv.getByTestId('menu-remove').click();
   await expect(token(gm, npc)).toHaveCount(0);
   await expect(token(tv, npc)).toHaveCount(0);
 
   await tvCtx.close();
+  await gmCtx.close();
+});
+
+test('a desktop player drags their own token and can set its height; the sheet has height buttons too', async ({ browser }) => {
+  const pc = `Flyer-${uid()}`;
+  const other = `Grounded-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, other, 'PC');
+  await battleScene(gm, `Sky-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, other);
+
+  const ctx = await desktop(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await p.getByTestId('nav-scene').click();
+  await expect(token(p, pc)).toBeVisible();
+
+  // Dragging their own token works; someone else's does not.
+  const map = await p.getByTestId('battle-map').boundingBox();
+  const mine = await token(p, pc).boundingBox();
+  await p.mouse.move(mine.x + mine.width / 2, mine.y + mine.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(map.x + (6.5 / 10) * map.width, map.y + (3.5 / 5) * map.height, { steps: 8 });
+  await p.mouse.up();
+  await expect(token(gm, pc)).toHaveAttribute('data-col', '6');
+  await expect(token(gm, pc)).toHaveAttribute('data-row', '3');
+  const before = await token(gm, other).getAttribute('data-col');
+  const theirs = await token(p, other).boundingBox();
+  await p.mouse.move(theirs.x + theirs.width / 2, theirs.y + theirs.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(map.x + (8.5 / 10) * map.width, map.y + (1.5 / 5) * map.height, { steps: 8 });
+  await p.mouse.up();
+  await expect(token(gm, other)).toHaveAttribute('data-col', before);
+
+  // Their menu has only Set Height, and no tools.
+  await token(p, pc).click();
+  await expect(p.getByTestId('menu-height')).toBeVisible();
+  await expect(p.getByTestId('menu-hide')).toHaveCount(0);
+  await expect(p.getByTestId('menu-remove')).toHaveCount(0);
+  await p.getByTestId('menu-height').click();
+  await p.getByTestId('height-up').click();
+  await expect(gm.getByTestId('token-height').first()).toHaveText('+1 sp.');
+  await p.getByTestId('height-close').click();
+  await ctx.close();
+
+  // On the phone sheet, next to Movement and Size, the same buttons.
+  const phoneCtx = await phone(browser);
+  const ph = await phoneCtx.newPage();
+  await ph.goto('/');
+  await ph.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await expect(ph.getByTestId('sheet-height').getByTestId('height-value')).toHaveText('1');
+  await ph.getByTestId('sheet-height').getByTestId('height-up').click();
+  await expect(gm.getByTestId('token-height').first()).toHaveText('+2 sp.');
+  await ph.getByTestId('sheet-height').getByTestId('height-reset').click();
+  await expect(token(gm, pc).getByTestId('token-height')).toHaveCount(0);
+  await phoneCtx.close();
+  await gmCtx.close();
+});
+
+test('the Area size has arrows to the right of the field', async ({ browser }) => {
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await battleScene(gm, `Arrows-${uid()}`);
+  await gm.getByTestId('tool-template').click();
+  const field = gm.getByTestId('template-size');
+  await expect(field).toHaveValue('4');
+  await gm.getByTestId('template-size-up').click();
+  await gm.getByTestId('template-size-up').click();
+  await expect(field).toHaveValue('6');
+  await gm.getByTestId('template-size-down').click();
+  await expect(field).toHaveValue('5');
+  const f = await field.boundingBox();
+  const up = await gm.getByTestId('template-size-up').boundingBox();
+  expect(up.x).toBeGreaterThanOrEqual(f.x + f.width);
   await gmCtx.close();
 });

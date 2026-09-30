@@ -5,10 +5,10 @@ import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { cellAt, cellToUnits, distanceSquares, dropCell, templateShape, toUnits } from '../../lib/battleMath.js';
-import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
+import Dialog, { btn, btnDanger } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
-import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
+import { HeightControl } from './HeightControl.jsx';
 import { CombatBar } from './CombatBar.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
@@ -125,39 +125,16 @@ function GridPanel({ scene, battle, onClose }) {
   );
 }
 
-// How many Spaces a character is in the air. It shows as "+X sp." above the token.
+// How many Spaces a character is in the air ("+X sp." above the token): Up, Down and Reset buttons.
 function HeightDialog({ token, onClose }) {
-  const { toast } = useApp();
-  const [value, setValue] = useState(String(token.height));
-  const valid = isWholeNumber(value) && Number(value) >= 0 && Number(value) <= 99;
-  async function save() {
-    const r = await call('battle:update', { id: token.id, height: Number(value) });
-    if (!r.ok) toast(r.error);
-    else onClose();
-  }
   return (
     <Dialog title={`Height: ${token.name}`} onClose={onClose}>
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) save();
-        }}
-      >
-        <label className="flex flex-col gap-1 text-sm">
-          Spaces in the air (0 for the ground)
-          <IntInput label="Height in Spaces" value={value} onChange={setValue} />
-        </label>
-        {!valid && <p className="text-sm text-red-400">Use a whole number from 0 to 99.</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className={btn} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className={btnPrimary} disabled={!valid} data-testid="height-set">
-            Set
-          </button>
-        </div>
-      </form>
+      <div className="flex flex-col items-center gap-4">
+        <HeightControl token={token} />
+        <button className={btn} data-testid="height-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
     </Dialog>
   );
 }
@@ -172,6 +149,10 @@ export default function BattleView() {
   const { identity, stage, toast } = useApp();
   const isGm = identity.role === 'gm';
   const tools = isGm || identity.role === 'display';
+  // A player drags and opens the menu for their own character only; the GM and the Display for everyone.
+  const isOwn = (t) => identity.role === 'player' && t.ownerKind === 'character' && t.ownerId === identity.characterId;
+  const canDragToken = (t) => tools || isOwn(t);
+  const canOpenMenu = (t) => tools || isOwn(t);
   const battle = stage.battle;
   const scene = stage.scene;
   const { ref, view, bind, zoomBy, reset } = useZoomPan();
@@ -215,6 +196,10 @@ export default function BattleView() {
   }, []);
 
   const menuToken = menu && battle?.tokens.find((t) => t.id === menu.id);
+  const openHeight = () => {
+    setHeightFor(menu.id);
+    setMenu(null);
+  };
 
   // Picture fractions under a pointer.
   function toFractions(e) {
@@ -311,7 +296,7 @@ export default function BattleView() {
   }
   function tokenMove(e, t) {
     const d = dragState.current;
-    if (!d || d.id !== t.id || !tools) return;
+    if (!d || d.id !== t.id || !canDragToken(t)) return;
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_THRESHOLD) return;
     d.moved = true;
     const f = toFractions(e);
@@ -321,13 +306,13 @@ export default function BattleView() {
     const d = dragState.current;
     dragState.current = null;
     if (!d || d.id !== t.id) return;
-    if (d.moved && tools) {
+    if (d.moved && canDragToken(t)) {
       const f = toFractions(e);
       setDrag(null);
       const cell = dropCell(f.u, f.v, t.size, battle.grid, aspect, battle.cols, battle.rows);
       const r = await call('battle:place', { id: t.id, ...cell });
       if (!r.ok) toast(r.error);
-    } else if (!d.moved && isGm) {
+    } else if (!d.moved && canOpenMenu(t)) {
       setMenu({ id: t.id, anchor: e.currentTarget });
     }
   }
@@ -485,7 +470,7 @@ export default function BattleView() {
                 data-height={t.height}
                 data-targeted={t.targetedBy.length > 0 ? 'true' : 'false'}
                 data-no-pan
-                className={`absolute select-none ${t.hidden ? 'opacity-50' : ''} ${tools && tool === 'select' ? 'cursor-grab' : ''}`}
+                className={`absolute select-none ${t.hidden ? 'opacity-50' : ''} ${canDragToken(t) && tool === 'select' ? 'cursor-grab' : ''}`}
                 style={{ ...tokenBox(t), zIndex: drag?.id === t.id ? 20 : 5, pointerEvents: tool === 'select' || !tools ? 'auto' : 'none', touchAction: 'none' }}
                 onPointerDown={(e) => tokenDown(e, t)}
                 onPointerMove={(e) => tokenMove(e, t)}
@@ -496,7 +481,7 @@ export default function BattleView() {
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (isGm) setMenu({ id: t.id, anchor: e.currentTarget });
+                  if (canOpenMenu(t)) setMenu({ id: t.id, anchor: e.currentTarget });
                 }}
               >
                 <div
@@ -666,19 +651,39 @@ export default function BattleView() {
                     <option value="line">Line</option>
                     <option value="square">Square</option>
                   </select>
-                  <label className="flex items-center gap-1">
-                    Squares
+                  <div className="flex items-center gap-1">
+                    <span>Squares</span>
                     <input
                       type="number"
                       min="1"
                       max="60"
                       aria-label="Template size"
                       data-testid="template-size"
-                      className="min-h-9 w-14 rounded bg-black/40 px-1 text-center"
+                      className="min-h-9 w-12 rounded bg-black/40 px-1 text-center"
                       value={tsize}
                       onChange={(e) => setTsize(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
                     />
-                  </label>
+                    {/* Arrows to the right of the field, big enough to press on a touch screen. */}
+                    <div className="flex flex-col gap-0.5">
+                      {[
+                        ['up', 1, 'M4 10l4-4 4 4'],
+                        ['down', -1, 'M4 6l4 4 4-4'],
+                      ].map(([id, step, path]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-label={id === 'up' ? 'More squares' : 'Fewer squares'}
+                          data-testid={`template-size-${id}`}
+                          className="flex h-6 w-10 items-center justify-center rounded bg-white/15 active:bg-white/30"
+                          onClick={() => setTsize(Math.max(1, Math.min(60, tsize + step)))}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d={path} />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <span className="opacity-70">Press for the start, drag for the direction.</span>
                   <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
                     Clean
@@ -695,27 +700,45 @@ export default function BattleView() {
 
       {menuToken && (
         <TokenMenu
-          s={menuToken}
           anchor={menu.anchor}
           containerRef={ref}
           onClose={() => setMenu(null)}
-          onSettings={() => {
-            setSettings(menuToken);
-            setMenu(null);
-          }}
-          onToggleHidden={async () => {
-            await call('battle:update', { id: menuToken.id, hidden: !menuToken.hidden });
-            setMenu(null);
-          }}
-          onHeight={() => {
-            setHeightFor(menuToken.id);
-            setMenu(null);
-          }}
-          onRemove={async () => {
-            const r = await call('battle:remove', { id: menuToken.id });
-            if (!r.ok) toast(r.error);
-            setMenu(null);
-          }}
+          options={
+            // The GM and the Display get every circle; a player only Set Height, for their own character.
+            tools
+              ? [
+                  {
+                    key: 'settings',
+                    label: 'Token Settings',
+                    testId: 'menu-settings',
+                    onClick: () => {
+                      setSettings(menuToken);
+                      setMenu(null);
+                    },
+                  },
+                  {
+                    key: 'hide',
+                    label: menuToken.hidden ? 'Reveal' : 'Hide',
+                    testId: 'menu-hide',
+                    onClick: async () => {
+                      await call('battle:update', { id: menuToken.id, hidden: !menuToken.hidden });
+                      setMenu(null);
+                    },
+                  },
+                  { key: 'height', label: 'Set Height', testId: 'menu-height', onClick: openHeight },
+                  {
+                    key: 'remove',
+                    label: 'Remove',
+                    testId: 'menu-remove',
+                    onClick: async () => {
+                      const r = await call('battle:remove', { id: menuToken.id });
+                      if (!r.ok) toast(r.error);
+                      setMenu(null);
+                    },
+                  },
+                ]
+              : [{ key: 'height', label: 'Set Height', testId: 'menu-height', onClick: openHeight }]
+          }
         />
       )}
       {heightFor != null && battle.tokens.find((t) => t.id === heightFor) && (

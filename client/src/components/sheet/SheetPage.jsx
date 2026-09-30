@@ -7,7 +7,7 @@ import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
-import { BattleRemote } from './BattleRemote.jsx';
+import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
@@ -163,6 +163,7 @@ export default function SheetPage({ characterId }) {
             ))}
           </select>
         </div>
+        <SheetHeight characterId={characterId} />
         <div className="col-span-2">
           <div className="text-xs opacity-60">Experience Modifier</div>
           <div className="w-16 text-xl">

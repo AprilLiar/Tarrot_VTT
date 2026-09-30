@@ -281,7 +281,7 @@ function SceneView() {
                 canDrag={canDragFigure(sum)}
                 zoomRef={viewRef}
                 menuOpen={menu?.id === sum.id}
-                onMenu={isGm ? (x, anchor) => setMenu({ id: x.id, anchor }) : undefined}
+                onMenu={isGm || isDisplay ? (x, anchor) => setMenu({ id: x.id, anchor }) : undefined}
               />
             ))}
           </div>
@@ -311,22 +311,38 @@ function SceneView() {
 
       {menuTarget && (
         <TokenMenu
-          s={menuTarget}
           anchor={menu.anchor}
           containerRef={ref}
           onClose={() => setMenu(null)}
-          onSettings={() => {
-            setSettings(menuTarget);
-            setMenu(null);
-          }}
-          onToggleHidden={async () => {
-            await call('stage:update', { id: menuTarget.id, hidden: !menuTarget.hidden });
-            setMenu(null);
-          }}
-          onRemove={async () => {
-            await call('stage:dismiss', { id: menuTarget.id });
-            setMenu(null);
-          }}
+          options={[
+            {
+              key: 'settings',
+              label: 'Token Settings',
+              testId: 'menu-settings',
+              onClick: () => {
+                setSettings(menuTarget);
+                setMenu(null);
+              },
+            },
+            {
+              key: 'hide',
+              label: menuTarget.hidden ? 'Reveal' : 'Hide',
+              testId: 'menu-hide',
+              onClick: async () => {
+                await call('stage:update', { id: menuTarget.id, hidden: !menuTarget.hidden });
+                setMenu(null);
+              },
+            },
+            {
+              key: 'remove',
+              label: 'Remove',
+              testId: 'menu-remove',
+              onClick: async () => {
+                await call('stage:dismiss', { id: menuTarget.id });
+                setMenu(null);
+              },
+            },
+          ]}
         />
       )}
 

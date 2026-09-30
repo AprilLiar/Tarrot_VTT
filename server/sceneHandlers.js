@@ -88,6 +88,8 @@ export function registerSceneHandlers(ctx) {
   on('picture:list', { needsIdentity: true }, async (p) => {
     const owner = ownerFrom(p);
     // Anyone who may summon a character can see its pictures; players see their own PC's.
+    // The Display picks pictures too (its token menu has Token Settings).
+    if (isDisplay()) return { pictures: await scenes.listPictures(db, owner) };
     if (owner.kind === 'character') await requireControl(owner.id);
     else if (!isGm()) throw new AppError('forbidden', 'GM only.');
     return { pictures: await scenes.listPictures(db, owner) };
@@ -135,9 +137,11 @@ export function registerSceneHandlers(ctx) {
   gmLibrary('temp_npc_folder:delete', (p) => scenes.tempNpcFolders.remove(db, p.id));
 
   gmLibrary('temp_npc:create', async (p) => ({ id: await scenes.createTempNpc(db, p) }));
-  gmLibrary('temp_npc:set_size', async (p) => {
+  on('temp_npc:set_size', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change a size.');
     await scenes.setTempNpcSize(db, p.id, p.size);
     await broadcastStage();
+    await broadcastLibrary();
   });
   gmLibrary('temp_npc:rename', async (p) => {
     await scenes.renameTempNpc(db, p.id, p.name);
@@ -203,8 +207,7 @@ export function registerSceneHandlers(ctx) {
   });
 
   on('stage:dismiss', { needsIdentity: true }, async (p) => {
-    if (isDisplay()) throw new AppError('forbidden', 'The Display Screen cannot dismiss.');
-    if (!isGm()) {
+    if (!isGm() && !isDisplay()) {
       const owner = await scenes.summonOwner(db, p.id);
       if (owner.kind !== 'character' || owner.id !== identity().characterId) {
         throw new AppError('forbidden', 'You can only dismiss your own character.');
@@ -214,7 +217,9 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
   });
 
-  on('stage:update', { gmOnly: true }, async (p) => {
+  // The token menu's Token Settings and Hide: the GM and the Display.
+  on('stage:update', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change a figure.');
     await scenes.updateSummon(db, p.id, { pictureId: p.pictureId, scale: p.scale, hidden: p.hidden });
     await broadcastStage();
   });
@@ -265,12 +270,24 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
     return { id };
   });
-  on('battle:remove', { gmOnly: true }, async (p) => {
+  // Token menu: the GM and the Display can do everything; a player can only set the height of their own PC.
+  on('battle:remove', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can remove a token.');
     await battle.removeToken(db, p.id);
     for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });
-  on('battle:update', { gmOnly: true }, async (p) => {
+  // A player's own PC: true when the token is that character's.
+  async function ownsToken(tokenId) {
+    if (!isPlayer()) return false;
+    const t = await battle.getToken(db, tokenId);
+    return t.ownerKind === 'character' && t.ownerId === identity().characterId;
+  }
+  on('battle:update', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) {
+      const heightOnly = p.pictureId === undefined && p.hidden === undefined && p.height !== undefined;
+      if (!heightOnly || !(await ownsToken(p.id))) throw new AppError('forbidden', 'You can only change the height of your own character.');
+    }
     await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height });
     if (p.hidden === true) for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
@@ -282,7 +299,9 @@ export function registerSceneHandlers(ctx) {
 
   // Dragging is free: it never changes AP or Movement. The GM and the Display can do it.
   on('battle:place', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can move tokens by dragging.');
+    if (!isGm() && !isDisplay() && !(await ownsToken(p.id))) {
+      throw new AppError('forbidden', 'You can only move your own character by dragging.');
+    }
     await battle.placeToken(db, p.id, p.col, p.row);
     await broadcastStage();
   });

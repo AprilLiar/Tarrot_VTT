@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnPrimary } from '../Dialog.jsx';
 import { IntInput, isWholeNumber } from './fields.jsx';
+import { HeightControl } from '../scene/HeightControl.jsx';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import { MASTERIES, MASTERY_LABELS } from '../../../../shared/rules-data.js';
 
@@ -307,5 +308,19 @@ function AttackDialog({ s, targets, onClose }) {
         </div>
       </div>
     </Dialog>
+  );
+}
+
+// Next to Movement and Size on the sheet: how many Spaces the character is in the air, with Up, Down and
+// Reset buttons. Only there while the character has a token on the active Battle map.
+export function SheetHeight({ characterId }) {
+  const { stage } = useApp();
+  const token = stage.mode === 'battle' ? stage.battle?.tokens.find((t) => t.ownerKind === 'character' && t.ownerId === characterId) : null;
+  if (!token) return null;
+  return (
+    <div className="col-span-2" data-testid="sheet-height">
+      <div className="text-xs opacity-60">Height (Spaces in the air, shown above the token)</div>
+      <HeightControl token={token} />
+    </div>
   );
 }

@@ -384,6 +384,21 @@ describe('the Display Screen', () => {
     expect((await d.call('stage:get')).ok).toBe(true);
   });
 
+  it('has the whole token menu: settings, hide, remove; pictures can be listed', async () => {
+    const g = await gm();
+    await setup(g);
+    const aria = await pcWithPicture(g, 'Aria');
+    const id = (await g.call('stage:summon', { characterId: aria.id })).id;
+    const d = await display();
+    expect((await d.call('picture:list', { characterId: aria.id })).pictures).toHaveLength(1);
+    expect((await d.call('stage:update', { id, scale: 1.5 })).ok).toBe(true);
+    expect((await d.call('stage:update', { id, hidden: true })).ok).toBe(true);
+    expect((await d.call('stage:dismiss', { id })).ok).toBe(true);
+    expect((await g.call('stage:get')).stage.summons).toHaveLength(0);
+    const p = await player(aria.id);
+    expect(await p.call('stage:update', { id, scale: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+
   it('does not receive chat messages', async () => {
     const g = await gm();
     const d = await display();
