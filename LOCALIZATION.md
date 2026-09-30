@@ -15,6 +15,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Connecting... | Подключение... |
+| Base damage | Базовый урон |
+| Damage type | Тип урона |
+| True (ignores resistances) | Чистый (игнорирует сопротивления) |
+| AP cost | Стоимость ОД |
+| {name} stacks | Число накоплений: {name} |
+| Remove {name} | Убрать: {name} |
+| Add a status | Добавить состояние |
+| Add status... | Добавить состояние... |
+| Advantage | Преимущество |
+| Close | Закрыть |
 | Settings | Настройки |
 | Who are you? | Кто вы? |
 | Dismiss | Закрыть |
@@ -23,11 +33,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Shows the current scene on the table screen | Показывает текущую сцену на экране стола |
 | Player characters | Персонажи игроков |
 | No characters yet. Ask the GM to create one. | Персонажей пока нет. Попросите мастера создать персонажа. |
+| Name | Имя |
+| Delete | Удалить |
 | Back | Назад |
 | These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
 | Language | Язык |
 | Characters | Персонажи |
 | Scene | Сцена |
+| Arcane | Аркана |
 | Sheet | Лист |
 | GM | МИ |
 | Sections | Разделы |
@@ -37,6 +50,87 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {from} wants to give you {item}. | {from} хочет отдать вам предмет: {item}. |
 | Decline | Отказаться |
 | Accept | Принять |
+| This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
+| {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
+| Range {n} | Дальность {n} |
+| {n} AP | {n} ОД |
+| {n} {kind} damage to you | {n} урона ({kind}) вам |
+| {n} uses of {item} | {n} исп. предмета {item} |
+| Damage {n} | Урон {n} |
+| Advantage {n} | Преимущество {n} |
+| Cost: {list} | Цена: {list} |
+| Effect: {list} | Эффект: {list} |
+| Unarmed Attack | Атака без оружия |
+| Attacks need a Battle map. | Для атаки нужна карта боя. |
+| Select a target below first. | Сначала выберите цель ниже. |
+| Not enough AP: this attack costs {cost} and you have {have}. | Не хватает ОД: атака стоит {cost}, а у вас {have}. |
+| The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
+| Default | Стандартное |
+| Everyone | Для всех |
+| This character | Этот персонаж |
+| Fewer | Меньше |
+| More | Больше |
+| Chosen | Выбрано |
+| Choose | Выбрать |
+| Edit | Изменить |
+| Weapons | Оружие |
+| Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet). | Выберите одно оружие. Оружие — это предметы с включённым переключателем «Оружие» (см. Инвентарь на листе). |
+| Enhancements | Усиления |
+| New Enhancement | Новое усиление |
+| Targets | Цели |
+| Nothing chosen | Ничего не выбрано |
+| Disadvantage {n} | Помеха {n} |
+| Options | Настройки |
+| Done | Готово |
+| Attack options | Параметры атаки |
+| Extra Advantage levels | Дополнительные уровни преимущества |
+| Fewer levels | Меньше уровней |
+| More levels | Больше уровней |
+| Custom modifier | Свой модификатор |
+| Out of range | Вне дальности |
+| Some targets are farther than the weapon's range of {range} Spaces: {list}. The range is only a suggestion. Attack anyway? | Некоторые цели дальше дальности оружия ({range} кл.): {list}. Дальность — лишь подсказка. Всё равно атаковать? |
+| {name} ({n} Spaces) | {name} ({n} кл.) |
+| No | Нет |
+| Attack anyway | Всё равно атаковать |
+| Delete Enhancement | Удалить усиление |
+| Delete {name}? This cannot be undone. | Удалить: {name}? Это нельзя отменить. |
+| Edit Unarmed Attack | Изменить атаку без оружия |
+| Save | Сохранить |
+| Enhancements for everyone | Усиления для всех |
+| These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИП, помимо Мощной и Точной атаки. Чтобы создать усиление для одного персонажа, откройте его вкладку Аркана. |
+| None yet | Пока нет |
+| Remove die | Убрать кость |
+| Add or subtract | Прибавить или вычесть |
+| Die size | Размер кости |
+| Add die | Добавить кость |
+| Effect name | Название эффекта |
+| What it does (shown in the chat) | Что он делает (показывается в чате) |
+| Remove effect | Убрать эффект |
+| Add Unique Effect | Добавить уникальный эффект |
+| Attacks | Атакует |
+| Defence it is rolled against | Защита, против которой бросок |
+| vs Physical Defence | против физической защиты |
+| vs Mental Defence | против ментальной защиты |
+| Range in Spaces (empty for no range check) | Дальность в клетках (пусто — без проверки дальности) |
+| Range | Дальность |
+| Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
+| Dice Roll Bonuses | Бонусы кубиков |
+| Unique Effects | Уникальные эффекты |
+| Edit Enhancement | Изменить усиление |
+| Add | Добавить |
+| Description | Описание |
+| Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
+| Cost | Цена |
+| AP | ОД |
+| You take damage | Вы получаете урон |
+| Damage taken | Получаемый урон |
+| You gain these statuses | Вы получаете эти статусы |
+| It spends uses of an item | Тратит использования предмета |
+| Item | Предмет |
+| Uses spent | Потрачено использований |
+| Effect | Эффект |
+| Damage | Урон |
+| Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
@@ -48,7 +142,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Cancel | Отмена |
 | New character | Новый персонаж |
 | Create | Создать |
-| Name | Имя |
 | Type | Тип |
 | PC | Игрок |
 | NPC | НПС |
@@ -66,7 +159,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | This permanently deletes {name} and cannot be undone. Type the name to confirm. | Это навсегда удалит персонажа {name} без возможности восстановления. Введите имя для подтверждения. |
 | Type the name to confirm | Введите имя для подтверждения |
 | Delete folder | Удалить папку |
-| Delete | Удалить |
 | Delete the folder {name}? Only empty folders can be deleted. | Удалить папку {name}? Можно удалить только пустые папки. |
 | Open sheet | Открыть лист |
 | Loading roster... | Загрузка списка... |
@@ -80,15 +172,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
-| Damage type | Тип урона |
-| AP cost | Стоимость ОД |
-| Remove {name} | Убрать: {name} |
-| Advantage | Преимущество |
 | Disadvantage | Помеха |
-| Close | Закрыть |
 | Send | Отправить |
 | Picture | Картинка |
-| Save | Сохранить |
 | Pictures | Картинки |
 | Search | Поиск |
 | Battle | Бой |
@@ -104,33 +190,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | (round {round}) | (раунд {round}) |
 | End turn | Закончить ход |
 | This character is not on the map right now. | Этого персонажа сейчас нет на карте. |
-| AP | ОД |
 | Movement per AP | Движение за 1 ОД |
 | Banked | Накоплено |
 | Move {dir} | Шаг: {dir} |
 | Free Movement (does not spend Movement or AP) | Свободное перемещение (не тратит движение и ОД) |
 | Attack | Атака |
 | No AP left to attack. | Не осталось ОД для атаки. |
-| Select a target below first. | Сначала выберите цель ниже. |
-| Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
-| Nobody else is on the map. | На карте больше никого нет. |
-| Clear targets | Снять все цели |
 | Spend AP to move? | Потратить ОД на движение? |
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
-| No | Нет |
 | Yes | Да |
-| Targets: | Цели: |
-| Combat Mastery | Боевое мастерство |
-| Defence it is rolled against | Защита, против которой бросок |
-| vs Physical Defence | против физической защиты |
-| vs Mental Defence | против ментальной защиты |
-| {n} AP | {n} ОД |
-| You have {n} AP. | У вас {n} ОД. |
-| Extra Advantage levels | Дополнительные уровни преимущества |
-| Fewer levels | Меньше уровней |
-| More levels | Больше уровней |
-| Custom modifier | Свой модификатор |
-| Roll attack | Бросить атаку |
 | Height (Spaces in the air, shown above the token) | Высота (клеток над землёй, показывается над фишкой) |
 | Immunity | Иммунитет |
 | Consumption | Поглощение |
@@ -156,18 +224,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Decrease {name} | Уменьшить: {name} |
 | Increase {name} | Увеличить: {name} |
 | Toggle full text of {name} | Показать или скрыть полный текст: {name} |
-| Description | Описание |
 | Edit feature | Изменить особенность |
 | New feature | Новая особенность |
-| Add | Добавить |
 | Delete feature | Удалить особенность |
 | Features | Особенности |
 | Add feature | Добавить особенность |
 | Edit item | Изменить предмет |
 | New item | Новый предмет |
 | Max uses (1 to {max}) | Максимум использований (от 1 до {max}) |
+| Weapon (shown in the Arcane tab) | Оружие (показывается во вкладке Аркана) |
 | State options | Варианты состояния |
-| None yet | Пока нет |
 | New state | Новое состояние |
 | Give {name} | Передать: {name} |
 | Offer {name} | Предложить: {name} |
@@ -176,16 +242,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
 | Nobody to send it to. | Некому отправить. |
 | Send to | Отправить кому |
+| Weapon | Оружие |
 | (empty) | (пусто) |
 | Use | Использовать |
 | Uses | Использования |
 | {name} uses | Использования: {name} |
 | State | Состояние |
 | (none) | (нет) |
-| Edit | Изменить |
 | Copy | Копировать |
 | Delete item | Удалить предмет |
-| Delete {name}? This cannot be undone. | Удалить: {name}? Это нельзя отменить. |
 | Inventory | Инвентарь |
 | Add item | Добавить предмет |
 | Could not load the sheet. | Не удалось загрузить лист. |
@@ -193,6 +258,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | The roll failed. | Бросок не удался. |
 | Loading sheet... | Загрузка листа... |
 | Back to roster | Назад к списку |
+| View | Вид |
 | Vitals | Показатели |
 | Action Points | Очки действий |
 | Current AP | Текущие ОД |
@@ -224,6 +290,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add a picture below first. | Сначала добавьте картинку ниже. |
 | Join the stage | Выйти на сцену |
 | Choose a picture | Выберите картинку |
+| Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
+| Nobody else is on the map. | На карте больше никого нет. |
+| Clear targets | Снять все цели |
 | Normal | Обычный |
 | Roll: {title} | Бросок: {title} |
 | {n}d20, keep the {which}: {mode} ({sources}) | {n}d20, берём {which}: {mode} ({sources}) |
@@ -253,15 +322,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Attacks waiting: {n} | Атак ожидает: {n} |
-| {name} attacks ({mastery}) | {name} атакует ({mastery}) |
+| {name} attacks with {weapon} | {name} атакует: {weapon} |
 | Rolled {total} (natural {natural}) against {label} | Выпало {total} (на кубике {natural}) против: {label} |
+| Enhancements: {list} | Усиления: {list} |
 | Total | Итог |
 | Attack total | Итог атаки |
-| Base damage | Базовый урон |
-| True (ignores resistances) | Чистый (игнорирует сопротивления) |
-| {name} stacks | Число накоплений: {name} |
-| Add a status | Добавить состояние |
-| Add status... | Добавить состояние... |
 | no sheet | нет листа |
 | heals {n} | лечит на {n} |
 | {n} damage | урон {n} |
@@ -619,6 +684,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Advantage on your attacks; attackers have Disadvantage. | Преимущество на ваши атаки; у атакующих помеха. |
 | Weakened | Ослаблен |
 | Disadvantage X on physical saves (Strength, Dexterity). | Помеха X на физические спасброски (Сила, Ловкость). |
+| Weapon Attack Roll | Бросок атаки оружием |
 | Initiative (Speed) | Инициатива (скорость) |
 | NW | СЗ |
 | N | С |
@@ -636,10 +702,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Too many Enhancements. | Слишком много усилений. |
+| That entry no longer exists. | Этой записи больше нет. |
 | {what} must be a whole number from {min} to {max}. | Значение «{what}» должно быть целым числом от {min} до {max}. |
 | Choose a damage type. | Выберите тип урона. |
 | Unknown status. | Неизвестное состояние. |
-| {attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}. | {attacker} атакует цель {target} ({mastery}): {total} против {defence} {value}, {result}. |
+| {attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}. | {attacker} атакует {target} ({weapon}): {total} против {defence} {value}, {result}. |
 | Damage {formula}. | Урон {formula}. |
 | Damage {formula} {kind}. | Урон {formula} ({kind}). |
 | After resistances: {steps}. | С учётом сопротивлений: {steps}. |
@@ -649,14 +717,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | HP {from} to {to}. | ОЗ {from} → {to}. |
 | (temporary NPC: no sheet, apply by hand) | (временный НПС: листа нет, примените вручную) |
 | Adds {list}. | Накладывает: {list}. |
+| {name} takes {n} {kind} damage as a cost (HP {from} to {to}). | {name} получает {n} урона ({kind}) в качестве цены (ОЗ {from} → {to}). |
+| {name} gains {status} as a cost. | {name} получает {status} в качестве цены. |
+| {name} spends {n} uses of {item}. | {name} тратит {n} исп. предмета {item}. |
 | {name} spends {n} AP. | {name} тратит ОД: {n}. |
 | {name} gains Exposed 1 (natural 1). | {name} получает состояние «Раскрыт» 1 (натуральная 1). |
+| {source}: {name}. {text} | {source}: {name}. {text} |
 | Combat | Бой |
 | That attack is no longer waiting. | Эта атака больше не ожидает. |
-| Choose a Combat Mastery. | Выберите боевое мастерство. |
-| A basic attack costs 1 or 2 AP. | Базовая атака стоит 1 или 2 ОД. |
-| Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
-| Not enough AP: this attack costs {cost} and you have {have}. | Не хватает ОД: атака стоит {cost}, а у вас {have}. |
 | Select at least one target first. | Сначала выберите хотя бы одну цель. |
 | Invalid track. | Неверный трек. |
 | That track no longer exists. | Этого трека больше нет. |
@@ -780,15 +848,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Size must be between {min} and {max}. | Размер должен быть от {min} до {max}. |
 | HP | ОЗ |
 | Stat | Характеристика |
+| Combat Mastery | Боевое мастерство |
 | Mastery tier | Уровень мастерства |
 | Stacks | Накопления |
 | Max uses | Макс. использований |
 | Unknown field. | Неизвестное поле. |
 | Only NPCs can be Minions. | Приспешниками могут быть только НПС. |
 | Minion must be true or false. | Значение «приспешник» должно быть «да» или «нет». |
+| Invalid weapon. | Неверное оружие. |
 | Invalid resistance. | Неверное сопротивление. |
 | Text can be at most {max} characters. | Текст может содержать не более {max} символов. |
-| That entry no longer exists. | Этой записи больше нет. |
 | Too many features. | Слишком много особенностей. |
 | Unknown action. | Неизвестное действие. |
 | Too many items. | Слишком много предметов. |
@@ -796,6 +865,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid state. | Неверное состояние. |
 | No uses left. | Использований не осталось. |
 | Unknown list. | Неизвестный список. |
+| Choose a weapon first. | Сначала выберите оружие. |
+| That Enhancement no longer exists. | Этого усиления больше нет. |
+| Each Enhancement is listed once; set how many times to use it. | Каждое усиление указывается один раз; задайте, сколько раз его использовать. |
+| {name} can be used at most {max} times per attack. | {name} можно использовать не более {max} раз за атаку. |
+| An item this Enhancement needs is no longer on the sheet. | Предмета, который нужен этому усилению, больше нет на листе. |
+| {name} has {have} uses left and this attack needs {need}. | У предмета {name} осталось {have} исп., а атаке нужно {need}. |
+| That is too much AP for one attack. | Это слишком много ОД для одной атаки. |
 | Critical Hit ({severity}) | Критическое попадание ({severity}) |
 | Consumption: heals {n} | Поглощение: лечит на {n} |
 | Immune | Иммунитет |
@@ -805,10 +881,22 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Custom | Свой |
 | Manual | Вручную |
 | Advantage levels must be a whole number from -{max} to {max}. | Уровни преимущества должны быть целым числом от -{max} до {max}. |
-| The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
 | Unknown stat. | Неизвестная характеристика. |
 | That stat has no Save. | У этой характеристики нет спасброска. |
 | Unknown skill. | Неизвестный навык. |
 | Unknown Combat Mastery. | Неизвестное боевое мастерство. |
 | Unknown roll type. | Неизвестный вид броска. |
+
+## Unused (no longer in the app)
+
+| English | Russian |
+| --- | --- |
+| Targets: | Цели: |
+| You have {n} AP. | У вас {n} ОД. |
+| Roll attack | Бросить атаку |
+| {name} attacks ({mastery}) | {name} атакует ({mastery}) |
+| {attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}. | {attacker} атакует цель {target} ({mastery}): {total} против {defence} {value}, {result}. |
+| Choose a Combat Mastery. | Выберите боевое мастерство. |
+| A basic attack costs 1 or 2 AP. | Базовая атака стоит 1 или 2 ОД. |
+| Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
 

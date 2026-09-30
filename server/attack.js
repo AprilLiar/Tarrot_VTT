@@ -1,11 +1,11 @@
 import * as D from '../shared/rules-data.js';
-import { computeTarget, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
+import { computeTarget, applyResistance, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
 import { joinMsgs } from '../shared/localization.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import { AppError } from './errors.js';
 
-// Attacks. A player (or the GM, for an NPC) rolls a Combat Mastery from the sheet; the roll waits as a
+// Attacks. A player (or the GM, for an NPC) drafts a weapon and Enhancements in the Arcane tab and rolls; the roll waits as a
 // "pending attack" in server memory until the GM confirms it on a card. The card carries every number
 // (roll, Defence, base damage, damage type, AP, statuses, targets) and the GM can change any of them.
 // Applying works the damage out per target through that target's resistances and updates the sheets.
@@ -93,11 +93,11 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
     // One chat line, built from sentences so every reader gets it in their own language.
     const sentences = [
       {
-        key: '{attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}.',
+        key: '{attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}.',
         params: {
           attacker: attackerName,
           target: token.name,
-          mastery: { t: pending.masteryLabel },
+          weapon: pending.weaponName,
           total: clean.total,
           defence: { t: `${capitalise(t.defenceKind)} Defence` },
           value: t.defence,
@@ -125,17 +125,44 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
     lines.push({ message: joinSentences(sentences), hidden: token.hidden });
   }
 
-  // The attacker pays AP and, on a natural 1, may gain Exposed.
-  if (pending.characterId != null && (clean.ap > 0 || clean.exposed)) {
+  // The attacker pays: AP, the Enhancements' costs (damage, statuses, item uses), and on a natural 1 gains Exposed.
+  const costs = pending.costs ?? { damage: [], statuses: [], items: [] };
+  const pays = clean.ap > 0 || clean.exposed || costs.damage.length || costs.statuses.length || costs.items.length;
+  if (pending.characterId != null && pays) {
+    const notes = [];
     const sheet = await sheets.updateSheet(db, pending.characterId, (s) => {
       const next = structuredClone(s);
       next.ap.current = Math.max(0, next.ap.current - clean.ap);
       if (clean.exposed) next.statuses = { ...next.statuses, exposed: (next.statuses?.exposed ?? 0) + 1 };
+      for (const d of costs.damage) {
+        const res = d.kind === 'true' ? { damage: d.amount, heal: 0 } : applyResistance(next.resistances?.[d.kind], d.amount);
+        const before = next.hp.current;
+        next.hp.current = Math.min(next.hp.max, Math.max(0, before - res.damage + res.heal));
+        notes.push({ key: '{name} takes {n} {kind} damage as a cost (HP {from} to {to}).', params: { name: attackerName, n: res.damage, kind: { t: d.kind === 'true' ? 'True' : capitalise(d.kind) }, from: before, to: next.hp.current } });
+      }
+      for (const st of costs.statuses) {
+        const info = D.STATUSES.find((x) => x.key === st.key);
+        if (!info) continue;
+        const have = next.statuses?.[st.key] ?? 0;
+        next.statuses = { ...next.statuses, [st.key]: info.stackable ? have + st.stacks : 1 };
+        notes.push({ key: '{name} gains {status} as a cost.', params: { name: attackerName, status: { t: info.stackable ? `${info.name} ${st.stacks}` : info.name } } });
+      }
+      for (const c of costs.items) {
+        const item = next.items.find((i) => i.id === c.itemId);
+        if (!item) continue;
+        item.uses.current = Math.max(0, item.uses.current - c.uses);
+        notes.push({ key: '{name} spends {n} uses of {item}.', params: { name: attackerName, n: c.uses, item: item.name } });
+      }
       return sheets.normalizeSheet(next);
     });
     emitSheet(pending.characterId, sheet);
     if (clean.ap > 0) lines.push({ message: { key: '{name} spends {n} AP.', params: { name: attackerName, n: clean.ap } }, hidden: false });
+    for (const m of notes) lines.push({ message: m, hidden: false });
     if (clean.exposed) lines.push({ message: { key: '{name} gains Exposed 1 (natural 1).', params: { name: attackerName } }, hidden: false });
+  }
+  // Unique Effects have no automation: they are only told to the table.
+  for (const u of pending.unique ?? []) {
+    lines.push({ message: { key: '{source}: {name}. {text}', params: { source: u.source, name: u.name, text: u.text } }, hidden: false });
   }
   return { lines };
 }

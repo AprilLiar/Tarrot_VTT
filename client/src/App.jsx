@@ -8,6 +8,7 @@ import Shell from './components/Shell.jsx';
 import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
 import ScenePage from './components/scene/ScenePage.jsx';
+import ArcanePage from './components/arcane/ArcanePage.jsx';
 import { useIsDesktop } from './lib/useMedia.js';
 import { MusicProvider } from './music/MusicContext.jsx';
 import MusicBar from './music/MusicBar.jsx';
@@ -73,6 +74,7 @@ function Screen() {
         <Route path="/" element={<Roster />} />
         <Route path="/character/:id" element={<GmSheetRoute />} />
         <Route path="/scene" element={<SceneFrame />} />
+        <Route path="/arcane" element={<main className="mx-auto max-w-3xl p-3"><ArcanePage s={null} /></main>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

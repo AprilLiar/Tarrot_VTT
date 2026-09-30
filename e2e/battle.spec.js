@@ -410,13 +410,16 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
 
   await expect(p.getByTestId('remote-ap')).toHaveText('4/4');
   await p.getByTestId('target-option').filter({ hasText: npc }).click();
+  // Attack opens the Arcane tab; the target is mirrored there. Precise Attack (1 AP) makes it a 2 AP attack.
   await p.getByTestId('attack-open').click();
-  await expect(p.getByTestId('attack-target-name')).toHaveText(npc);
-  await p.getByTestId('attack-mastery-stances').click();
-  await p.getByTestId('attack-defence-physical').click();
-  await p.getByTestId('attack-ap-2').click();
-  await expect(p.getByTestId('attack-preview')).toContainText('Mastery: Stances');
-  await p.getByTestId('attack-roll').click();
+  await expect(p.getByTestId('arcane')).toBeVisible();
+  await expect(p.getByTestId('target-option').filter({ hasText: npc })).toHaveAttribute('aria-pressed', 'true');
+  await expect(p.getByTestId('arcane-chosen')).toHaveText('Unarmed Attack');
+  await p.getByTestId('enhancement').filter({ hasText: 'Precise Attack' }).getByTestId('enh-plus').click();
+  await expect(p.getByTestId('arcane-chosen')).toContainText('Precise Attack');
+  await expect(p.getByTestId('arcane-modifier')).toContainText('d20 +');
+  await expect(p.getByTestId('arcane-modifier')).toContainText('Advantage 1');
+  await p.getByTestId('arcane-done').click();
 
   // The card pops up on the GM's screen with the target already on it.
   const card = gm.getByTestId('attack-card');
@@ -436,15 +439,17 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await expect(card).toHaveCount(0);
 
   // The attacker spent 2 AP.
+  await p.getByTestId('view-sheet').click();
   await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
 
   // A second attack can be discarded. The chat, being closed on the GM's screen, pops the roll up briefly.
   await p.getByTestId('attack-open').click();
-  await p.getByTestId('attack-roll').click();
-  await expect(gm.getByTestId('chat-popup').first()).toContainText('Stances attack');
+  await p.getByTestId('arcane-done').click();
+  await expect(gm.getByTestId('chat-popup').first()).toContainText('Weapon Attack Roll');
   await expect(gm.getByTestId('attack-card')).toBeVisible();
   await gm.getByTestId('attack-discard').click();
   await expect(gm.getByTestId('attack-card')).toHaveCount(0);
+  await p.getByTestId('view-sheet').click();
   await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
 
   await ctx.close();
@@ -493,13 +498,15 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   await p.getByTestId('ap-current').press('Enter');
   await expect(p.getByTestId('remote-ap')).toHaveText('1/4');
   await p.getByTestId('attack-open').click();
-  await expect(p.getByTestId('attack-ap-2')).toBeDisabled();
-  await expect(p.getByTestId('attack-ap-1')).toBeEnabled();
-  await p.getByTestId('attack-ap-1').click();
-  await p.getByTestId('attack-roll').click();
+  await p.getByTestId('enhancement').filter({ hasText: 'Power Attack' }).getByTestId('enh-plus').click();
+  await expect(p.getByTestId('arcane-done')).toBeDisabled();
+  await expect(p.getByTestId('attack-blocked')).toContainText('Not enough AP');
+  await p.getByTestId('enhancement').filter({ hasText: 'Power Attack' }).getByTestId('enh-minus').click();
+  await p.getByTestId('arcane-done').click();
   await expect(gm.getByTestId('attack-card')).toBeVisible();
   await expect(gm.getByTestId('attack-target')).toHaveCount(1);
   await gm.getByTestId('attack-discard').click();
+  await p.getByTestId('view-sheet').click();
 
   // With 0 AP there is no attack at all.
   await p.getByTestId('ap-current').fill('0');
@@ -659,5 +666,73 @@ test('the Area size has arrows to the right of the field', async ({ browser }) =
   const f = await field.boundingBox();
   const up = await gm.getByTestId('template-size-up').boundingBox();
   expect(up.x).toBeGreaterThanOrEqual(f.x + f.width);
+  await gmCtx.close();
+});
+
+test('arcane: a Weapon item, the range warning, Unique Effects, and Enhancements for one character or for everyone', async ({ browser }) => {
+  const pc = `Archer-${uid()}`;
+  const npc = `Target-${uid()}`;
+  const fury = `Fury-${uid()}`;
+  const coat = `Coat-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Range-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+
+  // An item with the Weapon switch on: range 0, a d6 bonus die and a Unique Effect.
+  await p.getByTestId('add-item').click();
+  await p.getByLabel('Name', { exact: true }).fill('Bow');
+  await p.getByTestId('item-weapon').check();
+  await p.getByLabel('Range', { exact: true }).fill('0');
+  await p.getByTestId('add-die').click();
+  await p.getByTestId('add-unique').click();
+  await p.getByLabel('Effect name').fill('Pin');
+  await p.getByLabel('What it does (shown in the chat)').fill('It cannot move.');
+  await p.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(p.getByTestId('item')).toHaveAttribute('data-weapon', 'true');
+
+  // The GM makes an Enhancement for everyone; the player makes one for their character only.
+  await gm.getByTestId('nav-arcane').click();
+  await expect(gm.getByTestId('arcane-tab-general')).toBeVisible();
+  await gm.getByTestId('add-enhancement').click();
+  await gm.getByTestId('enh-name').fill(fury);
+  await gm.getByTestId('enh-repeatable').check();
+  await gm.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(gm.getByTestId('global-enhancement').filter({ hasText: fury })).toBeVisible();
+
+  await p.getByTestId('target-option').filter({ hasText: npc }).click();
+  await p.getByTestId('attack-open').click();
+  const enh = (name) => p.getByTestId('enhancement').filter({ hasText: name });
+  await expect(enh(fury)).toContainText('Everyone');
+  await p.getByTestId('add-enhancement').click();
+  await p.getByTestId('enh-name').fill(coat);
+  await p.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(enh(coat)).toContainText('This character');
+  await expect(gm.getByTestId('global-enhancement').filter({ hasText: coat })).toHaveCount(0); // not shared
+
+  // The weapon is listed; choosing it shows the total modifier and the extra die in the footer.
+  await p.getByTestId('weapon-option').filter({ hasText: 'Bow' }).click();
+  await expect(p.getByTestId('arcane-chosen')).toHaveText('Bow');
+  await expect(p.getByTestId('arcane-modifier')).toContainText('+d6');
+
+  // The target is 1 Space away and the range is 0: a warning first, and the attack still goes ahead.
+  await p.getByTestId('arcane-done').click();
+  await expect(p.getByTestId('range-warning')).toContainText(npc);
+  await p.getByTestId('range-yes').click();
+  const card = gm.getByTestId('attack-card');
+  await expect(card).toBeVisible();
+  await expect(gm.getByRole('dialog', { name: /attacks with Bow/ })).toBeVisible();
+  await expect(card.getByTestId('attack-unique')).toContainText('Pin');
+  await card.getByTestId('attack-apply').click();
+  await expect(card).toHaveCount(0);
+
+  await ctx.close();
   await gmCtx.close();
 });

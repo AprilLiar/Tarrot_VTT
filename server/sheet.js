@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as D from '../shared/rules-data.js';
 import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
+import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
 
 // The character sheet lives as one JSON document per character
 // (characters.sheet). Every write goes through `normalizeSheet`, so a sheet
@@ -59,6 +60,8 @@ function normalizeItem(raw) {
     uses: { current: clampInt(r.uses?.current, 0, max, max), max },
     states,
     state: states.includes(r.state) ? r.state : '',
+    // A Weapon item shows up in the Arcane tab (General); null for an ordinary item.
+    weapon: r.weapon && typeof r.weapon === 'object' ? normalizeWeapon(r.weapon) : null,
   };
 }
 
@@ -97,6 +100,9 @@ export function normalizeSheet(raw) {
     skills: {},
     features: (Array.isArray(r.features) ? r.features : []).slice(0, MAX_FEATURES).map(normalizeFeature),
     items: (Array.isArray(r.items) ? r.items : []).slice(0, MAX_ITEMS).map(normalizeItem),
+    // The Unarmed Attack every character has (it can be changed, never removed) and the character's own Enhancements.
+    unarmed: normalizeWeapon(r.unarmed, defaultUnarmed()),
+    enhancements: (Array.isArray(r.enhancements) ? r.enhancements : []).slice(0, MAX_ENHANCEMENTS).map((e) => normalizeEnhancement(e, randomUUID())),
     resistances: {},
     statuses: {},
   };
@@ -160,6 +166,10 @@ export function applySet(sheet, path, value, character) {
       break;
     case 'experience':
       next.experience = intIn(value, D.EXPERIENCE_MIN, D.EXPERIENCE_MAX, T('Experience Modifier'));
+      break;
+    case 'unarmed':
+      if (!value || typeof value !== 'object') throw bad('Invalid weapon.');
+      next.unarmed = normalizeWeapon(value, defaultUnarmed());
       break;
     case 'stats':
       unknownKey(D.STATS);
@@ -249,6 +259,7 @@ export function applyList(sheet, list, action, p = {}) {
         uses: { current: max, max },
         states: [],
         state: '',
+        weapon: p.weapon ? normalizeWeapon(p.weapon) : null,
       });
     } else if (action === 'update') {
       const it = arr[find(arr, p.id)];
@@ -267,6 +278,7 @@ export function applyList(sheet, list, action, p = {}) {
         if (typeof p.state !== 'string') throw bad('Invalid state.');
         it.state = p.state;
       }
+      if (p.weapon !== undefined) it.weapon = p.weapon ? normalizeWeapon(p.weapon) : null;
     } else if (action === 'use') {
       const it = arr[find(arr, p.id)];
       if (it.uses.current <= 0) throw bad('No uses left.', 'no_uses');
@@ -275,6 +287,21 @@ export function applyList(sheet, list, action, p = {}) {
       if (arr.length >= MAX_ITEMS) throw bad('Too many items.', 'limit');
       const i = find(arr, p.id);
       arr.splice(i + 1, 0, { ...structuredClone(arr[i]), id: randomUUID() });
+    } else if (action === 'remove') {
+      arr.splice(find(arr, p.id), 1);
+    } else throw bad('Unknown action.', 'bad_action');
+    return normalizeSheet(next);
+  }
+
+  if (list === 'enhancements') {
+    const arr = next.enhancements;
+    if (action === 'add') {
+      if (arr.length >= MAX_ENHANCEMENTS) throw bad('Too many Enhancements.', 'limit');
+      arr.push(normalizeEnhancement(p.enhancement, randomUUID()));
+      arr[arr.length - 1].id = randomUUID();
+    } else if (action === 'update') {
+      const i = find(arr, p.id);
+      arr[i] = { ...normalizeEnhancement(p.enhancement, p.id), id: p.id };
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

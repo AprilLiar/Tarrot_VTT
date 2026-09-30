@@ -3,6 +3,8 @@ import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { NumField } from './fields.jsx';
 import * as D from '../../../../shared/rules-data.js';
+import { WeaponFields, weaponToForm, weaponValid, formToWeapon } from '../arcane/editors.jsx';
+import { defaultWeapon } from '../../../../shared/arcane.js';
 import { useT } from '../../i18n.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -143,6 +145,7 @@ function ItemDialog({ s, item, onClose }) {
   const [maxUses, setMaxUses] = useState(String(item?.uses.max ?? 1));
   const [states, setStates] = useState(item?.states ?? []);
   const [newState, setNewState] = useState('');
+  const [weapon, setWeapon] = useState(() => (item?.weapon ? weaponToForm(item.weapon) : null)); // null: not a weapon
   const max = Number(maxUses);
   const validMax = Number.isInteger(max) && max >= 1 && max <= D.ITEM_USES_MAX;
 
@@ -157,11 +160,11 @@ function ItemDialog({ s, item, onClose }) {
       title={item ? t('Edit item') : t('New item')}
       submitLabel={item ? t('Save') : t('Add')}
       onClose={onClose}
-      canSubmit={name.trim().length > 0 && validMax}
+      canSubmit={name.trim().length > 0 && validMax && (!weapon || weaponValid(weapon))}
       run={() =>
         item
-          ? s.list('items', 'update', { id: item.id, name, description, usesMax: max, states })
-          : s.list('items', 'add', { name, description, usesMax: max })
+          ? s.list('items', 'update', { id: item.id, name, description, usesMax: max, states, weapon: weapon ? formToWeapon(weapon) : null })
+          : s.list('items', 'add', { name, description, usesMax: max, weapon: weapon ? formToWeapon(weapon) : null })
       }
     >
       <TextInputs name={name} setName={setName} description={description} setDescription={setDescription} />
@@ -169,6 +172,11 @@ function ItemDialog({ s, item, onClose }) {
         {t('Max uses (1 to {max})', { max: D.ITEM_USES_MAX })}
         <input className={input} inputMode="numeric" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
       </label>
+      <label className="flex min-h-10 items-center gap-2 text-sm">
+        <input type="checkbox" className="h-5 w-5" data-testid="item-weapon" checked={!!weapon} onChange={(e) => setWeapon(e.target.checked ? weaponToForm(defaultWeapon()) : null)} />
+        {t('Weapon (shown in the Arcane tab)')}
+      </label>
+      {weapon && <WeaponFields form={weapon} setForm={setWeapon} />}
       {item && (
         <div className="flex flex-col gap-2 text-sm">
           {t('State options')}
@@ -279,9 +287,10 @@ function ItemCard({ s, item }) {
   const empty = item.uses.current === 0;
 
   return (
-    <div className={card} data-testid="item">
+    <div className={`${card} ${item.weapon ? '!border-amber-400/40 !bg-amber-500/10' : ''}`} data-testid="item" data-weapon={item.weapon ? 'true' : 'false'}>
       <button className="flex w-full items-center gap-2 text-left" onClick={() => setOpen(!open)}>
         <span className={`min-w-0 flex-1 truncate font-medium ${empty ? 'opacity-50' : ''}`}>{item.name}</span>
+        {item.weapon && <span className="shrink-0 rounded bg-amber-500/30 px-1.5 text-xs">{t('Weapon')}</span>}
         {item.state && <StateTag state={item.state} />}
         <span className="shrink-0 text-sm opacity-70">
           {item.uses.current}/{item.uses.max}

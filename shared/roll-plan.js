@@ -16,7 +16,9 @@ export function formatExpression(terms) {
   return ['1d20', ...terms.map((t) => `${t.value < 0 ? '-' : '+'} ${Math.abs(t.value)}(${t.label})`)].join(' ');
 }
 
-// request: { kind: 'attribute'|'save'|'skill'|'mastery', key, advantage?, modifier? }
+// request: { kind: 'attribute'|'save'|'skill'|'mastery'|'weapon', key, advantage?, modifier?, dice? }
+// `dice` are Dice Roll Bonuses [{ sides, sign, source }]: each is rolled next to the d20 and added
+// (sign 1) or subtracted (sign -1). Their values are only known when the server rolls them.
 // `advantage` is the roller's own extra Advantage levels (negative = Disadvantage)
 // on top of whatever the character's statuses apply automatically.
 // -> { ok: true, title, terms, sources, net, mode, diceCount, expression } | { ok: false, error }
@@ -61,6 +63,12 @@ export function planRoll(sheet, request) {
     title = `${D.MASTERY_LABELS[key]} (Combat Mastery Roll)`;
     terms.push({ label: `Mastery: ${D.MASTERY_LABELS[key]}`, value: sheet.masteries[key] });
     terms.push({ label: T('Experience Modifier'), value: sheet.experience });
+  } else if (kind === 'weapon') {
+    // A basic weapon attack (an item weapon or Unarmed): the Prime stat plus the Experience Modifier.
+    title = 'Weapon Attack Roll';
+    const prime = D.skillStat(sheet.stats, { scaling: { prime: true } });
+    terms.push({ label: prime.label, value: prime.value });
+    terms.push({ label: T('Experience Modifier'), value: sheet.experience });
   } else {
     return fail('Unknown roll type.');
   }
@@ -69,6 +77,8 @@ export function planRoll(sheet, request) {
   const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
   for (const m of fx.modifiers) terms.push(m);
   if (modifier !== 0) terms.push({ label: T('Custom'), value: modifier });
+
+  const bonusDice = Array.isArray(request.dice) ? request.dice : [];
 
   const sources = [...fx.levels];
   if (manual !== 0) sources.push({ label: T('Manual'), levels: manual });
@@ -83,6 +93,7 @@ export function planRoll(sheet, request) {
     net,
     mode,
     diceCount: 1 + Math.abs(net),
-    expression: formatExpression(terms),
+    bonusDice,
+    expression: [formatExpression(terms), ...bonusDice.map((d) => `${d.sign < 0 ? '-' : '+'} 1d${d.sides}(${d.source})`)].join(' '),
   };
 }

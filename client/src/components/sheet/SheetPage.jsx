@@ -8,6 +8,8 @@ import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
+import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
+import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -24,6 +26,8 @@ export default function SheetPage({ characterId }) {
   const { identity, toast, setChatOpen } = useApp();
   const [data, setData] = useState(null); // { character, sheet }
   const [error, setError] = useState(null);
+  const [view, setView] = useState('sheet'); // 'sheet' | 'arcane'
+  const [draft, setDraft] = useState(emptyDraft); // the attack being drafted in the Arcane tab
 
   useEffect(() => {
     let live = true;
@@ -97,6 +101,20 @@ export default function SheetPage({ characterId }) {
         <span className="rounded bg-slate-700 px-2 py-0.5 text-xs">{character.type === 'pc' ? t('PC') : t('NPC')}</span>
       </div>
 
+      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label={t('View')}>
+        {[['sheet', t('Sheet')], ['arcane', t('Arcane')]].map(([id, text]) => (
+          <button key={id} role="tab" aria-selected={view === id} data-testid={`view-${id}`} className={`${btn} ${view === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setView(id)}>
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {view === 'arcane' ? (
+        <div className="pb-24">
+          <ArcanePage s={s} draft={draft} setDraft={setDraft} />
+        </div>
+      ) : (
+        <>
       <section className={`${card} grid grid-cols-2 gap-3`} aria-label={t('Vitals')}>
         <div>
           <div className="text-xs opacity-60">{t('Action Points')}</div>
@@ -174,7 +192,7 @@ export default function SheetPage({ characterId }) {
         </div>
       </section>
 
-      <BattleRemote s={s} />
+      <BattleRemote s={s} onAttack={() => setView('arcane')} />
       <Stats s={s} />
       <Masteries s={s} />
       <Skills s={s} />
@@ -184,6 +202,8 @@ export default function SheetPage({ characterId }) {
       <Statuses s={s} />
       <StageSection s={s} />
       <PicturesSection s={s} />
+        </>
+      )}
     </main>
   );
 }
