@@ -1,5 +1,6 @@
 import * as D from '../shared/rules-data.js';
 import { apMax, normalizeSheet } from './sheet.js';
+import { applyResistance } from '../shared/damage.js';
 import { AppError } from './errors.js';
 
 // The combat tracker. The state lives in server memory (`shared.combat`) and is tied to the
@@ -102,31 +103,9 @@ export function reconcile(combat, tokens) {
   return { gone, activeRemoved };
 }
 
-// ---- Damage through the resistance table -------------------------------------------
+// ---- Damage through the resistance table (shared/damage.js) -------------------------
 
-// Order: flat X first (positive takes less, negative takes more), then Half and Double.
-// Immunity takes nothing. Consumption takes nothing and heals half of the raw damage.
-// -> { damage, heal, steps }  (`steps` explains the number for the chat line)
-export function applyResistance(res, raw) {
-  const r = res ?? { flat: 0, half: false, double: false, immunity: false, consumption: false };
-  if (r.consumption) return { damage: 0, heal: Math.round(raw / 2), steps: [`Consumption: heals ${Math.round(raw / 2)}`] };
-  if (r.immunity) return { damage: 0, heal: 0, steps: ['Immune'] };
-  const steps = [];
-  let v = raw;
-  if (r.flat) {
-    v = Math.max(0, v - r.flat);
-    steps.push(`Resistance ${r.flat}: ${v}`);
-  }
-  if (r.half) {
-    v = Math.round(v / 2);
-    steps.push(`Half: ${v}`);
-  }
-  if (r.double) {
-    v *= 2;
-    steps.push(`Double: ${v}`);
-  }
-  return { damage: v, heal: 0, steps };
-}
+export { applyResistance };
 
 // ---- Turn start and turn end on a sheet ----------------------------------------------
 

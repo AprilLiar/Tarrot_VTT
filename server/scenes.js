@@ -347,6 +347,13 @@ export async function setActiveScene(db, id) {
 // PCs stand on the left; NPCs and temp NPCs on the right.
 const sideOf = (r) => (r.character_id != null && r.ctype === 'pc' ? 'left' : 'right');
 
+// Figures stand anywhere on the scene picture: (x, y) is the middle of their feet, as fractions of
+// the picture's width and height (0..1 is inside the picture; a figure may be dragged outside it).
+// A figure nobody has dragged yet has no spot (x and y are null): each screen puts it in the visible
+// part of the picture, PCs from the left and everyone else from the right, by `slot`.
+export const POS_MIN = -1;
+export const POS_MAX = 2;
+
 // The stage as one audience sees it. Hidden summons are removed for everyone
 // but the GM, on the server, so they are never sent to a player's screen.
 export async function buildStage(db, { forGm }) {
@@ -355,7 +362,7 @@ export async function buildStage(db, { forGm }) {
   const scene = await getScene(db, sceneId).catch(() => null);
   if (!scene) return { scene: null, summons: [] };
   const r = await db.execute({
-    sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.scale, s.hidden,
+    sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.scale, s.hidden, s.pos_x, s.pos_y,
                  c.name AS cname, c.type AS ctype, t.name AS tname, p.image_id AS image_id
           FROM stage_summons s
           LEFT JOIN characters c ON c.id = s.character_id
@@ -365,13 +372,21 @@ export async function buildStage(db, { forGm }) {
           ORDER BY s.position, s.id`,
     args: [sceneId],
   });
+  const seen = { left: 0, right: 0 };
   const summons = r.rows
-    .map((row) => ({
+    .map((row) => {
+      const side = sideOf(row);
+      return { row, side, slot: seen[side]++ };
+    })
+    .map(({ row, side, slot }) => ({
       id: Number(row.id),
       ownerKind: row.character_id != null ? 'character' : 'temp_npc',
       ownerId: n(row.character_id ?? row.temp_npc_id),
       name: row.cname ?? row.tname ?? '?',
-      side: sideOf(row),
+      side,
+      slot,
+      x: row.pos_x == null ? null : Number(row.pos_x),
+      y: row.pos_y == null ? null : Number(row.pos_y),
       pictureId: n(row.picture_id),
       imageId: row.image_id ?? null,
       scale: Number(row.scale),
@@ -415,6 +430,23 @@ export async function summon(db, owner, pictureId) {
   return Number(r.lastInsertRowid);
 }
 
+// Moves a figure to (x, y) and brings it to the front. `reset` takes its spot away, so it goes back
+// to the entry spot of its side.
+export async function moveSummon(db, id, { x, y, reset }) {
+  await getSummon(db, id);
+  if (reset === true) {
+    await db.execute({ sql: 'UPDATE stage_summons SET pos_x = NULL, pos_y = NULL WHERE id = ?', args: [id] });
+    return;
+  }
+  const ok = (v) => typeof v === 'number' && Number.isFinite(v) && v >= POS_MIN && v <= POS_MAX;
+  if (!ok(x) || !ok(y)) throw new AppError('bad_value', 'That spot is too far from the scene.');
+  const top = Number((await db.execute({ sql: 'SELECT COALESCE(MAX(position), 0) + 1 AS p FROM stage_summons', args: [] })).rows[0].p);
+  await db.execute({
+    sql: 'UPDATE stage_summons SET pos_x = ?, pos_y = ?, position = ? WHERE id = ?',
+    args: [Math.round(x * 10000) / 10000, Math.round(y * 10000) / 10000, top, id],
+  });
+}
+
 export async function summonOwner(db, id) {
   const row = await getSummon(db, id);
   return row.character_id != null
@@ -446,23 +478,4 @@ export async function updateSummon(db, id, { pictureId, scale, hidden }) {
     await db.execute({ sql: 'UPDATE stage_summons SET hidden = ? WHERE id = ?', args: [hidden ? 1 : 0, id] });
   }
   return row;
-}
-
-// Puts one side's summons into `ids` order. Only entries already on that side
-// of the active scene count; the other side keeps its slots.
-export async function reorderSide(db, side, ids) {
-  if (side !== 'left' && side !== 'right') throw new AppError('bad_value', 'Unknown side.');
-  if (!Array.isArray(ids) || ids.some((i) => !Number.isInteger(i))) throw new AppError('bad_id', 'Invalid order.');
-  const stage = await buildStage(db, { forGm: true });
-  if (!stage.scene) throw new AppError('no_scene', 'There is no active scene.');
-  const all = stage.summons; // already in position order
-  const sideIds = all.filter((s) => s.side === side).map((s) => s.id);
-  const wanted = ids.filter((i, idx) => sideIds.includes(i) && ids.indexOf(i) === idx);
-  const order = [...wanted, ...sideIds.filter((i) => !wanted.includes(i))];
-  let k = 0;
-  const merged = all.map((s) => (s.side === side ? order[k++] : s.id));
-  await db.batch(
-    merged.map((id, position) => ({ sql: 'UPDATE stage_summons SET position = ? WHERE id = ?', args: [position, id] })),
-    'write',
-  );
 }

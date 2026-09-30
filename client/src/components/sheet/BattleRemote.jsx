@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnPrimary } from '../Dialog.jsx';
+import { IntInput, isWholeNumber } from './fields.jsx';
+import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
+import { MASTERIES, MASTERY_LABELS } from '../../../../shared/rules-data.js';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
@@ -26,6 +29,7 @@ export function BattleRemote({ s }) {
   const battle = stage.battle;
   const [free, setFree] = useState(false);
   const [ask, setAsk] = useState(null); // { dc, dr, aps, movement }
+  const [attacking, setAttacking] = useState(false);
   if (stage.mode !== 'battle' || !battle?.imageId) return null;
 
   const token = battle.tokens.find((t) => t.ownerKind === 'character' && t.ownerId === s.characterId);
@@ -138,6 +142,10 @@ export function BattleRemote({ s }) {
           </>
         )}
 
+        <button className={`${btnPrimary} mt-3 w-full`} data-testid="attack-open" onClick={() => setAttacking(true)}>
+          Attack
+        </button>
+
         <div className="mt-3 text-sm opacity-70">Target</div>
         <div className="mt-1 flex flex-col gap-1" data-testid="target-list">
           {others.length === 0 && <p className="text-sm opacity-60">Nobody else is on the map.</p>}
@@ -160,6 +168,8 @@ export function BattleRemote({ s }) {
           )}
         </div>
       </div>
+
+      {attacking && <AttackDialog s={s} target={target} onClose={() => setAttacking(false)} />}
 
       {ask && (
         <Dialog title="Spend AP to move?" onClose={() => setAsk(null)}>
@@ -185,5 +195,84 @@ export function BattleRemote({ s }) {
         </Dialog>
       )}
     </section>
+  );
+}
+
+// Picks the Combat Mastery, the AP cost and any Advantage, then rolls. The roll goes to the chat and the
+// GM gets a card to confirm it (they choose the damage and the targets there).
+function AttackDialog({ s, target, onClose }) {
+  const { toast } = useApp();
+  const [mastery, setMastery] = useState(MASTERIES[0]);
+  const [ap, setAp] = useState(1);
+  const [manual, setManual] = useState(0);
+  const [modifier, setModifier] = useState('0');
+  const [busy, setBusy] = useState(false);
+  const valid = isWholeNumber(modifier) && Math.abs(Number(modifier)) <= 99;
+  const plan = planRoll(s.sheet, { kind: 'mastery', key: mastery, advantage: manual, modifier: valid ? Number(modifier) : 0 });
+
+  async function roll() {
+    setBusy(true);
+    const r = await call('attack:roll', { characterId: s.characterId, mastery, ap, advantage: manual, modifier: Number(modifier) });
+    setBusy(false);
+    if (!r.ok) toast(r.error);
+    else onClose();
+  }
+
+  return (
+    <Dialog title="Attack" onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <div className="text-sm opacity-80">
+          Target: <span data-testid="attack-target-name">{target ? target.name : 'none chosen (the GM can add targets)'}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Combat Mastery">
+          {MASTERIES.map((m) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={mastery === m}
+              data-testid={`attack-mastery-${m}`}
+              className={`${btn} ${mastery === m ? 'ring-2 ring-violet-400' : ''}`}
+              onClick={() => setMastery(m)}
+            >
+              {MASTERY_LABELS[m]}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="AP cost">
+          {[1, 2].map((n) => (
+            <button key={n} role="radio" aria-checked={ap === n} data-testid={`attack-ap-${n}`} className={`${btn} ${ap === n ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setAp(n)}>
+              {n} AP
+            </button>
+          ))}
+        </div>
+        {plan.ok && (
+          <div className="rounded-lg bg-white/5 p-3 text-sm" data-testid="attack-preview">
+            {plan.expression}
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="flex-1">Extra Advantage levels</span>
+          <button type="button" aria-label="Fewer levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.max(-MAX_MANUAL_LEVELS, manual - 1))}>
+            -
+          </button>
+          <span className="w-8 text-center text-lg">{manual}</span>
+          <button type="button" aria-label="More levels" className={`${btn} min-w-12`} onClick={() => setManual(Math.min(MAX_MANUAL_LEVELS, manual + 1))}>
+            +
+          </button>
+        </div>
+        <label className="flex flex-col gap-1 text-sm">
+          Custom modifier
+          <IntInput label="Custom modifier" value={modifier} onChange={setModifier} />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button className={btn} onClick={onClose}>
+            Cancel
+          </button>
+          <button className={btnPrimary} data-testid="attack-roll" disabled={!valid || !plan.ok || busy} onClick={roll}>
+            Roll attack
+          </button>
+        </div>
+      </div>
+    </Dialog>
   );
 }

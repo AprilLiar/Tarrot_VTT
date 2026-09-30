@@ -6,6 +6,7 @@ import { cleanChatText } from './chat.js';
 import { AppError } from './errors.js';
 import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
+import { registerAttackHandlers } from './attackHandlers.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
@@ -295,6 +296,10 @@ export function registerHandlers(io, socket, db, shared) {
     shared,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
   });
+
+  // ---- Attacks ---------------------------------------------------------------
+
+  registerAttackHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
 
   // ---- Music -----------------------------------------------------------------
 

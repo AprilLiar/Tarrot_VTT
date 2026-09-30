@@ -219,10 +219,15 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
   });
 
-  // The GM and the Display Screen can rearrange a side by dragging.
-  on('stage:reorder', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can reorder.');
-    await scenes.reorderSide(db, p.side, p.ids);
+  // Dragging a figure anywhere on the scene: the GM, the Display, or a player for their own PC.
+  on('stage:move', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) {
+      const owner = await scenes.summonOwner(db, p.id);
+      if (!isPlayer() || owner.kind !== 'character' || owner.id !== identity().characterId) {
+        throw new AppError('forbidden', 'You can only move your own character.');
+      }
+    }
+    await scenes.moveSummon(db, p.id, { x: p.x, y: p.y, reset: p.reset });
     await broadcastStage();
   });
 

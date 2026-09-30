@@ -335,6 +335,18 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
         <button className={btn} data-testid="cast-pictures" onClick={onPictures}>
           Pictures
         </button>
+        {onStage && !battleMode && (
+          <button
+            className={btn}
+            data-testid="cast-reset-spot"
+            onClick={async () => {
+              const r = await call('stage:move', { id: onStage.id, reset: true });
+              if (!r.ok) toast(r.error);
+            }}
+          >
+            Reset spot
+          </button>
+        )}
         {extra}
       </div>
     </div>
