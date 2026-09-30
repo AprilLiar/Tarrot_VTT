@@ -364,6 +364,58 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
   );
 }
 
+// The characters in their folders (as on the Characters page). Folders are collapsed until opened; a search opens
+// every folder that holds a match.
+function CharacterTree({ folders, characters, searching, renderRow }) {
+  const t = useT();
+  const [open, setOpen] = useState(() => new Set());
+  const inside = (folderId) => characters.filter((c) => c.folderId === folderId);
+  const total = (folderId) => inside(folderId).length + folders.filter((f) => f.parentId === folderId).reduce((n, f) => n + total(f.id), 0);
+  const toggle = (id) =>
+    setOpen((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  function branch(parentId, depth) {
+    return (
+      <>
+        {folders
+          .filter((f) => f.parentId === parentId && (!searching || total(f.id) > 0))
+          .map((f) => {
+            const shown = searching || open.has(f.id);
+            return (
+              <li key={`f${f.id}`} style={{ paddingLeft: depth ? 12 : 0 }} data-testid="cast-folder-item">
+                <button
+                  data-testid="cast-folder"
+                  data-name={f.name}
+                  aria-expanded={shown}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left font-medium active:bg-white/10"
+                  onClick={() => toggle(f.id)}
+                >
+                  <span aria-hidden>{shown ? '[-]' : '[+]'}</span>
+                  <span className="flex-1 truncate">{f.name}</span>
+                  <span className="text-xs opacity-60" aria-label={t('{n} characters', { n: total(f.id) })}>
+                    {total(f.id)}
+                  </span>
+                </button>
+                {shown && <ul className="flex flex-col gap-2 pb-2">{branch(f.id, depth + 1)}</ul>}
+              </li>
+            );
+          })}
+        {inside(parentId).map((c) => (
+          <li key={`c${c.id}`} style={{ paddingLeft: depth ? 12 : 0 }}>
+            {renderRow(c)}
+          </li>
+        ))}
+      </>
+    );
+  }
+  return <ul className="flex flex-col gap-2">{branch(null, 0)}</ul>;
+}
+
 export function CastDrawer({ onClose }) {
   const t = useT();
   const { roster, library, stage } = useApp();
@@ -380,18 +432,22 @@ export function CastDrawer({ onClose }) {
       <input className={`${input} mb-3`} placeholder={t('Search')} value={query} onChange={(e) => setQuery(e.target.value)} />
 
       <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">{t('Characters')}</h3>
-      <div className="mb-4 flex flex-col gap-2">
+      <div className="mb-4">
         {characters.length === 0 && <p className="text-sm opacity-60">{t('No characters.')}</p>}
-        {characters.map((c) => (
-          <CastRow
-            key={c.id}
-            owner={{ kind: 'character', id: c.id }}
-            name={c.name}
-            badge={c.type === 'pc' ? T('PC') : T('NPC')}
-            stage={stage}
-            onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: c.name }), owner: { characterId: c.id } })}
-          />
-        ))}
+        <CharacterTree
+          folders={roster?.folders ?? []}
+          characters={characters}
+          searching={q.length > 0}
+          renderRow={(c) => (
+            <CastRow
+              owner={{ kind: 'character', id: c.id }}
+              name={c.name}
+              badge={c.type === 'pc' ? T('PC') : T('NPC')}
+              stage={stage}
+              onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: c.name }), owner: { characterId: c.id } })}
+            />
+          )}
+        />
       </div>
 
       <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">{t('Temp NPCs')}</h3>

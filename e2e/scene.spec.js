@@ -309,3 +309,50 @@ test('a phone GM sees the scene and can hide a character by tapping it', async (
   await ctx.close();
   await gm.context.close();
 });
+
+test('the Cast drawer keeps characters in folders that start collapsed; names sit above the figures', async ({ browser }) => {
+  const folder = `Party-${uid()}`;
+  const inside = `Inside-${uid()}`;
+  const outside = `Outside-${uid()}`;
+  const { context, page: gm } = await gmPage(browser);
+  await gm.getByTestId('new-folder').click();
+  await gm.getByLabel('Name').fill(folder);
+  await gm.getByRole('button', { name: 'Create' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
+  await gm.getByTestId('new-character').click();
+  await gm.getByLabel('Name').fill(inside);
+  await gm.getByLabel('Folder').selectOption({ label: folder });
+  await gm.getByRole('button', { name: 'Create' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
+  await createCharacter(gm, outside, 'PC');
+  await createAndActivateScene(gm, `Hall-${uid()}`);
+
+  await gm.getByTestId('open-cast').click();
+  const folderButton = gm.getByTestId('cast-folder').filter({ hasText: folder });
+  await expect(folderButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(gm.getByTestId('cast-row').filter({ hasText: outside })).toBeVisible(); // not in a folder: always listed
+  await expect(gm.getByTestId('cast-row').filter({ hasText: inside })).toHaveCount(0);
+  await folderButton.click();
+  await expect(folderButton).toHaveAttribute('aria-expanded', 'true');
+  const row = gm.getByTestId('cast-row').filter({ hasText: inside });
+  await expect(row).toBeVisible();
+  await folderButton.click();
+  await expect(row).toHaveCount(0);
+  // A search opens the folders that hold a match.
+  await gm.getByPlaceholder('Search').fill(inside);
+  await expect(row).toBeVisible();
+
+  await row.getByTestId('cast-pictures').click();
+  await gm.getByTestId('picture-file').setInputFiles(PNG);
+  await expect(gm.getByTestId('picture')).toHaveCount(1);
+  await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await row.getByTestId('summon-cast').click();
+  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+
+  // The name plaque is above the picture.
+  const fig = figure(gm, inside);
+  const plaque = await fig.getByTestId('name-plaque').boundingBox();
+  const picture = await fig.locator('img').boundingBox();
+  expect(plaque.y + plaque.height).toBeLessThanOrEqual(picture.y + 1);
+  await context.close();
+});
