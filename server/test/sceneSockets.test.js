@@ -316,29 +316,42 @@ describe('the stage', () => {
     expect((await g.call('stage:get')).stage.summons.map((s) => s.name)).toEqual(['Aria']);
   });
 
-  it('reorders one side without disturbing the other; the Display may do it, players may not', async () => {
+  it('gives every figure its own spot; the GM, the Display and the owner can drag it anywhere', async () => {
     const g = await gm();
     await setup(g);
     const pc = await pcWithPicture(g, 'Aria');
+    const other = await pcWithPicture(g, 'Bob');
     const n1 = await npcWithPicture(g, 'Alpha');
-    const n2 = await npcWithPicture(g, 'Beta');
-    const n3 = await npcWithPicture(g, 'Gamma');
-    await g.call('stage:summon', { characterId: n1.id });
-    await g.call('stage:summon', { characterId: pc.id });
-    await g.call('stage:summon', { characterId: n2.id });
-    await g.call('stage:summon', { characterId: n3.id });
-    const before = (await g.call('stage:get')).stage.summons;
-    const rightIds = before.filter((s) => s.side === 'right').map((s) => s.id);
+    for (const c of [pc, other, n1]) await g.call('stage:summon', { characterId: c.id });
+    let list = (await g.call('stage:get')).stage.summons;
+    const by = (name) => list.find((x) => x.name === name);
+    // Nobody has been dragged yet: no spot, only a slot on their side (PCs left, NPCs right).
+    expect(by('Aria')).toMatchObject({ x: null, y: null, side: 'left', slot: 0 });
+    expect(by('Bob')).toMatchObject({ x: null, side: 'left', slot: 1 });
+    expect(by('Alpha')).toMatchObject({ x: null, side: 'right', slot: 0 });
 
+    // The GM drags one far outside the picture.
+    expect((await g.call('stage:move', { id: by('Aria').id, x: -0.4, y: 1.3 })).ok).toBe(true);
+    list = (await g.call('stage:get')).stage.summons;
+    expect(by('Aria')).toMatchObject({ x: -0.4, y: 1.3 });
+    expect(list[list.length - 1].name).toBe('Aria'); // brought to the front
+
+    // The Display may too; nobody may go absurdly far.
     const d = await display();
-    const r = await d.call('stage:reorder', { side: 'right', ids: [...rightIds].reverse() });
-    expect(r.ok).toBe(true);
-    const after = (await g.call('stage:get')).stage.summons;
-    expect(after.filter((s) => s.side === 'right').map((s) => s.name)).toEqual(['Gamma', 'Beta', 'Alpha']);
-    expect(after.filter((s) => s.side === 'left').map((s) => s.name)).toEqual(['Aria']);
+    expect((await d.call('stage:move', { id: by('Alpha').id, x: 0.5, y: 0.5 })).ok).toBe(true);
+    expect(await d.call('stage:move', { id: by('Alpha').id, x: 9, y: 0.5 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await d.call('stage:move', { id: by('Alpha').id, x: 'a', y: 0.5 })).toMatchObject({ ok: false, code: 'bad_value' });
 
+    // A player moves only their own PC.
     const a = await player(pc.id);
-    expect(await a.call('stage:reorder', { side: 'right', ids: rightIds })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await a.call('stage:move', { id: by('Aria').id, x: 0.3, y: 0.8 })).ok).toBe(true);
+    expect(await a.call('stage:move', { id: by('Bob').id, x: 0.3, y: 0.8 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await a.call('stage:move', { id: by('Alpha').id, x: 0.3, y: 0.8 })).toMatchObject({ ok: false, code: 'forbidden' });
+
+    // Reset takes the spot away again.
+    expect((await g.call('stage:move', { id: by('Aria').id, reset: true })).ok).toBe(true);
+    list = (await g.call('stage:get')).stage.summons;
+    expect(by('Aria')).toMatchObject({ x: null, y: null });
   });
 
   it('removes a deleted character\'s art and stage entry', async () => {

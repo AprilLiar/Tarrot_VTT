@@ -194,38 +194,68 @@ test('the Display can zoom and pan its own view without affecting anyone else', 
   await gm.context.close();
 });
 
-test('the Display can drag a character to reorder its side for everyone', async ({ browser }) => {
+test('figures can be dragged anywhere, even off the picture, by the Display and by a player for their own PC', async ({ browser }) => {
   const a = `Alpha-${uid()}`;
-  const b = `Beta-${uid()}`;
+  const pc = `Hero-${uid()}`;
   const gm = await gmPage(browser);
   await createCharacter(gm.page, a, 'NPC');
-  await createCharacter(gm.page, b, 'NPC');
+  await createCharacter(gm.page, pc, 'PC');
   await createAndActivateScene(gm.page, `Arena-${uid()}`);
   await summon(gm.page, a);
-  await summon(gm.page, b);
-
-  const order = async (page) =>
-    page.getByTestId('side-right').getByTestId('stage-figure').evaluateAll((els) =>
-      els.sort((x, y) => x.getBoundingClientRect().left - y.getBoundingClientRect().left).map((e) => e.dataset.name),
-    );
+  await summon(gm.page, pc);
 
   const tv = await desktop(browser);
   const display = await open(tv, 'pick-display');
-  await expect(figure(display, b)).toBeVisible();
-  const before = await order(display);
-  // The first-summoned character stands nearest the edge (right-most).
-  expect(before).toEqual([b, a]);
+  await expect(figure(display, a)).toBeVisible();
+  await expect(figure(display, a)).toHaveAttribute('data-free', 'false');
+  const x0 = Number(await figure(display, a).getAttribute('data-x'));
 
+  // The Display drags the NPC to the left and up.
   const box = await figure(display, a).boundingBox();
-  const other = await figure(display, b).boundingBox();
   await display.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await display.mouse.down();
-  await display.mouse.move(other.x + 5, box.y + box.height / 2, { steps: 8 });
+  await display.mouse.move(box.x + box.width / 2 - 500, box.y + box.height / 2 - 150, { steps: 8 });
   await display.mouse.up();
+  await expect(figure(gm.page, a)).toHaveAttribute('data-free', 'true');
+  const moved = Number(await figure(gm.page, a).getAttribute('data-x'));
+  expect(moved).toBeLessThan(x0 - 0.1);
+  await expect.poll(async () => Number(await figure(display, a).getAttribute('data-x'))).toBeCloseTo(moved, 2);
 
-  await expect.poll(() => order(gm.page)).toEqual([a, b]);
-  await expect.poll(() => order(display)).toEqual([a, b]);
+  // Dragging far past the edge of the screen is allowed (up to a point).
+  const box2 = await figure(display, a).boundingBox();
+  await display.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await display.mouse.down();
+  await display.mouse.move(-200, box2.y + box2.height / 2, { steps: 8 });
+  await display.mouse.up();
+  await expect.poll(async () => Number(await figure(gm.page, a).getAttribute('data-x'))).toBeLessThan(0);
 
+  // A figure lost off screen comes back with Reset spot in the Cast drawer.
+  await gm.page.getByTestId('open-cast').click();
+  await gm.page.getByTestId('cast-row').filter({ has: gm.page.locator(`text="${a}"`) }).getByTestId('cast-reset-spot').click();
+  await expect(figure(gm.page, a)).toHaveAttribute('data-free', 'false');
+  await gm.page.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+
+  // A desktop player can drag their own PC, but not the NPC.
+  const playerCtx = await desktop(browser);
+  const player = await playerCtx.newPage();
+  await player.goto('/');
+  await player.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await player.getByTestId('nav-scene').click();
+  await expect(figure(player, pc)).toBeVisible();
+  const pb = await figure(player, pc).boundingBox();
+  await player.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
+  await player.mouse.down();
+  await player.mouse.move(pb.x + pb.width / 2 + 200, pb.y + pb.height / 2 - 100, { steps: 8 });
+  await player.mouse.up();
+  await expect(figure(gm.page, pc)).toHaveAttribute('data-free', 'true');
+  const nb = await figure(player, a).boundingBox();
+  await player.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
+  await player.mouse.down();
+  await player.mouse.move(nb.x + nb.width / 2 + 200, nb.y + nb.height / 2 - 100, { steps: 8 });
+  await player.mouse.up();
+  await expect(figure(gm.page, a)).toHaveAttribute('data-free', 'false');
+
+  await playerCtx.close();
   await tv.close();
   await gm.context.close();
 });

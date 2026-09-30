@@ -1,87 +1,110 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
+import { useElementSize } from '../../lib/useElementSize.js';
 import Dialog, { btn, btnDanger, input } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
 import BattleView from './BattleView.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 
-// The scene: a fullscreen picture with characters standing along the bottom in
-// the style of a light novel. PCs stand on the left, NPCs on the right.
+// The scene: a fullscreen picture with characters standing on it in the style of a
+// light novel. Each character has its own spot, given as fractions of the background
+// picture (the picture is scaled to cover the screen), and can stand outside it.
 //
 //  - Display Screen and desktop players see it without hidden characters (the
 //    server never sends them). The GM sees hidden characters half-transparent.
-//  - Everyone can zoom and pan their own view. The GM and the Display can drag a
-//    character to reorder its side; the GM can also open a character's menu.
+//  - Everyone can zoom and pan their own view. The GM and the Display can drag any
+//    character anywhere, a player can drag their own PC; the GM can also open a menu.
 
 const DRAG_THRESHOLD = 6;
 
-function Figure({ s, index, canDrag, menuOpen, onMenu, onDragEnd, zoomRef }) {
-  const [dx, setDx] = useState(0);
+const POS_MIN = -1;
+const POS_MAX = 2;
+const FIGURE_HEIGHT = 0.7; // of the picture's height, at size 1
+
+// `stageBox`: the picture's size on screen (unzoomed). A figure is anchored at the middle of its feet.
+function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
+  const [pending, setPending] = useState(null); // { x, y } while dragging and until the server answers
   const drag = useRef(null);
   const [entered, setEntered] = useState(false);
-  const [dragging, setDragging] = useState(false);
+  const { toast } = useApp();
   useEffect(() => {
     const t = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(t);
   }, []);
+  // The server's answer replaces the local position.
+  useEffect(() => {
+    setPending(null);
+  }, [s.x, s.y]);
 
+  const clamp = (v) => Math.min(POS_MAX, Math.max(POS_MIN, v));
   function down(e) {
     if (e.button === 2) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    drag.current = { x: e.clientX, moved: false };
+    drag.current = { cx: e.clientX, cy: e.clientY, moved: false, x: spot.x, y: spot.y };
+  }
+  function at(e, d) {
+    const k = zoomRef.current.scale;
+    return {
+      x: clamp(d.x + (e.clientX - d.cx) / k / (stageBox.w || 1)),
+      y: clamp(d.y + (e.clientY - d.cy) / k / (stageBox.h || 1)),
+    };
   }
   function move(e) {
     const d = drag.current;
-    if (!d) return;
-    const delta = e.clientX - d.x;
-    if (!d.moved && Math.abs(delta) < DRAG_THRESHOLD) return;
-    if (!canDrag) return;
-    if (!d.moved) setDragging(true);
+    if (!d || !canDrag) return;
+    if (!d.moved && Math.hypot(e.clientX - d.cx, e.clientY - d.cy) < DRAG_THRESHOLD) return;
     d.moved = true;
-    setDx(delta / zoomRef.current.scale);
+    setPending(at(e, d));
   }
-  function up(e) {
+  async function up(e) {
     const d = drag.current;
     drag.current = null;
     if (!d) return;
     if (d.moved && canDrag) {
-      onDragEnd(s, e.clientX);
-      setDx(0);
-      setDragging(false);
+      const spot = at(e, d);
+      setPending(spot);
+      const r = await call('stage:move', { id: s.id, ...spot });
+      if (!r.ok) {
+        toast(r.error);
+        setPending(null);
+      }
     } else if (!d.moved) {
       onMenu?.(s, e.currentTarget);
     }
   }
 
-  const from = s.side === 'left' ? '-40%' : '40%';
+  const pos = pending ?? spot;
+  const dragging = !!drag.current?.moved;
   return (
     <figure
       data-no-pan
       data-testid="stage-figure"
       data-summon-id={s.id}
       data-name={s.name}
+      data-x={pos.x.toFixed(3)}
+      data-y={pos.y.toFixed(3)}
+      data-free={s.x != null}
       data-hidden={s.hidden ? 'true' : 'false'}
-      className={`relative flex h-full shrink-0 touch-none select-none flex-col items-center ${canDrag ? 'cursor-grab' : ''} ${
-        s.hidden ? 'opacity-50' : ''
-      }`}
+      className={`absolute flex touch-none select-none flex-col items-center ${canDrag ? 'cursor-grab' : ''} ${s.hidden ? 'opacity-50' : ''}`}
       style={{
-        height: `${s.scale * 100}%`,
-        transform: entered ? `translateX(${dx}px)` : `translateX(${from})`,
+        left: `${pos.x * 100}%`,
+        top: `${pos.y * 100}%`,
+        height: `${s.scale * FIGURE_HEIGHT * 100}%`,
+        transform: 'translate(-50%, -100%)',
         opacity: entered ? undefined : 0,
-        transition: dragging ? 'none' : 'transform 0.5s ease-out, opacity 0.5s ease-out',
-        zIndex: dragging || menuOpen ? 20 : index,
+        transition: dragging || pending ? 'none' : 'opacity 0.5s ease-out',
+        zIndex: dragging || menuOpen ? 1000 : undefined,
       }}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={() => {
         drag.current = null;
-        setDx(0);
-        setDragging(false);
+        setPending(null);
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -163,6 +186,12 @@ function TokenSettings({ s, onClose }) {
           >
             Remove from stage
           </button>
+          <button className={btn} data-testid="reset-position" onClick={async () => {
+              const r = await call('stage:move', { id: s.id, reset: true });
+              if (!r.ok) toast(r.error);
+            }}>
+            Reset position
+          </button>
           <button className={btn} onClick={onClose}>
             Close
           </button>
@@ -176,58 +205,44 @@ function TokenSettings({ s, onClose }) {
 function SceneView() {
   const { identity, stage } = useApp();
   const isGm = identity.role === 'gm';
-  const canDrag = isGm || identity.role === 'display';
+  const isDisplay = identity.role === 'display';
   const { ref, view, bind, zoomBy, reset } = useZoomPan();
   const viewRef = useRef(view);
   viewRef.current = view;
-  const figures = useRef(new Map());
+  const { w, h } = useElementSize(ref);
+  const [nat, setNat] = useState(null); // the background picture's own size
   const [menu, setMenu] = useState(null); // { id, anchor }
   const [settings, setSettings] = useState(null);
 
   const summons = stage.summons;
-  const bySide = (side) => summons.filter((x) => x.side === side);
   const menuTarget = menu && summons.find((x) => x.id === menu.id);
+  const canDragFigure = (sum) =>
+    isGm || isDisplay || (identity.role === 'player' && sum.ownerKind === 'character' && sum.ownerId === identity.characterId);
 
-  // Drop: put the dragged figure where its centre now is, among its side's figures.
-  function onDragEnd(s, clientX) {
-    const others = bySide(s.side).filter((x) => x.id !== s.id);
-    let index = 0;
-    for (const o of others) {
-      const el = figures.current.get(o.id);
-      const r = el?.getBoundingClientRect();
-      if (!r) continue;
-      const centre = r.left + r.width / 2;
-      // The right side is laid out right to left, so its order runs the other way.
-      if (s.side === 'left' ? clientX > centre : clientX < centre) index += 1;
-    }
-    const ids = others.map((x) => x.id);
-    ids.splice(index, 0, s.id);
-    call('stage:reorder', { side: s.side, ids });
-  }
+  useEffect(() => {
+    setNat(null);
+  }, [stage.scene?.imageId]);
 
-  function renderSide(side) {
-    const list = bySide(side);
-    return (
-      <div
-        className={`absolute bottom-0 flex h-[76%] max-w-[48%] items-end gap-2 px-4 pb-16 ${side === 'left' ? 'left-0' : 'right-0 flex-row-reverse'}`}
-        data-testid={`side-${side}`}
-      >
-        {list.map((s, i) => (
-          <div key={s.id} ref={(el) => (el ? figures.current.set(s.id, el) : figures.current.delete(s.id))} className="h-full">
-            <Figure
-              s={s}
-              index={i}
-              canDrag={canDrag}
-              zoomRef={viewRef}
-              menuOpen={menu?.id === s.id}
-              onDragEnd={onDragEnd}
-              onMenu={isGm ? (sum, anchor) => setMenu({ id: sum.id, anchor }) : undefined}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  }
+  // The picture is scaled to cover the screen (centred, cropped); figures are placed on that picture.
+  const cover = nat && w && h ? Math.max(w / nat.w, h / nat.h) : null;
+  const box = cover
+    ? { w: nat.w * cover, h: nat.h * cover, left: (w - nat.w * cover) / 2, top: (h - nat.h * cover) / 2 }
+    : { w, h, left: 0, top: 0 };
+
+  // A figure nobody has dragged yet stands in the visible part of the picture: PCs from the left,
+  // everyone else from the right, one slot after another.
+  const spotOf = (sum) => {
+    if (sum.x != null && sum.y != null) return { x: sum.x, y: sum.y };
+    const x0 = Math.max(0, -box.left / (box.w || 1));
+    const x1 = Math.min(1, (w - box.left) / (box.w || 1));
+    const y0 = Math.max(0, -box.top / (box.h || 1));
+    const y1 = Math.min(1, (h - box.top) / (box.h || 1));
+    const along = 0.1 + 0.09 * (sum.slot % 8);
+    return {
+      x: sum.side === 'left' ? x0 + (x1 - x0) * along : x1 - (x1 - x0) * along,
+      y: y1 - (y1 - y0) * 0.04,
+    };
+  };
 
   return (
     <div
@@ -243,15 +258,33 @@ function SceneView() {
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >
         {stage.scene?.imageId ? (
-          <img src={imageUrl(stage.scene.imageId)} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" data-testid="scene-background" />
+          <img
+            src={imageUrl(stage.scene.imageId)}
+            alt=""
+            draggable={false}
+            className="absolute max-w-none"
+            style={{ left: box.left, top: box.top, width: box.w || '100%', height: box.h || '100%' }}
+            onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            data-testid="scene-background"
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-black" />
         )}
         {stage.scene && (
-          <>
-            {renderSide('left')}
-            {renderSide('right')}
-          </>
+          <div className="absolute" style={{ left: box.left, top: box.top, width: box.w, height: box.h }} data-testid="scene-stage">
+            {summons.map((sum) => (
+              <Figure
+                key={sum.id}
+                s={sum}
+                spot={spotOf(sum)}
+                stageBox={box}
+                canDrag={canDragFigure(sum)}
+                zoomRef={viewRef}
+                menuOpen={menu?.id === sum.id}
+                onMenu={isGm ? (x, anchor) => setMenu({ id: x.id, anchor }) : undefined}
+              />
+            ))}
+          </div>
         )}
       </div>
 

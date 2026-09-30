@@ -109,7 +109,7 @@ Implemented in Phase 2:
 Implemented in Phase 4a:
 - **Display Screen** is a third identity (`{ role: 'display' }`), meant for the desktop that faces
   the table. It shows only the active scene: no top bar, no chat, no sheets, no roster. It can zoom
-  and pan its own view and drag characters to reorder them for everyone, but cannot summon,
+  and pan its own view and drag characters anywhere for everyone, but cannot summon,
   dismiss, hide or change anything else. A faint "Switch" button in the corner returns to the
   picker. (decided)
 
@@ -119,10 +119,10 @@ Decided. The same identity behaves differently by device.
 
 | Variant | Gets |
 |---|---|
-| Display Screen | Desktop only. The active scene (and later Battle) with hidden things left out. Zoom, pan, drag to reorder. No menus. Plays the music and has a volume control. |
+| Display Screen | Desktop only. The active scene (and later Battle) with hidden things left out. Zoom, pan, drag figures. No menus. Plays the music and has a volume control. |
 | Mobile Player | No music. Controls only: sheet, D-pad "TV remote", targeting, ability use. Never renders Scenes. Can put their own PC on the stage or take it off from the sheet. |
 | Desktop Player | The sheet and a Scene tab (view only, own zoom and pan). Hidden things stay hidden. No music. |
-| Mobile GM | No music. Sees the scene too, can reorder, hide, reveal and summon, and can open any character's sheet to play as an NPC. |
+| Mobile GM | No music. Sees the scene too, can move figures, hide, reveal and summon, and can open any character's sheet to play as an NPC. |
 | Desktop GM | Full power: create and change scenes, characters, Hidden flags, all tools, and the music player (the GM hears it here). |
 
 - The scene fills the screen under the top bar. The GM's tools are two side drawers (Cast on the left, Scenes on the right); the Display Screen has none.
@@ -395,9 +395,16 @@ Implemented behaviour (Phase 3):
 
 ### Scene mode (implemented in Phase 4a)
 Light-novel style: a fullscreen background with character art standing along the bottom. Decided:
-- **Placement:** lineup order and size, not free placement. PCs stand on the left, NPCs and temp
-  NPCs on the right; the first summoned stands nearest its screen edge. The GM and the Display drag
-  a character to reorder its side; the GM sets each one's size (0.3 to 2) in Token Settings.
+- **Placement (changed after the Phase 4-5 playtest):** every figure is free. Nobody has to arrange
+  a lineup: a newly summoned figure stands in the visible part of the picture (PCs from the left,
+  NPCs and temp NPCs from the right, one slot after another) until someone drags it. The GM, the
+  Display, and a player (their own PC only, on a desktop) drag a figure anywhere, including partly or
+  fully off the picture (up to one picture width or height beyond each edge). A dragged figure
+  comes to the front. Positions are the middle of the figure's feet as fractions of the **background
+  picture** (which is scaled to cover the screen), so the spot sticks to the picture. **Reset spot**
+  (Cast drawer, or Token Settings) takes the spot away so the figure returns to its entry slot; use
+  it when a figure has been dragged out of reach. The GM sets each figure's size (0.3 to 2) in Token
+  Settings.
 - **Who is on the stage:** real characters (PC and NPC) and lightweight **temp NPCs**. A temp NPC
   is just a name and pictures, kept in its own folder tree, for narrative extras.
 - **Pictures:** each character or temp NPC has one collection of pictures (up to 20), used as Scene
@@ -576,8 +583,10 @@ Implemented:
   image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.
 - `temp_npc_folders`, `temp_npcs(id, name, folder_id)`.
 - `pictures(id, character_id | temp_npc_id, image_id, name, position)`: exactly one owner.
-- `stage_summons(id, scene_id, character_id | temp_npc_id, picture_id, position, scale, hidden)`.
-  A character or temp NPC appears once per scene. Side is derived: PCs left, everyone else right.
+- `stage_summons(id, scene_id, character_id | temp_npc_id, picture_id, position, scale, hidden, pos_x,
+  pos_y)`. A character or temp NPC appears once per scene. `pos_x`/`pos_y` (null until dragged) are
+  the figure's spot on the scene picture; `position` is the stacking order. Side (PCs left, everyone
+  else right) only decides the entry slot.
 - Deleting a character, temp NPC, scene or picture removes what depended on it by code, and
   deletes images that nothing uses.
 
@@ -650,7 +659,7 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
 - `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
   for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
 - `stage:summon` `{ owner, pictureId? }` and `stage:dismiss` `{ id }`: the GM for anyone; a player
-  for their own PC only. `stage:reorder` `{ side, ids }`: the GM and the Display.
+  for their own PC only. `stage:move` `{ id, x, y }` or `{ id, reset: true }`: the GM, the Display, or a player for their own PC (x and y between -1 and 2, fractions of the scene picture; the figure comes to the front). Summons in `stage` carry `x`, `y` (null when never dragged), `side` and `slot`.
 - Display sockets get no chat, sheets, roster or rolls.
 - Error codes added: `no_scene`, `no_picture`, `already_on_stage`, `bad_image`, `image_too_large`.
 
@@ -725,7 +734,7 @@ Each phase ends in a deploy and playtest checkpoint.
    - **4a Scenes** (implemented, awaiting playtest): image pipeline, scenes and folders, temp NPCs,
      pictures, stage with summoning, Hidden with the token menu, Display Screen, desktop and
      mobile GM views. Check: build a scene, summon PCs and NPCs, watch it on a Display in another
-     window, hide and reveal, reorder by dragging from the Display, join and leave from a phone.
+     window, hide and reveal, drag figures anywhere from the Display, join and leave from a phone.
      Covered by `server/test/sceneSockets.test.js` and `e2e/scene.spec.js`.
    - **4b Music** (implemented, awaiting playtest): YouTube playlists and player for the GM on
      desktop, synced playback on the Display, the music bar, volume. Check: add a playlist with two
