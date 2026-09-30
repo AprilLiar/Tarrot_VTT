@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 // Mobile viewport by default: the phone experience is the primary target.
 export default defineConfig({
   testDir: 'e2e',
+  // All tests share one server and one stage (active scene, mode, music), so they run one at a time.
+  workers: 1,
   webServer: {
     command: 'npm run build && PORT=3100 node server/index.js',
     url: 'http://localhost:3100/api/health',

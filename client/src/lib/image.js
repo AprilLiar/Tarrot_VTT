@@ -35,6 +35,11 @@ export function fitSize(w, h, { maxWidth, maxHeight }, extraShrink = 1) {
 
 // kind: 'background' | 'character'. Resolves to an ArrayBuffer ready to send.
 export async function prepareImage(file, kind) {
+  return (await prepareImageInfo(file, kind)).data;
+}
+
+// Same, and also says how big the resized picture is (a battle map needs its shape).
+export async function prepareImageInfo(file, kind) {
   if (!file || !file.type.startsWith('image/')) throw new Error('Choose an image file.');
   const img = await load(file);
   const limits = IMAGE_LIMITS[kind];
@@ -57,7 +62,7 @@ export async function prepareImage(file, kind) {
       blob = await toBlob(canvas, 'image/webp', 0.9);
       if (!blob || blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/png');
     }
-    if (blob && blob.size <= MAX_BYTES) return blob.arrayBuffer();
+    if (blob && blob.size <= MAX_BYTES) return { data: await blob.arrayBuffer(), width, height };
     shrink *= 0.8;
   }
   throw new Error('That image is too large even after resizing. Try a smaller one.');

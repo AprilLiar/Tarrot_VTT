@@ -28,7 +28,7 @@ Statuses: `decided`, `open`, `implemented`.
 - **Database:** Turso / libSQL in production, local `local.db` file in development. (decided)
 - **Hosting:** Render free tier (sleeps when idle, about 30-60s wake-up; no persistent disk). Keep
   boot and reads light. (decided)
-- **Tests:** Vitest for server logic, Playwright with a mobile viewport for flows. (decided)
+- **Tests:** Vitest for server logic, Playwright with a mobile viewport for flows. E2e tests run one at a time because they share one stage. (decided)
 - **Reference:** `AprilLiar/Custom-VTT` (Dogfight) for Scene, Music player, image pipeline, socket
   patterns. Tarrot is a rewrite from scratch, not a copy. (decided)
 - **Workflow:** merge to `main` = deploy. README updated in the same PR; CI job `readme-updated`
@@ -46,12 +46,14 @@ Repository layout:
 | `server/chat.js` | In-memory chat log. |
 | `server/errors.js` | `AppError`, the error type whose message is safe to show users. |
 | `server/scenes.js`, `server/sceneHandlers.js`, `server/images.js`, `server/folders.js` | Scenes, stage, temp NPCs, pictures, image storage, generic folder trees. |
+| `server/audio.js`, `server/audioHandlers.js` | Playlists, the anchored player state, YouTube link parsing, socket events. |
 | `shared/rules-data.js` | Rules data used by server and client: stats, skills, damage types, statuses. |
 | `server/db.js` | libSQL client, `initSchema` (idempotent, one batch). |
 | `server/index.js` | Boot: connect DB, init schema, listen on `$PORT` (default 3001). |
 | `server/test/` | Vitest tests (in-memory DB, ephemeral port). |
 | `client/src/` | React app. `socket.js` shared socket; `AppContext.jsx` identity, PC list, roster state. |
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
+| `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
@@ -117,11 +119,11 @@ Decided. The same identity behaves differently by device.
 
 | Variant | Gets |
 |---|---|
-| Display Screen | Desktop only. The active scene (and later Battle) with hidden things left out. Zoom, pan, drag to reorder. No menus. |
-| Mobile Player | Controls only: sheet, D-pad "TV remote", targeting, ability use. Never renders Scenes. Can put their own PC on the stage or take it off from the sheet. |
-| Desktop Player | The sheet and a Scene tab (view only, own zoom and pan). Hidden things stay hidden. |
-| Mobile GM | Sees the scene too, can reorder, hide, reveal and summon, and can open any character's sheet to play as an NPC. |
-| Desktop GM | Full power: create and change scenes, characters, Hidden flags, all tools. |
+| Display Screen | Desktop only. The active scene (and later Battle) with hidden things left out. Zoom, pan, drag to reorder. No menus. Plays the music and has a volume control. |
+| Mobile Player | No music. Controls only: sheet, D-pad "TV remote", targeting, ability use. Never renders Scenes. Can put their own PC on the stage or take it off from the sheet. |
+| Desktop Player | The sheet and a Scene tab (view only, own zoom and pan). Hidden things stay hidden. No music. |
+| Mobile GM | No music. Sees the scene too, can reorder, hide, reveal and summon, and can open any character's sheet to play as an NPC. |
+| Desktop GM | Full power: create and change scenes, characters, Hidden flags, all tools, and the music player (the GM hears it here). |
 
 - The scene fills the screen under the top bar. The GM's tools are two side drawers (Cast on the left, Scenes on the right); the Display Screen has none.
 - **Hidden:** the GM right-clicks a token or object to open a Foundry-style context menu of
@@ -416,23 +418,97 @@ Light-novel style: a fullscreen background with character art standing along the
 - **Motion:** characters slide in from their side when they appear.
 - Battle mode reuses this page in Phase 5; the Display will follow the active mode.
 
-### Battle mode (planned)
-Toggle from Scene to Battle: alternate artwork per scene, square grid, characters as tokens,
-prop/terrain tokens. Base Foundry-like functionality: area templates for spells (circle, cone,
-line, square), freehand drawing, pings, measuring ruler, targeting. (decided)
+### Battle mode (implemented in Phase 5a; the turn tracker is Phase 5b)
+Decided:
+- The GM (desktop) toggles **Scene / Battle** in the scene chrome; the mode is shared, so the Display
+  and desktop players follow it. Each scene has a Scene picture and a separate **Battle map** picture
+  (uploaded from the Scenes drawer). The mode outlives scene changes.
+- The map is shown whole, as large as fits, with the same local zoom and pan as the Scene.
+- **Grid:** square. Each scene stores the cell size and offset as fractions of the picture (default
+  cell 1/20 of the width). The GM sets it live over the map (GM Grid panel: cell size, offset,
+  grid on/off); the squares counted across and down are shown. Hidden tokens are never sent to
+  players or the Display.
+- **Tokens:** the GM places a character or temp NPC as a token from the Cast drawer ("Place token" in
+  Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
+  character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
+  Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
+  token for the same circles as the Scene (Token Settings, Hide/Reveal).
+- **Dragging** a token (GM and Display) is free and snaps to a square for everyone; it costs no
+  movement.
+- **Tools** (GM and Display, side toolbar): Move, Draw (freehand), Ping, Ruler, Area, Erase.
+  Areas are circle, cone (90 degrees), line and square templates sized in squares and rotated by
+  dragging. Drawings and areas are shared and stay until erased; the GM can clear all. At most 300
+  marks. Pings show a ring for a few seconds on every map.
+- **Ruler:** counts squares with diagonals alternating 1 and 2.
+- **Movement (phone D-pad):** each sheet has **Movement** (squares per AP, default 5, 0 to 99).
+  On the character's own turn every square costs from the Movement bank; when the bank is empty
+  the next step needs 1 AP and banks a fresh Movement (the phone asks to confirm spending AP).
+  Diagonal steps alternate cost 1 and 2. A **Free Movement** checkbox lets a step cost nothing.
+  Outside the character's own turn (and before combat) steps are free.
+- **Targeting:** from the phone a player picks a token (any visible token) as their target, or
+  clears it. Targets live in server memory; the target is shown on the map with a pulsing ring.
+  Using a target for rolls and damage comes with Phase 6.
+- Turn order, initiative, rounds and turn-start effects: see the plan below (Phase 5b).
+
+Planned for Phase 5b (decided, not built): **combat tracker** with Initiative = a Speed skill roll,
+one sorted list the GM can reorder, start/end combat, a round counter, Next turn (GM or the active
+player), turn-start effects applied automatically with a chat line showing numbers and sources
+(Bleeding true damage, Burning fire damage through the resistance table, statuses that lower AP),
+Movement bank cleared and AP refilled at end of turn.
 
 ### Targeting and automation (planned)
 A player targets a token. Using an ability auto-rolls and opens a confirm card for the GM with a
 full breakdown of where every modifier came from. Every value (attack, damage, type, effects, etc.)
 is editable before applying. Results are applied to the targeted token's actor. (decided)
 
-### Mobile remote (planned)
-Phones do not render the Scene. Controls: D-pad (one grid step per tap, counted against the
-movement budget) plus targeting. (decided)
+### Mobile remote (implemented in Phase 5a)
+Phones do not render the Scene. On the character sheet a **Battle remote** shows when the character
+has a token on the active Battle map: an eight-way D-pad (one square per tap, counted against
+Movement as described under Battle mode), the Movement bank and AP, the Free Movement checkbox and
+the target list. A step that needs AP asks for confirmation. (decided)
 
-### Music player (planned)
-Ported from Dogfight's design: GM-run, anchor-based sync so late joiners seek correctly, YouTube
-links only. Details to be re-confirmed before build. (decided in principle)
+### Music player (implemented in Phase 4b)
+Decided:
+- **Who hears it:** only the GM on a desktop screen and the Display Screen. Phones, and players on
+  any device, get no music, no sound and no controls at all (the server refuses to let them
+  listen). (decided)
+- **Source:** YouTube links only, never uploaded audio, so the database stays small. Links in the
+  usual shapes are accepted (watch, youtu.be, embed, shorts, live, music.youtube.com). The title is
+  looked up through YouTube's oEmbed endpoint on the server and only pre-fills the name; if the
+  lookup fails the GM types a name. (decided)
+- **The bar:** a slim bar with a spinning record and the first 15 characters of the song name
+  (an ellipsis is added when the name is longer). It is only as wide as its content; the rest of
+  the row is fully transparent and never blocks the screen. The record spins while playing. On the
+  GM's desktop it sits in the top bar; on the Display it sits at the top right (the Display's
+  "Switch" button moved to the top left). The Display shows the bar only while something is
+  playing. (decided)
+- **GM:** clicking the bar opens the full player: now playing with a seek slider, Previous,
+  Play/Pause, Next, Stop, Repeat (off, one, playlist), Shuffle, volume; and named playlists with
+  tracks that can be added, renamed, deleted and moved up or down. Playlists live in the database.
+  (decided)
+- **Display:** a click or right-click on the bar opens a volume slider and a mute switch. Volume
+  and mute are remembered on that screen. (decided)
+- **Sound needs one tap:** browsers block sound until the page has been touched. If that happens
+  the bar shows "Click for sound"; the next click anywhere starts the music.
+
+Behaviour:
+- **Sync:** the server keeps an anchor (position, playing or not, server time) rather than a
+  running position. Each screen measures its clock offset with a few pings and works out where the
+  music should be, seeks if it is more than 1.5 seconds off, and re-checks every 5 seconds and when
+  the tab becomes visible. A screen that opens late starts at the right second. Pausing anchors
+  where the music really was, so Resume is exact.
+- **What is playing is held in server memory:** it stops when the server restarts. Playlists stay.
+- **End of a track:** every listener reports it; only the first report for the current anchor
+  moves on, so two listeners never skip two songs. Previous restarts the track after 3 seconds.
+  Next always leaves the track, even under Repeat one. Shuffle picks a different random track.
+- **Videos that cannot play** (YouTube errors 2, 100, 101, 150) are skipped on the first report and
+  the GM is told which one. If every track in a playlist fails in a row the music stops instead of
+  looping. Reported durations under 5 seconds (an advert) are ignored and the largest is kept.
+- Deleting the playing track or playlist stops the music.
+- The GM's browser tab must stay open for the GM to hear it; nothing else depends on it.
+- The end-to-end tests block YouTube (they use made-up video ids, which the real player rightly rejects and skips), so they check the server, the bar and the controls, not sound.
+- I could not check real YouTube playback in my test environment (it has no access to YouTube), so
+  the first Render playtest is the real test of sound.
 
 ### Arcane tab (planned)
 Interactive wiki for the magic system: searchable magic browser with rules text, interactive
@@ -484,7 +560,22 @@ Implemented:
 - Deleting a character, temp NPC, scene or picture removes what depended on it by code, and
   deletes images that nothing uses.
 
-Planned (not final): battle tokens/objects, audio playlists/tracks/state, character-local spells.
+- `audio_playlists(id, name, position)` and `audio_tracks(id, playlist_id, youtube_id, name,
+  duration_ms, position)`. Deleting a playlist deletes its tracks by code. What is playing is not in
+  the database (server memory).
+
+Battle (Phase 5a):
+- `scenes` gains `battle_aspect` (picture width / height), `grid_cell`, `grid_ox`, `grid_oy`
+  (fractions of the picture); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
+  and `size`.
+- `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank)`:
+  one token per owner per scene; `bank` is the leftover Movement squares. Tokens keep whole-square
+  positions and are clamped back onto the map when the grid changes.
+- `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)`.
+- Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
+- Targets and the combat state are server memory only (`shared.targets`, `shared.combat`).
+
+Planned (not final): character-local spells.
 
 ## Real-time events
 
@@ -542,6 +633,39 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
 - Display sockets get no chat, sheets, roster or rolls.
 - Error codes added: `no_scene`, `no_picture`, `already_on_stage`, `bad_image`, `image_too_large`.
 
+Music (Phase 4b):
+- `audio:ping` `{ t0 }` (anyone) returns `{ t0, serverMs }` for clock alignment.
+- `audio:listen` `{ on }`: GM and Display only; returns `{ state }` and joins or leaves the `audio`
+  room. `audio:state` `{ trackId, youtubeId, name, playlistId, durationMs, isPlaying, positionMs,
+  anchoredAtMs, anchorId, repeatMode, shuffle, serverMs }` goes to that room on every change.
+- From listeners: `audio:track_ended` `{ trackId, anchorId }`, `audio:duration` `{ trackId,
+  durationMs }`, `audio:error` `{ trackId, anchorId, code }`. Ignored from sockets that are not
+  listening or that carry an old anchor.
+- GM only: `audio:play` `{ trackId }`, `audio:pause`, `audio:resume`, `audio:stop`, `audio:seek`
+  `{ positionMs }`, `audio:next`, `audio:previous`, `audio:set_mode` `{ repeatMode?, shuffle? }`,
+  `audio:lookup_title` `{ url }`, `music:get`, `playlist:create | rename | delete`,
+  `track:create` `{ playlistId, url, name? }`, `track:rename | delete`, `track:reorder`
+  `{ playlistId, ids }` (the full order). `music:updated` `{ playlists }` goes to the GM room;
+  `audio:track_unplayable` `{ trackId, name, code }` tells the GM a track was skipped.
+- Error codes added: `not_youtube`.
+
+Battle (Phase 5a):
+- `stage:get` / `stage:updated` now carry `{ scene, summons, mode, battle }`, where `battle` is
+  `{ imageId, aspect, grid: { cell, ox, oy }, cols, rows, tokens: [{ id, ownerKind, ownerId, name,
+  pictureId, imageId, col, row, size, hidden, prop, bank, targetedBy }], marks, targetId? }`; hidden
+  tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
+- GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
+  `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
+  `{ id }`, `battle:update` `{ id, pictureId?, hidden? }`, `battle:clear_bank` `{ id }`,
+  `mark:clear` `{ kind? }`, `temp_npc:set_size` `{ id, size }`.
+- GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
+  `mark:remove` `{ id }`, `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
+  `battle:pinged`.
+- `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
+  player who owns the token; replies with the new position, or asks for confirmation when the step
+  needs AP. `battle:target` `{ characterId, tokenId | null }`: set or clear the target of a PC
+  (the GM or that PC's player).
+
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
 
@@ -572,8 +696,17 @@ Each phase ends in a deploy and playtest checkpoint.
      mobile GM views. Check: build a scene, summon PCs and NPCs, watch it on a Display in another
      window, hide and reveal, reorder by dragging from the Display, join and leave from a phone.
      Covered by `server/test/sceneSockets.test.js` and `e2e/scene.spec.js`.
-   - **4b Music** (next): GM-run player, YouTube links, synced for late joiners.
-5. **Battle**: Battle mode, grid, tokens, D-pad remote, targeting, templates, drawing, pings, ruler.
+   - **4b Music** (implemented, awaiting playtest): YouTube playlists and player for the GM on
+     desktop, synced playback on the Display, the music bar, volume. Check: add a playlist with two
+     YouTube links, play, see and hear it on the Display, pause and skip, right-click the bar on
+     the Display for volume, reload the Display mid-song. Covered by `server/test/audio.test.js`
+     and `e2e/music.spec.js`; real sound needs your playtest.
+5. **Battle**, split in two parts:
+   - **5a Map** (implemented, awaiting playtest): Battle mode toggle, battle map and live grid,
+     tokens with sizes and props, free dragging, D-pad remote with Movement banking and AP,
+     targeting, drawing, areas, pings, ruler, Hidden. Covered by `server/test/battle.test.js` and
+     `e2e/battle.spec.js`. Scene, music and battle playtests are done in one later batch.
+   - **5b Combat tracker** (planned): initiative, turn order, rounds, turn-start effects.
 6. **Mechanics and Arcane**: roll engine, confirm card, Arcane browser, sandbox, spell builder,
    spontaneous-casting tables.
 
@@ -585,9 +718,9 @@ Asked one batch at a time; answers move into the sections above.
 - Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
 - Whether statuses should ever affect Combat Mastery rolls.
 - A wider desktop layout for the sheet and the icon set for damage types.
-- Grid size and scale per scene; Battle token framing (token art shares the picture collection).
-- Music player details (4b): playlists, controls, whether the Display plays the sound.
+- Battle token framing (token art shares the picture collection); what one square means in distance.
+- Music: whether sound effects (short one-shots) are wanted later, and whether the Display should also show what is playing on a Scene-less screen.
 - Image limits in Phase 4a are my defaults (see Images).
-- Undo of applied results? Turn order and initiative tracker? Animation budget?
+- Undo of applied results? Animation budget?
 - PWA/installable phone app and orientation rules for the remote.
 - Backups/export of characters from Turso.

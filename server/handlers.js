@@ -6,6 +6,7 @@ import { cleanChatText } from './chat.js';
 import { AppError } from './errors.js';
 import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
+import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
 // The server validates that the PC exists and is a PC, and derives every
@@ -24,6 +25,7 @@ function dropIdentity(socket) {
   socket.leave(GM_ROOM);
   socket.leave(CHAT_ROOM);
   socket.leave(VIEW_ROOM);
+  socket.leave(AUDIO_ROOM);
   if (socket.data.identity?.characterId != null) socket.leave(charRoom(socket.data.identity.characterId));
   socket.data.identity = null;
 }
@@ -168,6 +170,8 @@ export function registerHandlers(io, socket, db, shared) {
     const c = await requireControl(characterId);
     const sheet = await sheets.updateSheet(db, c.id, (s) => sheets.applySet(s, path, value, c));
     emitSheet(c.id, sheet);
+    // A token's footprint follows the sheet's Size.
+    if (path === 'size') await stage.broadcast();
     return { sheet };
   });
 
@@ -287,6 +291,12 @@ export function registerHandlers(io, socket, db, shared) {
     isPlayer,
     isDisplay,
     requireControl,
+    emitSheet,
+    shared,
     rooms: { GM_ROOM, VIEW_ROOM, charRoom },
   });
+
+  // ---- Music -----------------------------------------------------------------
+
+  registerAudioHandlers({ io, socket, db, on, isGm, isDisplay, rooms: { GM_ROOM }, shared });
 }

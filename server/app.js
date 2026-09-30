@@ -9,6 +9,7 @@ import { registerHandlers } from './handlers.js';
 import { listPcs } from './roster.js';
 import { createChat } from './chat.js';
 import { getImage } from './images.js';
+import { createPlayer } from './audio.js';
 
 const clientDist = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -19,7 +20,8 @@ const clientDist = path.join(
 
 // Builds the HTTP + Socket.io server without listening, so tests can bind it
 // to an ephemeral port.
-export function createServer({ db }) {
+// `fetchTitle` can be replaced in tests so they never touch the network.
+export function createServer({ db, fetchTitle } = {}) {
   const app = express();
   app.use(compression());
   app.use(express.json());
@@ -68,9 +70,9 @@ export function createServer({ db }) {
   const io = new Server(httpServer, { maxHttpBufferSize: 5 * 1024 * 1024 });
 
   // Per-instance state that is deliberately not in the database: the chat log
-  // (clears on restart) and pending trade offers.
-  const shared = { chat: createChat(), offers: new Map() };
+  // (clears on restart), pending trade offers and what is playing (stops on restart).
+  const shared = { chat: createChat(), offers: new Map(), audio: createPlayer(), fetchTitle, targets: new Map() };
   io.on('connection', (socket) => registerHandlers(io, socket, db, shared));
 
-  return { app, httpServer, io };
+  return { app, httpServer, io, shared };
 }

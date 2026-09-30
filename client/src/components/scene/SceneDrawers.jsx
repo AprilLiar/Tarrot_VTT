@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField } from '../folderUi.jsx';
-import { prepareImage } from '../../lib/image.js';
+import { prepareImage, prepareImageInfo } from '../../lib/image.js';
 import { LibraryTree } from './LibraryTree.jsx';
 import { PicturesDialog, uploadPicture } from './Pictures.jsx';
 
@@ -127,6 +127,34 @@ function BackgroundDialog({ scene, onClose }) {
   );
 }
 
+// A battle map is a picture of the place seen from above; its shape is kept so the grid fits.
+function BattleMapDialog({ scene, onClose }) {
+  const [file, setFile] = useState(null);
+  const ref = useRef(null);
+  return (
+    <ActionDialog
+      title={`Battle map: ${scene.name}`}
+      submitLabel="Upload"
+      onClose={onClose}
+      canSubmit={!!file}
+      run={async () => {
+        try {
+          const { data, width, height } = await prepareImageInfo(file, 'background');
+          return call('scene:set_battle_image', { id: scene.id, data, aspect: width / height });
+        } catch (err) {
+          return { ok: false, error: err.message };
+        }
+      }}
+    >
+      <input ref={ref} type="file" accept="image/*" hidden data-testid="battle-file" onChange={(e) => setFile(e.target.files[0] ?? null)} />
+      <button type="button" className={btn} onClick={() => ref.current?.click()}>
+        {file ? file.name : 'Choose the battle map picture'}
+      </button>
+      <p className="text-xs opacity-60">After uploading, switch to Battle and use Set grid to line the squares up with the map.</p>
+    </ActionDialog>
+  );
+}
+
 function ConfirmDialog({ title, text, label, run, onClose }) {
   return (
     <ActionDialog title={title} submitLabel={label} danger onClose={onClose} run={run}>
@@ -176,6 +204,9 @@ export function ScenesDrawer({ onClose }) {
                 <button className={btn} onClick={() => setDialog({ kind: 'background', scene })}>
                   Background
                 </button>
+                <button className={btn} data-testid="battle-map-button" onClick={() => setDialog({ kind: 'battle-map', scene })}>
+                  {scene.battleImageId ? 'Battle map (set)' : 'Battle map'}
+                </button>
                 <button className={btn} onClick={() => setDialog({ kind: 'move', scene })}>
                   Move
                 </button>
@@ -190,6 +221,7 @@ export function ScenesDrawer({ onClose }) {
       {dialog?.kind === 'new' && <NewSceneDialog folders={library.sceneFolders} folderId={dialog.folderId} onClose={done} />}
       {dialog?.kind === 'rename' && <RenameSceneDialog scene={dialog.scene} onClose={done} />}
       {dialog?.kind === 'background' && <BackgroundDialog scene={dialog.scene} onClose={done} />}
+      {dialog?.kind === 'battle-map' && <BattleMapDialog scene={dialog.scene} onClose={done} />}
       {dialog?.kind === 'move' && (
         <MoveDialog
           title={`Move ${dialog.scene.name}`}
@@ -217,6 +249,8 @@ export function ScenesDrawer({ onClose }) {
 function NewTempNpcDialog({ folders, folderId, onClose }) {
   const [name, setName] = useState('');
   const [folder, setFolder] = useState(folderId);
+  const [isProp, setIsProp] = useState(false);
+  const [size, setSize] = useState(1);
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   return (
@@ -226,7 +260,7 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
       onClose={onClose}
       canSubmit={name.trim().length > 0}
       run={async () => {
-        const r = await call('temp_npc:create', { name, folderId: folder });
+        const r = await call('temp_npc:create', { name, folderId: folder, isProp, size });
         if (r.ok && file) return uploadPicture({ tempNpcId: r.id }, file, name);
         return r;
       }}
@@ -234,6 +268,20 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
       <p className="text-xs opacity-60">A quick, sheet-less extra for the story. It only needs a name and a picture.</p>
       <NameField label="Name" value={name} onChange={setName} />
       <FolderSelect label="Folder" folders={folders} value={folder} onChange={setFolder} />
+      <label className="flex min-h-10 items-center gap-3 text-sm">
+        <input type="checkbox" className="h-5 w-5" data-testid="temp-npc-prop" checked={isProp} onChange={(e) => setIsProp(e.target.checked)} />
+        A prop or terrain (a crate, a tree, a wall) rather than a creature
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        Token size on the battle map
+        <select className={input} data-testid="temp-npc-size" value={size} onChange={(e) => setSize(Number(e.target.value))}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <option key={n} value={n}>
+              {n}x{n}
+            </option>
+          ))}
+        </select>
+      </label>
       <input ref={fileRef} type="file" accept="image/*" hidden data-testid="temp-npc-file" onChange={(e) => setFile(e.target.files[0] ?? null)} />
       <button type="button" className={btn} onClick={() => fileRef.current?.click()}>
         {file ? `Picture: ${file.name}` : 'Choose a first picture (optional)'}
@@ -245,10 +293,22 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
 // One summonable row: a character or a temp NPC.
 function CastRow({ owner, name, badge, stage, onPictures, extra }) {
   const { toast } = useApp();
-  const onStage = stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
+  const battleMode = stage.mode === 'battle';
+  const onStage = battleMode
+    ? stage.battle?.tokens.find((t) => t.ownerKind === owner.kind && t.ownerId === owner.id)
+    : stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
   const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
 
   async function toggle() {
+    // In Battle mode the same list places tokens on the map instead of summoning to the stage.
+    if (battleMode) {
+      const r = await call(onStage ? 'battle:remove' : 'battle:add', onStage ? { id: onStage.id } : key);
+      if (!r.ok) {
+        toast(r.error);
+        if (r.code === 'no_picture') onPictures();
+      }
+      return;
+    }
     if (onStage) {
       const r = await call('stage:dismiss', { id: onStage.id });
       if (!r.ok) toast(r.error);
@@ -266,11 +326,11 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
       <div className="flex items-center gap-2">
         {badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{badge}</span>}
         <span className="flex-1 truncate">{name}</span>
-        {onStage && <span className="text-xs opacity-60">{onStage.hidden ? 'hidden' : 'on stage'}</span>}
+        {onStage && <span className="text-xs opacity-60">{onStage.hidden ? 'hidden' : battleMode ? 'on map' : 'on stage'}</span>}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button className={onStage ? btn : btnPrimary} data-testid={onStage ? 'dismiss-cast' : 'summon-cast'} onClick={toggle}>
-          {onStage ? 'Dismiss' : 'Summon'}
+          {battleMode ? (onStage ? 'Remove token' : 'Place token') : onStage ? 'Dismiss' : 'Summon'}
         </button>
         <button className={btn} data-testid="cast-pictures" onClick={onPictures}>
           Pictures
@@ -325,11 +385,23 @@ export function CastDrawer({ onClose }) {
             <CastRow
               owner={{ kind: 'temp_npc', id: t.id }}
               name={t.name}
-              badge="TEMP"
+              badge={t.isProp ? 'PROP' : 'TEMP'}
               stage={stage}
               onPictures={() => setDialog({ kind: 'pictures', title: `Pictures: ${t.name}`, owner: { tempNpcId: t.id } })}
               extra={
                 <>
+                  <select
+                    className={`${btn} px-2`}
+                    aria-label={`Token size of ${t.name}`}
+                    value={t.size}
+                    onChange={(e) => call('temp_npc:set_size', { id: t.id, size: Number(e.target.value) })}
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        {n}x{n}
+                      </option>
+                    ))}
+                  </select>
                   <button className={btn} onClick={() => setDialog({ kind: 'rename-npc', npc: t })}>
                     Rename
                   </button>

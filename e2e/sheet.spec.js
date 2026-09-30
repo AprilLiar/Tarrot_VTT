@@ -220,7 +220,7 @@ test('an item state shows in a fixed-size tag before the uses', async ({ browser
   await p.page.getByPlaceholder('New state').fill('Extremely long state name');
   await p.page.getByRole('button', { name: 'Add', exact: true }).last().click();
   await p.page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
-  await p.page.getByRole('combobox').selectOption('Extremely long state name');
+  await p.page.locator('select:not([data-testid="size-select"])').selectOption('Extremely long state name');
 
   const tag = p.page.getByTestId('item-state');
   await expect(tag).toBeVisible();
