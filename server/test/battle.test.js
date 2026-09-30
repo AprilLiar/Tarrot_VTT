@@ -45,10 +45,13 @@ describe('movement maths', () => {
 });
 
 describe('grid maths', () => {
-  it('counts whole cells that fit', () => {
+  it('counts the cells over the picture, a partly fitting one at the edge too', () => {
     const scene = { battleAspect: 2, grid: { cell: 0.1, ox: 0, oy: 0 } }; // twice as wide as tall
     expect(gridSize(scene)).toEqual({ cols: 10, rows: 5 });
-    expect(gridSize({ ...scene, grid: { cell: 0.1, ox: 0.05, oy: 0 } })).toEqual({ cols: 9, rows: 5 });
+    expect(gridSize({ ...scene, grid: { cell: 0.1, ox: 0.05, oy: 0 } })).toEqual({ cols: 10, rows: 5 }); // the last column is cut by the edge
+    expect(gridSize({ ...scene, grid: { cell: 0.1, ox: 0.15, oy: 0 } })).toEqual({ cols: 9, rows: 5 });
+    expect(gridSize({ ...scene, grid: { cell: 0.1, ox: -0.05, oy: 0 } })).toEqual({ cols: 11, rows: 5 }); // starts before the picture
+    expect(gridSize({ ...scene, grid: { cell: 0.12, ox: 0, oy: 0 } })).toEqual({ cols: 9, rows: 5 });
     expect(gridSize({ battleAspect: null, grid: { cell: 0.1, ox: 0, oy: 0 } })).toEqual({ cols: 0, rows: 0 });
   });
 });
@@ -175,6 +178,36 @@ describe('mode and map', () => {
     expect(await g.call('scene:set_battle_image', { id, data: png(), aspect: 50 })).toMatchObject({ ok: false, code: 'bad_value' });
     const d = await display();
     expect(await d.call('scene:set_grid', { id, cell: 0.1, ox: 0, oy: 0 })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+
+  it('lets the grid extend past the picture: partial edge squares count and a negative shift is fine', async () => {
+    const g = await gm();
+    const id = await battleScene(g);
+    // A picture twice as wide as tall: squares of 0.12 leave a partial ninth column; a shift of -0.05 starts before the picture.
+    expect(await g.call('scene:set_grid', { id, cell: 0.12, ox: 0, oy: 0 })).toMatchObject({ ok: true, cols: 9, rows: 5 });
+    expect(await g.call('scene:set_grid', { id, cell: 0.1, ox: -0.05, oy: -0.05 })).toMatchObject({ ok: true, cols: 11 });
+    // The first square must still touch the picture.
+    expect(await g.call('scene:set_grid', { id, cell: 0.1, ox: -0.1, oy: 0 })).toMatchObject({ ok: false, code: 'bad_value' });
+    // A token can stand on the partly visible last column.
+    await g.call('scene:set_grid', { id, cell: 0.12, ox: 0, oy: 0 });
+    const charId = await withPicture(g, 'Edge');
+    const token = (await g.call('battle:add', { characterId: charId })).id;
+    expect((await g.call('battle:place', { id: token, col: 8, row: 0 })).ok).toBe(true);
+    expect((await g.call('battle:place', { id: token, col: 9, row: 0 })).ok).toBe(false);
+  });
+
+  it('the grid is shown or hidden per scene, for everybody, and only the GM and the Display change it', async () => {
+    const g = await gm();
+    const id = await battleScene(g);
+    const d = await display();
+    const p = await player((await g.call('character:create', { name: 'Pia', type: 'pc' })).id);
+    expect((await stageOf(p)).battle.showGrid).toBe(true);
+    expect(await p.call('scene:show_grid', { id, show: false })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await g.call('scene:show_grid', { id, show: false })).ok).toBe(true);
+    expect((await stageOf(d)).battle.showGrid).toBe(false);
+    expect((await stageOf(p)).battle.showGrid).toBe(false);
+    expect((await d.call('scene:show_grid', { id, show: true })).ok).toBe(true);
+    expect((await stageOf(g)).battle.showGrid).toBe(true);
   });
 
   it('needs a battle picture before tokens can be placed', async () => {

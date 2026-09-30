@@ -8,6 +8,7 @@ import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
+import ApCubes from './ApCubes.jsx';
 import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
 import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
@@ -88,7 +89,7 @@ export default function SheetPage({ characterId }) {
   const apMax = sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX;
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-3 p-3 pb-24" data-testid="sheet">
+    <main className={`mx-auto flex flex-col gap-3 p-3 pb-24 ${view === 'arcane' ? 'w-full' : 'max-w-3xl'}`} data-testid="sheet">
       {identity.role === 'gm' && (
         <Link to="/" className="text-sm text-violet-300 underline">
           {t('Back to roster')}
@@ -118,12 +119,7 @@ export default function SheetPage({ characterId }) {
       <section className={`${card} grid grid-cols-2 gap-3`} aria-label={t('Vitals')}>
         <div>
           <div className="text-xs opacity-60">{t('Action Points')}</div>
-          <div className="flex items-center gap-1 text-2xl">
-            <div className="w-14">
-              <NumField label={t('Current AP')} testId="ap-current" value={sheet.ap.current} min={0} max={apMax} onCommit={(n) => set('ap.current', n)} className="text-2xl" />
-            </div>
-            <span className="opacity-60">/ {apMax}</span>
-          </div>
+          <ApCubes current={sheet.ap.current} max={apMax} onChange={(n) => set('ap.current', n)} testId="ap-current" />
           {character.type === 'npc' && (
             <label className="mt-1 flex min-h-8 items-center gap-2 text-sm">
               <input

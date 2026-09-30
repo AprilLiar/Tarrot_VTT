@@ -230,6 +230,8 @@ const toScene = (r) => ({
   battleImageId: r.battle_image_id ?? null,
   // width / height of the battle picture, sent by the browser when it is uploaded
   battleAspect: r.battle_aspect == null ? null : Number(r.battle_aspect),
+  // Whether the grid is drawn, for everybody, until it is changed.
+  showGrid: r.show_grid == null ? true : Number(r.show_grid) !== 0,
   grid: {
     cell: r.grid_cell == null ? DEFAULT_GRID.cell : Number(r.grid_cell),
     ox: r.grid_ox == null ? DEFAULT_GRID.ox : Number(r.grid_ox),
@@ -237,16 +239,18 @@ const toScene = (r) => ({
   },
 });
 
-const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, battle_image_id, battle_aspect, grid_cell, grid_ox, grid_oy';
+const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, battle_image_id, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid';
 
-// How many whole cells fit on the battle picture with the current grid.
+// How many cells cover the battle picture with the current grid. A square that only partly fits on the picture
+// (at the right or bottom edge) counts too, and the grid may start before the picture's top left corner
+// (a negative shift): the grid can extend beyond the picture, only its lines are drawn over the picture.
 export function gridSize(scene) {
   if (!scene.battleAspect) return { cols: 0, rows: 0 };
   const { cell, ox, oy } = scene.grid;
   const cellH = cell * scene.battleAspect; // fraction of the picture's height
   return {
-    cols: Math.max(0, Math.floor((1 - ox) / cell + 1e-9)),
-    rows: Math.max(0, Math.floor((1 - oy) / cellH + 1e-9)),
+    cols: Math.max(0, Math.ceil((1 - ox) / cell - 1e-9)),
+    rows: Math.max(0, Math.ceil((1 - oy) / cellH - 1e-9)),
   };
 }
 
@@ -299,16 +303,24 @@ export async function setBattleImage(db, id, imageId, aspect) {
   await deleteImageIfUnused(db, scene.battleImageId);
 }
 
-// A new grid keeps every token inside the picture: anything outside is pulled back in.
+// A new grid keeps every token on the grid: anything outside is pulled back in. The shifts are shares of the
+// picture's width (right) and height (down); they may be negative, but the first square must still touch the picture.
 export async function setGrid(db, id, { cell, ox, oy }) {
   const scene = await getScene(db, id);
   const ok = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-  if (!ok(cell, CELL_MIN, CELL_MAX) || !ok(ox, 0, 1) || !ok(oy, 0, 1)) throw new AppError('bad_value', 'That grid does not fit.');
+  const cellH = ok(cell, CELL_MIN, CELL_MAX) ? cell * (scene.battleAspect ?? 1) : 0;
+  if (!ok(cell, CELL_MIN, CELL_MAX) || !ok(ox, -cell + 1e-9, 1) || !ok(oy, -cellH + 1e-9, 1)) throw new AppError('bad_value', 'That grid does not fit.');
   const next = { ...scene, grid: { cell, ox, oy } };
   const { cols, rows } = gridSize(next);
   if (scene.battleAspect && (cols < 1 || rows < 1)) throw new AppError('bad_value', 'That grid leaves no room on the picture.');
   await db.execute({ sql: 'UPDATE scenes SET grid_cell = ?, grid_ox = ?, grid_oy = ? WHERE id = ?', args: [cell, ox, oy, id] });
   return { cols, rows };
+}
+
+// Shows or hides the grid for everybody watching this scene.
+export async function setShowGrid(db, id, show) {
+  await getScene(db, id);
+  await db.execute({ sql: 'UPDATE scenes SET show_grid = ? WHERE id = ?', args: [show ? 1 : 0, id] });
 }
 
 export async function deleteScene(db, id) {

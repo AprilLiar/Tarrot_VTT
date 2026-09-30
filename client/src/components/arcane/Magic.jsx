@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
@@ -102,6 +102,7 @@ function Editor({ s, work, setWork }) {
   const [sel, setSel] = useState(null); // the stone waiting for an arrow to another stone
   const [noteFor, setNoteFor] = useState(null); // stone whose note is edited
   const [shown, setShown] = useState(null); // stone whose note is shown
+  const justClosed = useRef(false); // the click that closed a note must not open another one
   const [busy, setBusy] = useState(false);
   const scheme = work.scheme;
   const check = useMemo(() => validateScheme(scheme), [scheme]);
@@ -113,9 +114,23 @@ function Editor({ s, work, setWork }) {
     setScheme({ ...scheme, stones: [...scheme.stones, { id: newId(), sign, note: '' }] });
   };
 
+  // A shown note closes on any click on anything.
+  useEffect(() => {
+    if (shown == null) return undefined;
+    const close = () => {
+      justClosed.current = true;
+      setShown(null);
+      setTimeout(() => {
+        justClosed.current = false;
+      }, 0);
+    };
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
+  }, [shown]);
+
   function onStone(id) {
     const st = scheme.stones.find((x) => x.id === id);
-    setShown(st?.note.trim() ? id : null);
+    setShown(st?.note.trim() && !justClosed.current ? id : null);
     if (sel == null) return setSel(id);
     if (sel === id) return setSel(null);
     const exists = scheme.arrows.some((a) => a.from === sel && a.to === id);

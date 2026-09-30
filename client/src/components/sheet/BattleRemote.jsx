@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TargetPicker, useTargets } from './TargetPicker.jsx';
+import ApCubes from './ApCubes.jsx';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnPrimary } from '../Dialog.jsx';
 import { HeightControl } from '../scene/HeightControl.jsx';
@@ -99,8 +100,8 @@ export function BattleRemote({ s, onAttack }) {
             <div className="mb-2 grid grid-cols-3 gap-2 text-center text-sm">
               <div>
                 <div className="text-xs opacity-60">{t('AP')}</div>
-                <div className="text-lg" data-testid="remote-ap">
-                  {s.sheet.ap.current}/{apMax}
+                <div className="flex justify-center">
+                  <ApCubes current={s.sheet.ap.current} max={apMax} testId="remote-ap" />
                 </div>
               </div>
               <div>

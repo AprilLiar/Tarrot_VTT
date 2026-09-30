@@ -63,7 +63,9 @@ async function battleScene(gm, name) {
   await gm.getByTestId('mode-battle').click();
   await expect(gm.getByTestId('battle-map')).toBeVisible();
   await gm.getByTestId('open-grid').click();
-  await gm.getByTestId('grid-cell').fill('0.1');
+  // The size is in pixels of the picture: a tenth of its width makes a 10 x 5 grid on the 2:1 map.
+  const natW = await gm.getByTestId('battle-background').evaluate((img) => img.naturalWidth);
+  await gm.getByTestId('grid-cell').fill(String(Math.round(natW / 10)));
   await expect(gm.getByTestId('grid-size')).toContainText('10 x 5 squares');
   await gm.getByTestId('grid-panel').getByRole('button', { name: 'Close' }).click();
 }
@@ -411,7 +413,7 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await p.goto('/');
   await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
 
-  await expect(p.getByTestId('remote-ap')).toHaveText('4/4');
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
   await p.getByTestId('target-option').filter({ hasText: npc }).click();
   // Attack opens the Arcane tab; the target is mirrored there. Precise Attack (1 AP) makes it a 2 AP attack.
   await p.getByTestId('attack-open').click();
@@ -443,7 +445,7 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
 
   // The attacker spent 2 AP.
   await p.getByTestId('view-sheet').click();
-  await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '2');
 
   // A second attack can be discarded. The chat, being closed on the GM's screen, pops the roll up briefly.
   await p.getByTestId('attack-open').click();
@@ -453,7 +455,7 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await gm.getByTestId('attack-discard').click();
   await expect(gm.getByTestId('attack-card')).toHaveCount(0);
   await p.getByTestId('view-sheet').click();
-  await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '2');
 
   await ctx.close();
   await gmCtx.close();
@@ -476,7 +478,7 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   const p = await ctx.newPage();
   await p.goto('/');
   await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
-  await expect(p.getByTestId('remote-ap')).toHaveText('4/4');
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
 
   // No target yet: the Attack button is greyed out and says why.
   await expect(p.getByTestId('attack-open')).toBeDisabled();
@@ -497,9 +499,8 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   await expect(p.getByTestId('attack-open')).toBeEnabled();
 
   // With 1 AP the 2 AP attack is greyed out.
-  await p.getByTestId('ap-current').fill('1');
-  await p.getByTestId('ap-current').press('Enter');
-  await expect(p.getByTestId('remote-ap')).toHaveText('1/4');
+  for (let i = 0; i < 3; i++) await p.getByTestId('ap-down').click();
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '1');
   await p.getByTestId('attack-open').click();
   await p.getByTestId('enhancement').filter({ hasText: 'Power Attack' }).getByTestId('enh-plus').click();
   await expect(p.getByTestId('arcane-done')).toBeDisabled();
@@ -512,8 +513,7 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   await p.getByTestId('view-sheet').click();
 
   // With 0 AP there is no attack at all.
-  await p.getByTestId('ap-current').fill('0');
-  await p.getByTestId('ap-current').press('Enter');
+  await p.getByTestId('ap-down').click();
   await expect(p.getByTestId('attack-open')).toBeDisabled();
   await expect(p.getByTestId('attack-blocked')).toContainText('No AP');
 
@@ -738,4 +738,49 @@ test('arcane: a Weapon item, the range warning, Unique Effects, and Enhancements
 
   await ctx.close();
   await gmCtx.close();
+});
+
+test('the grid: pixels, Ctrl + wheel, past the picture, and shown or hidden for everybody per scene', async ({ browser }) => {
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await battleScene(gm, `Grid-${uid()}`);
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await expect(tv.getByTestId('battle-grid')).toBeVisible();
+
+  // Turning the grid off is saved for the scene: the Display follows, and so does a page that is opened later.
+  await gm.getByTestId('toggle-grid').click();
+  await expect(gm.getByTestId('battle-grid')).toHaveCount(0);
+  await expect(tv.getByTestId('battle-grid')).toHaveCount(0);
+  await tv.reload();
+  await expect(tv.getByTestId('battle-map')).toBeVisible();
+  await expect(tv.getByTestId('battle-grid')).toHaveCount(0);
+  await tv.getByTestId('toggle-grid').click(); // the Display may switch it back on
+  await expect(gm.getByTestId('battle-grid')).toBeVisible();
+
+  // Size in pixels: the buttons and Ctrl + wheel change it by 1, and the squares are counted again.
+  await gm.getByTestId('open-grid').click();
+  const size = Number(await gm.getByTestId('grid-cell').inputValue());
+  await gm.getByTestId('grid-cell-up').click();
+  await expect(gm.getByTestId('grid-cell')).toHaveValue(String(size + 1));
+  await gm.getByTestId('battle-map').hover();
+  await gm.keyboard.down('Control');
+  await gm.mouse.wheel(0, -100);
+  await gm.keyboard.up('Control');
+  await expect(gm.getByTestId('grid-cell')).toHaveValue(String(size + 2));
+  await gm.keyboard.down('Control');
+  await gm.mouse.wheel(0, 100);
+  await gm.mouse.wheel(0, 100);
+  await gm.keyboard.up('Control');
+  await expect(gm.getByTestId('grid-cell')).toHaveValue(String(size));
+  await expect(gm.getByTestId('grid-size')).toContainText('10 x 5 squares');
+
+  // A square that only partly fits still counts, and a negative shift starts the grid before the picture.
+  await gm.getByTestId('grid-cell').fill(String(Math.round(size * 1.05)));
+  await expect(gm.getByTestId('grid-size')).toContainText('10 x 5 squares'); // 9.5 squares wide -> 10
+  await gm.getByTestId('grid-ox').fill('-5');
+  await expect(gm.getByTestId('grid-ox')).toHaveValue('-5');
+  await expect(gm.getByTestId('grid-size')).toContainText('squares');
+  await gmCtx.close();
+  await tvCtx.close();
 });

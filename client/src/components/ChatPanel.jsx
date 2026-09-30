@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useChatSlot } from '../lib/chatSlot.js';
 import { socket } from '../socket.js';
 import { call, useApp } from '../AppContext.jsx';
 import { useT } from '../i18n.jsx';
@@ -186,15 +188,21 @@ export default function ChatPanel() {
     } else setError(r.error);
   }
 
+  // On the Arcane tab the button sits inside the footer row, like the other buttons there.
+  const slot = useChatSlot();
+  const toggle = (
+    <button
+      data-testid="chat-toggle"
+      className={slot ? 'min-h-11 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium active:bg-violet-600' : 'fixed bottom-4 right-4 z-30 min-h-12 rounded-full bg-violet-700 px-5 text-sm font-medium shadow-lg active:bg-violet-600'}
+      onClick={() => setChatOpen(!chatOpen)}
+    >
+      {t('Chat')}{unread > 0 ? ` (${unread})` : ''}
+    </button>
+  );
+
   return (
     <>
-      <button
-        data-testid="chat-toggle"
-        className="fixed bottom-4 right-4 z-30 min-h-12 rounded-full bg-violet-700 px-5 text-sm font-medium shadow-lg active:bg-violet-600"
-        onClick={() => setChatOpen(!chatOpen)}
-      >
-        {t('Chat')}{unread > 0 ? ` (${unread})` : ''}
-      </button>
+      {slot ? createPortal(toggle, slot) : toggle}
 
       <ChatPopups chatOpen={chatOpen} />
 

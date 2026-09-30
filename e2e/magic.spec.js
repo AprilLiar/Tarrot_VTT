@@ -38,7 +38,21 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   const p = await ctx.newPage();
   await p.goto('/');
   await p.getByTestId('pick-pc').filter({ hasText: name }).click();
+  // AP are cubes filled from the left; the arrows change the amount.
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '4');
+  await expect(p.getByTestId('ap-current').getByTestId('ap-cube')).toHaveCount(4);
+  await p.getByTestId('ap-down').click();
+  await p.getByTestId('ap-down').click();
+  await expect(p.locator('[data-testid="ap-current"] [data-testid="ap-cube"][data-filled="true"]')).toHaveCount(2);
+  await expect(p.locator('[data-testid="ap-current"] [data-testid="ap-cube"][data-filled="false"]')).toHaveCount(2);
+  await p.getByTestId('ap-up').click();
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '3');
+
   await p.getByTestId('view-arcane').click();
+  // The Arcane view uses the whole width, and the Chat button is the last button of its footer.
+  const box = await p.getByTestId('arcane').boundingBox();
+  expect(box.width).toBeGreaterThan(390 - 40);
+  await expect(p.getByTestId('arcane-footer').getByTestId('chat-toggle')).toBeVisible();
   await p.getByTestId('arcane-tab-magic').click();
 
   // The stones the character owns.
@@ -70,6 +84,9 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await p.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(stone(p, 'virgo', 0)).toHaveAttribute('data-note', 'true');
   await expect(p.getByTestId('stone-note')).toContainText('Physical fire');
+  // The shown note closes on any click on anything.
+  await p.getByTestId('spell-description').click();
+  await expect(p.getByTestId('stone-note')).toHaveCount(0);
 
   // The runes can be rearranged.
   await p.getByTestId('rune').first().getByRole('button', { name: 'Move right' }).click();

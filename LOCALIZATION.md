@@ -296,6 +296,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Picture | Картинка |
 | Pictures | Картинки |
 | Battle | Бой |
+| Less AP | Меньше ОД |
+| More AP | Больше ОД |
+| AP: {current} of {max} | ОД: {current} из {max} |
 | You cannot move there. | Туда нельзя переместиться. |
 | Battle controls | Управление в бою |
 | Roll Initiative | Бросить инициативу |
@@ -377,7 +380,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | View | Вид |
 | Vitals | Показатели |
 | Action Points | Очки действий |
-| Current AP | Текущие ОД |
 | Minion | Приспешник |
 | Hit Points | Очки здоровья |
 | Current HP | Текущие ОЗ |
@@ -462,11 +464,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Banked Movement: {n}. | Накопленное движение: {n}. |
 | Remove from the map | Убрать с карты |
 | Clear banked Movement | Сбросить накопленное движение |
+| Less | Меньше |
 | Grid | Сетка |
-| {cols} x {rows} squares. Line the grid up with the map; sizes are a share of the picture's width. | {cols} x {rows} клеток. Совместите сетку с картой; размеры заданы долей от ширины картинки. |
-| Square size | Размер клетки |
-| Shift right | Сдвиг вправо |
-| Shift down | Сдвиг вниз |
+| {cols} x {rows} squares. Line the grid up with the map. Sizes are in pixels of the map picture; Ctrl + mouse wheel changes the square size by 1. The grid may reach past the picture, only its lines over the picture are shown. | Клеток: {cols} x {rows}. Совместите сетку с картой. Размеры в пикселях картинки карты; Ctrl + колесо мыши меняет размер клетки на 1. Сетка может выходить за картинку, но показываются только её линии над картинкой. |
+| Square size (px) | Размер клетки (пикс.) |
+| Shift right (px) | Сдвиг вправо (пикс.) |
+| Shift down (px) | Сдвиг вниз (пикс.) |
 | Height: {name} | Высота: {name} |
 | +{n} sp. | +{n} кл. |
 | No scene is active. Open Scenes to start one. | Нет активной сцены. Откройте «Сцены», чтобы запустить одну. |
@@ -578,6 +581,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Place token | Поставить фишку |
 | Summon | Вызвать |
 | Reset spot | Сбросить место |
+| {n} characters | Персонажей: {n} |
 | Cast | Актёры |
 | No characters. | Персонажей нет. |
 | Pictures: {name} | Картинки: {name} |
@@ -978,6 +982,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | You can only dismiss your own character. | Вы можете убрать только своего персонажа. |
 | Only the GM or the Display can change a figure. | Менять фигуру могут только мастер и экран стола. |
 | You can only move your own character. | Вы можете двигать только своего персонажа. |
+| Only the GM or the Display can change that. | Это может менять только ГМ или Экран. |
 | Only the GM or the Display can remove a token. | Убирать фишку могут только мастер и экран стола. |
 | You can only change the height of your own character. | Вы можете менять высоту только своего персонажа. |
 | You can only move your own character by dragging. | Перетаскивать можно только своего персонажа. |
@@ -1073,6 +1078,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Current AP | Текущие ОД |
+| {cols} x {rows} squares. Line the grid up with the map; sizes are a share of the picture's width. | {cols} x {rows} клеток. Совместите сетку с картой; размеры заданы долей от ширины картинки. |
+| Square size | Размер клетки |
+| Shift right | Сдвиг вправо |
+| Shift down | Сдвиг вниз |
 | This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
 | Open a character's Arcane tab to work with its Magic. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. |
 | Targets: | Цели: |

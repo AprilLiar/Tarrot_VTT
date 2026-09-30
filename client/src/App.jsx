@@ -74,7 +74,7 @@ function Screen() {
         <Route path="/" element={<Roster />} />
         <Route path="/character/:id" element={<GmSheetRoute />} />
         <Route path="/scene" element={<SceneFrame />} />
-        <Route path="/arcane" element={<main className="mx-auto max-w-3xl p-3"><ArcanePage s={null} /></main>} />
+        <Route path="/arcane" element={<main className="w-full p-3"><ArcanePage s={null} /></main>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

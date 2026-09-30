@@ -42,6 +42,7 @@ const COLUMNS = [
   { table: 'scenes', column: 'grid_cell', ddl: 'grid_cell REAL' },
   { table: 'scenes', column: 'grid_ox', ddl: 'grid_ox REAL' },
   { table: 'scenes', column: 'grid_oy', ddl: 'grid_oy REAL' },
+  { table: 'scenes', column: 'show_grid', ddl: 'show_grid INTEGER NOT NULL DEFAULT 1' },
   { table: 'scene_state', column: 'mode', ddl: "mode TEXT NOT NULL DEFAULT 'scene'" },
   { table: 'stage_summons', column: 'pos_x', ddl: 'pos_x REAL' },
   { table: 'stage_summons', column: 'pos_y', ddl: 'pos_y REAL' },

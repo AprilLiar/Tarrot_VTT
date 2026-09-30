@@ -227,6 +227,11 @@ card can edit any value before it is applied.
 Every PC has 4 AP. NPCs have 4 AP, with an optional "Minion" checkbox that makes max AP 2. AP is
 required to take any action in combat. (decided)
 
+**AP is shown as cubes** (decided after the first playtest): 4 cubes (2 for a Minion), each drawn as a wire-frame
+cube with all its corners; an **empty** cube is an AP the character does not have and a cube **filled with the UI
+colour** is one it has, filled from left to right. On the sheet, small arrow buttons beside the cubes lower and raise
+the amount; the Battle remote shows the cubes without arrows.
+
 ### Resources and defences
 Each character has current and max HP, Physical Defence and Mental Defence. All hand-entered.
 (decided)
@@ -457,7 +462,7 @@ Light-novel style: a fullscreen background with character art standing along the
 - **Scenes** are foldered (nested folders, like the roster) and each has a background picture. The
   GM activates one at a time; the Display and desktop players see the change live. Nobody is
   force-navigated. With no active scene the Display shows a waiting message.
-- **Name plaque** under each character; it is hidden with the character.
+- **Name plaque** above each character (it was below until the first playtest); it is hidden with the character.
 - **Hidden** characters are filtered out on the server: they are never sent to players or the
   Display, so they cannot be found by inspecting the page. The GM sees them half-transparent.
 - **Zoom and pan** are local to each screen (wheel, drag, pinch, buttons); the zoomed view is never
@@ -472,9 +477,18 @@ Decided:
   (uploaded from the Scenes drawer). The mode outlives scene changes.
 - The map is shown whole, as large as fits, with the same local zoom and pan as the Scene.
 - **Grid:** square. Each scene stores the cell size and offset as fractions of the picture (default
-  cell 1/20 of the width). The GM sets it live over the map (GM Grid panel: cell size, offset,
-  grid on/off); the squares counted across and down are shown. Hidden tokens are never sent to
-  players or the Display.
+  cell 1/20 of the width). The GM sets it live over the map in the Grid panel, **in pixels of the battle
+  picture itself** (decided): the side of a square, and the shift right and down, each with - and +
+  buttons and a number field; **Ctrl + mouse wheel** changes the square size by 1 pixel while the panel is
+  open. The grid may **extend beyond the picture** (decided): a square that only partly fits at the right
+  or bottom edge still counts (and tokens may stand on it), and a negative shift starts the grid before the
+  picture's corner; only the grid lines over the picture are drawn. The squares counted across and down are
+  shown. Hidden tokens are never sent to players or the Display.
+- **Grid on/off is a setting of the scene** (decided), saved for everybody watching until it is changed; the
+  GM and the Display can switch it (it used to be local to each screen).
+- The **Cast drawer** lists the characters in their folders, as on the Characters page: folders are
+  **collapsed by default** and open with a tap (a search opens the folders that hold a match); a folder shows
+  how many characters it holds.
 - **Tokens:** the GM places a character or temp NPC as a token from the Cast drawer ("Place token" in
   Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
@@ -748,7 +762,9 @@ Stones, Spell Combinations, Spell Fine Tuning.
 - **Where:** a **Sheet | Arcane** switch under the character's name (players and the GM on a character).
   The GM's general Arcane tab is **Arcane** in the top bar (`/arcane`); it lists the Enhancements for
   everyone (create, edit, delete). The draft (chosen weapon, Enhancements, Advantage, modifier) survives
-  switching between Sheet and Arcane. Magic, Stances and Manifest show "not built yet" until their PRs.
+  switching between Sheet and Arcane. The Arcane view uses the **whole width** of the screen (the rest of the
+  sheet stays in a narrower column), and its footer holds the **Chat button** as its last button (Options, Done,
+  Chat); elsewhere the chat button still floats at the bottom right.
 - **Weapon roll:** default weapons and Unarmed roll d20 + the **Prime stat** (highest of the five stats) +
   the **Experience Modifier**, plus statuses, Advantage levels and Dice Roll Bonuses. Weapons of other tabs
   will use their own roll (Magic for spells, Manifest for Manifestations). The footer shows the total
@@ -782,7 +798,8 @@ Stones, Spell Combinations, Spell Fine Tuning.
 - **Table:** Bases side by side in one row that grows sideways, one Modifier or Link to a row (an empty row is
   always left under the last one), one Release at the bottom; lanes are tinted (Modifiers and Links blue between
   the two). **Arrows:** tap a stone, then another stone, to draw an arrow (again to remove it); a stone can be
-  removed from the bar that appears. Double tap: write a note (glow, "1" badge, a tap shows the note).
+  removed from the bar that appears. Double tap: write a note (glow, "1" badge, a tap shows the note, and the
+  shown note **closes on any click on anything**).
 - **Legal scheme (decided):** at least 1 Base, exactly 1 Release; a Base takes no arrow in; a **Modifier exactly
   1** in; a **Link 2 or more** in; the **Release exactly 1** in and none out; **every other stone exactly 1 arrow
   out** (so the scheme is a tree ending at the Release); arrows only go **down** (to a later row), never up or
@@ -917,7 +934,7 @@ Implemented:
 
 Battle (Phase 5a):
 - `scenes` gains `battle_aspect` (picture width / height), `grid_cell`, `grid_ox`, `grid_oy`
-  (fractions of the picture); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
+  (fractions of the picture; the shifts may be negative), `show_grid` (1 shown, 0 hidden, for everybody); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
   and `size`.
 - `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank, height)`:
   one token per owner per scene; `height` is the Spaces in the air; `bank` is the leftover Movement squares. Tokens keep whole-square
@@ -1006,13 +1023,14 @@ Music (Phase 4b):
 
 Battle (Phase 5a):
 - `stage:get` / `stage:updated` now carry `{ scene, summons, mode, battle }`, where `battle` is
-  `{ imageId, aspect, grid: { cell, ox, oy }, cols, rows, tokens: [{ id, ownerKind, ownerId, name,
+  `{ imageId, aspect, grid: { cell, ox, oy }, showGrid, cols, rows, tokens: [{ id, ownerKind, ownerId, name,
   pictureId, imageId, col, row, size, hidden, prop, bank, targetedBy }], marks, targetId? }`; hidden
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
 - GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
   `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height? }` (GM and Display; a player only `height`, for their own PC), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.
+- GM and Display: `scene:show_grid` `{ id, show }` (saved per scene, everybody follows).
 - GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
   `mark:remove` `{ id }`, `mark:clear` `{ kind? }` (Clean), `mark:erase` `{ x, y, r }` (the eraser: picture
   fractions and a radius in picture widths; splits the drawings it cuts), `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as

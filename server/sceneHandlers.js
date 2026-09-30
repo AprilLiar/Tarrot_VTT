@@ -266,6 +266,13 @@ export function registerSceneHandlers(ctx) {
     return size;
   });
 
+  // The grid's visibility is a setting of the scene for everybody. The GM and the Display change it.
+  on('scene:show_grid', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change that.');
+    await scenes.setShowGrid(db, p.id, p.show === true);
+    await broadcastStage();
+  });
+
   // Tokens are placed by the GM. Their picture comes from the character's collection.
   on('battle:add', { gmOnly: true }, async (p) => {
     const id = await battle.addToken(db, scenes.ownerOf(p), Number.isInteger(p.pictureId) ? p.pictureId : undefined);

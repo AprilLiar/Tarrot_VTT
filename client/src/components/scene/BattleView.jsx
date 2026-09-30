@@ -76,40 +76,67 @@ function TokenSettings({ token, onClose }) {
   );
 }
 
-function GridPanel({ scene, battle, onClose }) {
+// The grid setting, in pixels of the battle picture itself: the side of a square, and how far the grid is shifted
+// right and down (negative shifts start it before the picture's corner, so the grid can extend beyond the map;
+// only its lines over the picture are drawn). Ctrl + mouse wheel changes the size by 1 pixel while this is open.
+function GridPanel({ scene, battle, natural, onClose }) {
   const t = useT();
   const { toast } = useApp();
   const [g, setG] = useState(battle.grid);
   const timer = useRef(null);
+  const latest = useRef(g);
+  latest.current = g;
+  const natW = natural.w || 1000;
+  const natH = natural.h || natW / (battle.aspect || 1);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   function change(patch) {
-    const next = { ...g, ...patch };
+    const next = { ...latest.current, ...patch };
+    latest.current = next;
     setG(next);
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const r = await call('scene:set_grid', { id: scene.id, ...next });
+      const r = await call('scene:set_grid', { id: scene.id, ...latest.current });
       if (!r.ok) toast(r.error);
     }, 250);
   }
-  const row = (label, key, min, max, step) => (
-    <label className="flex flex-col gap-1 text-sm">
-      <span>
-        {label}: {(g[key] * 100).toFixed(1)}%
-      </span>
+  const sizePx = Math.round(g.cell * natW);
+  const setSize = (px) => px >= 1 && change({ cell: Math.min(0.3, Math.max(0.01, px / natW)) });
+
+  // Ctrl + wheel over the page changes the size by one pixel (and keeps the browser from zooming).
+  useEffect(() => {
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      setSize(Math.round(latest.current.cell * natW) + (e.deltaY < 0 ? 1 : -1));
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A number in pixels with - and + buttons.
+  const field = (text, value, set, testId, min) => (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="flex-1">{text}</span>
+      <button type="button" aria-label={t('Less')} className="h-9 w-9 rounded-lg bg-white/10 active:bg-white/20" data-testid={`${testId}-down`} onClick={() => set(value - 1)}>
+        -
+      </button>
       <input
-        type="range"
+        type="number"
+        className="h-9 w-20 rounded-lg border border-white/20 bg-black/30 px-2 text-center"
+        aria-label={text}
+        data-testid={testId}
         min={min}
-        max={max}
-        step={step}
-        value={g[key]}
-        data-testid={`grid-${key}`}
-        onChange={(e) => change({ [key]: Number(e.target.value) })}
+        value={value}
+        onChange={(e) => e.target.value !== '' && set(Math.round(Number(e.target.value)))}
       />
-    </label>
+      <button type="button" aria-label={t('More')} className="h-9 w-9 rounded-lg bg-white/10 active:bg-white/20" data-testid={`${testId}-up`} onClick={() => set(value + 1)}>
+        +
+      </button>
+    </div>
   );
   return (
-    <div className="absolute bottom-16 left-2 z-30 w-72 rounded-xl bg-[#1a1626]/95 p-3 shadow-xl" data-no-pan data-testid="grid-panel">
+    <div className="absolute bottom-16 left-2 z-30 w-80 rounded-xl bg-[#1a1626]/95 p-3 shadow-xl" data-no-pan data-testid="grid-panel">
       <div className="mb-2 flex items-center justify-between">
         <strong>{t('Grid')}</strong>
         <button className={`${btn} min-h-9 px-3`} onClick={onClose}>
@@ -117,12 +144,12 @@ function GridPanel({ scene, battle, onClose }) {
         </button>
       </div>
       <p className="mb-2 text-xs opacity-70" data-testid="grid-size">
-        {t("{cols} x {rows} squares. Line the grid up with the map; sizes are a share of the picture's width.", { cols: battle.cols, rows: battle.rows })}
+        {t('{cols} x {rows} squares. Line the grid up with the map. Sizes are in pixels of the map picture; Ctrl + mouse wheel changes the square size by 1. The grid may reach past the picture, only its lines over the picture are shown.', { cols: battle.cols, rows: battle.rows })}
       </p>
       <div className="flex flex-col gap-2">
-        {row(t('Square size'), 'cell', 0.01, 0.3, 0.001)}
-        {row(t('Shift right'), 'ox', 0, 0.3, 0.001)}
-        {row(t('Shift down'), 'oy', 0, 0.3, 0.001)}
+        {field(t('Square size (px)'), sizePx, setSize, 'grid-cell', 1)}
+        {field(t('Shift right (px)'), Math.round(g.ox * natW), (px) => change({ ox: px / natW }), 'grid-ox')}
+        {field(t('Shift down (px)'), Math.round(g.oy * natH), (px) => change({ oy: px / natH }), 'grid-oy')}
       </div>
     </div>
   );
@@ -171,7 +198,7 @@ export default function BattleView() {
   const [width, setWidth] = useState(0.004);
   const [shape, setShape] = useState('cone');
   const [tsize, setTsize] = useState(4);
-  const [showGrid, setShowGrid] = useState(true);
+  const [natural, setNatural] = useState({ w: 0, h: 0 }); // the battle picture's own size in pixels
   const [gridOpen, setGridOpen] = useState(false);
   const [draft, setDraft] = useState(null); // in-progress stroke, ruler or template
   const [pings, setPings] = useState([]);
@@ -369,7 +396,7 @@ export default function BattleView() {
             onPointerCancel={() => setDraft(null)}
             data-pan-surface
           >
-            <img src={imageUrl(battle.imageId)} alt="" draggable={false} className="absolute inset-0 h-full w-full" data-testid="battle-background" />
+            <img src={imageUrl(battle.imageId)} alt="" draggable={false} className="absolute inset-0 h-full w-full" data-testid="battle-background" onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
 
             <svg
               className="pointer-events-none absolute inset-0 h-full w-full"
@@ -377,7 +404,7 @@ export default function BattleView() {
               data-testid="battle-overlay"
               style={{ pointerEvents: eraseMode ? 'auto' : 'none' }}
             >
-              {showGrid && (
+              {battle.showGrid && (
                 <g stroke="#ffffff" strokeOpacity={gridOpen ? 0.7 : 0.28} strokeWidth={unit * 0.03} data-testid="battle-grid">
                   {gridLines}
                 </g>
@@ -581,8 +608,8 @@ export default function BattleView() {
                 {label}
               </button>
             ))}
-            <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={showGrid} data-testid="toggle-grid" onClick={() => setShowGrid(!showGrid)}>
-              {showGrid ? t('Grid on') : t('Grid off')}
+            <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={battle.showGrid} data-testid="toggle-grid" onClick={() => call('scene:show_grid', { id: scene.id, show: !battle.showGrid })}>
+              {battle.showGrid ? t('Grid on') : t('Grid off')}
             </button>
             {isGm && (
               <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="open-grid" onClick={() => setGridOpen(!gridOpen)}>
@@ -701,7 +728,7 @@ export default function BattleView() {
         </>
       )}
 
-      {isGm && gridOpen && ready && <GridPanel scene={scene} battle={battle} onClose={() => setGridOpen(false)} />}
+      {isGm && gridOpen && ready && <GridPanel scene={scene} battle={battle} natural={natural} onClose={() => setGridOpen(false)} />}
 
       {menuToken && (
         <TokenMenu

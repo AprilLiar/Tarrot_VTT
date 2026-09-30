@@ -112,18 +112,18 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         onMenu?.(s, e.currentTarget);
       }}
     >
+      <figcaption
+        data-testid="name-plaque"
+        className="mb-1 max-w-full shrink-0 truncate rounded bg-black/65 px-3 py-0.5 text-sm text-white"
+      >
+        {s.name}
+      </figcaption>
       <img
         src={imageUrl(s.imageId)}
         alt={s.name}
         draggable={false}
         className="min-h-0 flex-1 object-contain object-bottom drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
       />
-      <figcaption
-        data-testid="name-plaque"
-        className="mt-1 max-w-full shrink-0 truncate rounded bg-black/65 px-3 py-0.5 text-sm text-white"
-      >
-        {s.name}
-      </figcaption>
     </figure>
   );
 }

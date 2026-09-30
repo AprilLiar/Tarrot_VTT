@@ -15,6 +15,7 @@ import { weaponSummary, enhancementSummary } from './summaries.js';
 import { enhancementCatalog, planAttack, MAX_COUNT } from '../../../../shared/arcane.js';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
+import { setChatSlot } from '../../lib/chatSlot.js';
 import { useT } from '../../i18n.jsx';
 
 // The Arcane tab: everything a character attacks with. This part has the General sub-tab (weapons and
@@ -305,7 +306,7 @@ function AttackFooter({ s, draft, setDraft }) {
   return (
     <>
       {/* The footer: what this attack is made of, and Done. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/15 bg-[#14111d] py-2 pl-3 pr-28" data-testid="arcane-footer">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/15 bg-[#14111d] px-3 py-2" data-testid="arcane-footer">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm" data-testid="arcane-chosen">
@@ -324,6 +325,7 @@ function AttackFooter({ s, draft, setDraft }) {
           <button className={btnPrimary} data-testid="arcane-done" disabled={!!blocked || busy || !rp.ok} onClick={() => done(false)}>
             {t('Done')}
           </button>
+          <div ref={setChatSlot} className="contents" data-testid="footer-chat-slot" />
         </div>
         {blocked && (
           <p className="mt-1 text-xs opacity-60" data-testid="attack-blocked">
