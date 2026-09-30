@@ -3,6 +3,7 @@ import { useApp } from '../AppContext.jsx';
 import { useIsDesktop } from '../lib/useMedia.js';
 import { Initial } from './Picker.jsx';
 import ChatPanel from './ChatPanel.jsx';
+import { AttackInbox } from './AttackCard.jsx';
 import MusicBar from '../music/MusicBar.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
 
@@ -70,6 +71,7 @@ export default function Shell({ children }) {
       <div className="flex-1">{children}</div>
 
       <ChatPanel />
+      {isGm && <AttackInbox />}
 
       <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (

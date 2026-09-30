@@ -205,7 +205,8 @@ GM's confirm card can change it. (decided)
 
 | Result | Severity | Damage |
 |---|---|---|
-| under 5 | Hit | base |
+| below 0 | Miss | nothing (a natural 20 still hits) |
+| 0 to 4 | Hit | base |
 | 5 to 9 | Heavy Hit | base + 1 |
 | 10 or more | Brutal Hit | base + 2 |
 | Natural 20 | Critical Hit | +2, added on top of the severity bonus (Brutal + Crit = base + 4) |
@@ -484,10 +485,37 @@ Decided:
   it began).
 - Temp NPCs have no sheet, so they take no turn-start effects.
 
-### Targeting and automation (planned)
-A player targets a token. Using an ability auto-rolls and opens a confirm card for the GM with a
-full breakdown of where every modifier came from. Every value (attack, damage, type, effects, etc.)
-is editable before applying. Results are applied to the targeted token's actor. (decided)
+### Targeting and attacks (attacks implemented in Phase 6a)
+Decided:
+- **Attack data:** while magic is a placeholder there are no stored attacks. The GM types base
+  damage, damage type and the rest on the confirm card each time. (Arcane abilities will plug into the
+  same card later, together with Enhancements that spend extra AP.)
+- **Flow:** on the Battle remote (phone, or the GM on an NPC's sheet) the player taps **Attack**,
+  picks a Combat Mastery (Magic, Stances, Manifest) and the base AP cost (**1 or 2 AP**, as attacks are
+  1 or 2 AP by base), and may add Advantage levels or a custom modifier. The server rolls it
+  (d20 + Mastery + Experience Modifier, plus status effects), posts the roll in the chat, and a
+  **confirm card** pops up on the GM's screen (desktop or phone). Attacks that the GM postpones
+  ("Later") wait in a badge; the GM can also **Discard** one.
+- **The card** shows the roll and lets the GM change every value: attack total, natural roll, the
+  critical range (natural roll at or above it, default 20), base damage, damage type (the twelve types
+  or True, which ignores resistances), AP cost, statuses added to every target that is hit (with
+  stacks), and whether the attacker gains Exposed (pre-ticked on a natural 1).
+- **Targets:** the card starts with the attacker's current target. The GM adds or removes any visible
+  token, or adds **all tokens inside a drawn area** (circle, cone, line or square template; a token
+  counts when its centre is inside). One roll is compared with each target's Defence, one row per
+  target: Physical or Mental Defence (default from the sheet, editable), a live outcome line, and an
+  optional "set damage" that replaces the calculated number.
+- **Damage per target:** Hit Severity (see Hit severity and damage; below the Defence is a Miss, a
+  natural 20 always hits) gives the bonus; damage is base + severity bonus + 2 for a critical, then
+  the target's resistance for that damage type (flat, then Half/Double; Immunity 0; Consumption heals
+  half). HP never goes below 0 or above max.
+- **Apply:** subtracts the damage from each target's HP, adds the chosen statuses to targets that were
+  hit, spends the attacker's AP (my default: at Apply, not at the roll, so a discarded card costs
+  nothing), and posts one result line per target in the chat (lines about hidden tokens are not
+  posted). A temp NPC has no sheet: the line says so and the GM applies it by hand. A miss changes
+  nothing but the AP.
+- **Not yet:** automatic Exposed from natural 1 on other rolls, statuses that change attack rolls
+  (Blinded, Prone and so on), reactions, and stored attacks and abilities.
 
 ### Mobile remote (implemented in Phase 5a)
 Phones do not render the Scene. On the character sheet a **Battle remote** shows when the character
@@ -701,6 +729,15 @@ Battle (Phase 5a):
   Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
   `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
   `already_in_combat`, `stale`.
+- Attacks (Phase 6a): `attack:roll` `{ characterId, mastery, ap (1 or 2), advantage?, modifier? }`
+  (the GM, or a player for their own PC) posts the roll in the chat and sends `attack:pending`
+  `{ id, characterId, characterName, attackerTokenId, mastery, masteryLabel, ap, roll, targets }` to
+  the GM room. GM only: `attack:list` `{ attacks }`, `attack:targets` `{ tokenIds }` (name, Defences,
+  resistances and HP of each), `attack:apply` `{ id, total, natural, critThreshold, base, kind, ap,
+  exposed, statuses: [{ key, stacks }], targets: [{ tokenId, defenceKind, defence, override }] }` and
+  `attack:cancel` `{ id }`; both send `attack:resolved` `{ id }` to the GM room. Pending attacks live in
+  server memory (at most 30). The rules code is in `shared/damage.js` (used by the server and by the
+  card's live preview) and `shared/templates.js` (which tokens are inside an area).
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
   needs AP. `battle:target` `{ characterId, tokenId | null }`: set or clear the target of a PC
@@ -746,11 +783,16 @@ Each phase ends in a deploy and playtest checkpoint.
      tokens with sizes and props, free dragging, D-pad remote with Movement banking and AP,
      targeting, drawing, areas, pings, ruler, Hidden. Covered by `server/test/battle.test.js` and
      `e2e/battle.spec.js`. Scene, music and battle playtests are done in one later batch.
-   - **5b Combat tracker** (implemented, awaiting playtest): initiative rolled by the players,
+   - **5b Combat tracker** (implemented, playtested): initiative rolled by the players,
      one sorted list, rounds, Next turn and End turn, Movement costs on your own turn, turn-start
      effects. Covered by `server/test/combat.test.js` and the combat test in `e2e/battle.spec.js`.
-6. **Mechanics and Arcane**: roll engine, confirm card, Arcane browser, sandbox, spell builder,
-   spontaneous-casting tables.
+6. **Mechanics and Arcane**, split in two parts:
+   - **6a Attacks** (implemented, awaiting playtest): Combat Mastery attack rolls from the Battle
+     remote, the GM confirm card (editable numbers, several targets, areas), Hit Severity, damage
+     through resistances, statuses, AP. Covered by `server/test/attack.test.js` and the attack test in
+     `e2e/battle.spec.js`.
+   - **6b Arcane** (planned, needs the magic rules): Arcane browser, sandbox, spell builder,
+     spontaneous-casting tables, Enhancements.
 
 ## Open questions
 

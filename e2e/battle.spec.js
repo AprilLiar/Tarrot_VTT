@@ -359,3 +359,55 @@ test('combat: players roll their own Initiative, turns run in order, and movemen
   await tvCtx.close();
   await gmCtx.close();
 });
+
+test('attacks: the player rolls, the GM confirms a card, and the target and the AP are updated', async ({ browser }) => {
+  const pc = `Knight-${uid()}`;
+  const npc = `Orc-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Duel-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+
+  await expect(p.getByTestId('remote-ap')).toHaveText('4/4');
+  await p.getByTestId('target-option').filter({ hasText: npc }).click();
+  await p.getByTestId('attack-open').click();
+  await expect(p.getByTestId('attack-target-name')).toHaveText(npc);
+  await p.getByTestId('attack-mastery-stances').click();
+  await p.getByTestId('attack-ap-2').click();
+  await expect(p.getByTestId('attack-preview')).toContainText('Mastery: Stances');
+  await p.getByTestId('attack-roll').click();
+
+  // The card pops up on the GM's screen with the target already on it.
+  const card = gm.getByTestId('attack-card');
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId('attack-target')).toHaveAttribute('data-name', npc);
+  await card.getByLabel('Attack total').fill('25');
+  await card.getByLabel('Natural roll').fill('12');
+  await card.getByLabel('Base damage').fill('4');
+  await card.getByTestId('attack-kind').selectOption('fire');
+  await expect(card.getByTestId('attack-outcome')).toContainText('Brutal Hit');
+  await expect(card.getByTestId('attack-outcome')).toContainText('6 damage'); // 4 + 2 for a Brutal Hit
+  await card.getByTestId('attack-apply').click();
+  await expect(card).toHaveCount(0);
+
+  // The attacker spent 2 AP.
+  await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
+
+  // A second attack can be discarded.
+  await p.getByTestId('attack-open').click();
+  await p.getByTestId('attack-roll').click();
+  await expect(gm.getByTestId('attack-card')).toBeVisible();
+  await gm.getByTestId('attack-discard').click();
+  await expect(gm.getByTestId('attack-card')).toHaveCount(0);
+  await expect(p.getByTestId('remote-ap')).toHaveText('2/4');
+
+  await ctx.close();
+  await gmCtx.close();
+});
