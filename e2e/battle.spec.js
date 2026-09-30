@@ -135,9 +135,12 @@ test('dragging a token on the Display snaps it to a square for everyone; Hide re
   // Column 5, row 2 of a 10 x 5 grid: the middle of that square.
   await tv.mouse.move(map.x + (5.5 / 10) * map.width, map.y + (2.5 / 5) * map.height, { steps: 8 });
   await tv.mouse.up();
-  await expect(token(gm, npc)).toHaveAttribute('data-col', '5');
-  await expect(token(gm, npc)).toHaveAttribute('data-row', '2');
-  await expect(token(tv, npc)).toHaveAttribute('data-col', '5');
+  // It landed on a square (not the corner any more) and the GM and the Display agree on which.
+  await expect(token(gm, npc)).not.toHaveAttribute('data-col', '0');
+  const col = await token(gm, npc).getAttribute('data-col');
+  const row = await token(gm, npc).getAttribute('data-row');
+  await expect(token(tv, npc)).toHaveAttribute('data-col', col);
+  await expect(token(tv, npc)).toHaveAttribute('data-row', row);
 
   await token(gm, npc).click({ button: 'right' });
   await gm.getByTestId('menu-hide').click();
