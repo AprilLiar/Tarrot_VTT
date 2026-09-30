@@ -21,7 +21,7 @@ export default function Shell({ children }) {
   const desktop = useIsDesktop();
   // The GM can view the scene on any device; players only on a desktop (phones stay on the controls).
   const links = isGm
-    ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')]]
+    ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')], ['/arcane', 'Arcane', t('Arcane')]]
     : desktop
       ? [['/', 'Sheet', t('Sheet')], ['/scene', 'Scene', t('Scene')]]
       : [];

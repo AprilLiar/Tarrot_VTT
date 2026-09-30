@@ -4,6 +4,7 @@ import { IMAGE_SCHEMA } from './images.js';
 import { SCENE_SCHEMA } from './scenes.js';
 import { AUDIO_SCHEMA } from './audio.js';
 import { BATTLE_SCHEMA } from './battle.js';
+import { ARCANE_SCHEMA } from './arcane.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
 // file otherwise. Same client and same SQL either way.
@@ -26,6 +27,7 @@ const SCHEMA = [
   ...SCENE_SCHEMA,
   ...AUDIO_SCHEMA,
   ...BATTLE_SCHEMA,
+  ...ARCANE_SCHEMA,
 ];
 
 // New columns on existing tables cannot use IF NOT EXISTS, so each one is

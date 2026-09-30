@@ -4,6 +4,8 @@ import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
 import { hitResult, computeTarget } from '../../shared/damage.js';
 import { tokenInTemplate, tokensInTemplate } from '../../shared/templates.js';
+import { planAttack, enhancementCatalog, tokenDistance, normalizeEnhancement } from '../../shared/arcane.js';
+import { normalizeSheet } from '../sheet.js';
 
 describe('hit severity', () => {
   const at = (total, defence, natural = 10, critThreshold) => hitResult({ total, defence, natural, critThreshold });
@@ -114,7 +116,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await db.batch(
-    ['DELETE FROM battle_tokens', 'DELETE FROM battle_marks', 'DELETE FROM stage_summons', 'DELETE FROM pictures', 'DELETE FROM scenes', 'DELETE FROM temp_npcs', 'DELETE FROM images', 'DELETE FROM characters', "UPDATE scene_state SET active_scene_id = NULL, mode = 'scene'"],
+    ['DELETE FROM battle_tokens', 'DELETE FROM battle_marks', 'DELETE FROM stage_summons', 'DELETE FROM pictures', 'DELETE FROM scenes', 'DELETE FROM temp_npcs', 'DELETE FROM images', 'DELETE FROM characters', 'DELETE FROM arcane_enhancements', "UPDATE scene_state SET active_scene_id = NULL, mode = 'scene'"],
     'write',
   );
   server.shared.targets.clear();
@@ -169,10 +171,10 @@ async function setup() {
   const p = await player(a.id);
   return { g, a, o, p };
 }
-const roll = (ctx, extra = {}) => ctx.p.call('attack:roll', { characterId: ctx.a.id, mastery: 'stances', ap: 2, defence: 'physical', ...extra });
+const roll = (ctx, extra = {}) => ctx.p.call('attack:roll', { characterId: ctx.a.id, weapon: { kind: 'unarmed' }, enhancements: [], ...extra });
 
 describe('rolling an attack', () => {
-  it('rolls the Mastery, shows the number to beat, posts it in the chat and sends a pending attack to the GM', async () => {
+  it('rolls the weapon, shows the number to beat, posts it in the chat and sends a pending attack to the GM', async () => {
     const ctx = await setup();
     const { g, a, o, p } = ctx;
     await p.call('battle:target', { characterId: a.id, tokenId: o.token });
@@ -180,26 +182,26 @@ describe('rolling an attack', () => {
     const r = await roll(ctx);
     expect(r.ok).toBe(true);
     const pending = await seen;
-    expect(pending).toMatchObject({ characterId: a.id, mastery: 'stances', ap: 2, defenceKind: 'physical', attackerTokenId: a.token, targets: [o.token] });
-    expect(pending.roll.title).toBe('Stances attack');
+    expect(pending).toMatchObject({ characterId: a.id, weaponName: 'Unarmed Attack', ap: 1, base: 0, kind: 'bludgeoning', defenceKind: 'physical', attackerTokenId: a.token, targets: [o.token] });
+    expect(pending.roll.title).toBe('Weapon Attack Roll');
     expect(pending.roll.against).toEqual({ label: 'Physical Defence', targets: [{ name: 'Ogre', value: 12 }] });
     const card = server.shared.chat.history().find((m) => m.type === 'roll');
     expect(card.roll.against.targets[0]).toEqual({ name: 'Ogre', value: 12 });
     expect((await g.call('attack:list')).attacks).toHaveLength(1);
   });
 
-  it('needs a target, enough AP, a Mastery and a Defence, and only the owner rolls', async () => {
+  it('needs a target, a real weapon, enough AP, and only the owner rolls', async () => {
     const ctx = await setup();
     const { g, a, o, p } = ctx;
     expect(await roll(ctx)).toMatchObject({ ok: false, code: 'no_target' });
     await p.call('battle:target', { characterId: a.id, tokenId: o.token });
-    expect(await p.call('attack:roll', { characterId: o.id, mastery: 'magic', ap: 1, defence: 'physical' })).toMatchObject({ ok: false, code: 'forbidden' });
-    expect(await roll(ctx, { mastery: 'luck' })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await roll(ctx, { ap: 3 })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await roll(ctx, { defence: 'spiritual' })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await p.call('attack:roll', { characterId: o.id, weapon: { kind: 'unarmed' }, enhancements: [] })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await roll(ctx, { weapon: { kind: 'item', itemId: 'nope' } })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await roll(ctx, { enhancements: [{ id: 'nope', count: 1 }] })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await roll(ctx, { enhancements: [{ id: 'default:power', count: 11 }] })).toMatchObject({ ok: false, code: 'bad_value' });
     await g.call('sheet:set', { characterId: a.id, path: 'ap.current', value: 1 });
-    expect(await roll(ctx, { ap: 2 })).toMatchObject({ ok: false, code: 'no_ap' });
-    expect((await roll(ctx, { ap: 1 })).ok).toBe(true);
+    expect(await roll(ctx, { enhancements: [{ id: 'default:power', count: 1 }] })).toMatchObject({ ok: false, code: 'no_ap' });
+    expect((await roll(ctx)).ok).toBe(true);
     expect(await p.call('attack:list')).toMatchObject({ ok: false, code: 'forbidden' });
   });
 
@@ -210,7 +212,8 @@ describe('rolling an attack', () => {
     await p.call('battle:target', { characterId: a.id, tokenId: o.token });
     await p.call('battle:target', { characterId: a.id, tokenId: b.token });
     const seen = nextPending(ctx.g);
-    await roll(ctx, { defence: 'mental' });
+    await ctx.g.call('sheet:set', { characterId: a.id, path: 'unarmed', value: { defence: 'mental' } });
+    await roll(ctx);
     const pending = await seen;
     expect(pending.targets).toEqual([o.token, b.token]);
     expect(pending.roll.against.label).toBe('Mental Defence');
@@ -222,7 +225,7 @@ describe('the confirm card', () => {
   async function pendingAttack(ctx, tokenIds = [ctx.o.token]) {
     for (const t of tokenIds) await ctx.p.call('battle:target', { characterId: ctx.a.id, tokenId: t });
     const seen = nextPending(ctx.g);
-    await roll(ctx, { mastery: 'manifestation', ap: 1 });
+    await roll(ctx);
     return seen;
   }
   const card = (pending, extra = {}) => ({ id: pending.id, total: 20, base: 4, kind: 'fire', ap: 1, ...extra });
@@ -305,5 +308,94 @@ describe('the confirm card', () => {
     expect((await ctx.g.call('attack:cancel', { id: pending.id })).ok).toBe(true);
     expect((await ctx.g.call('attack:list')).attacks).toHaveLength(0);
     expect(await ctx.g.call('attack:cancel', { id: pending.id })).toMatchObject({ ok: false, code: 'not_found' });
+  });
+});
+
+// ---- weapons and Enhancements ------------------------------------------------------------
+
+describe('planning an attack from a weapon and Enhancements', () => {
+  const sheet = () => normalizeSheet({ ap: { current: 4 }, items: [{ id: 'bow', name: 'Bow', uses: { current: 3, max: 3 }, weapon: { base: 3, kind: 'piercing', range: 6, ap: 2 } }, { id: 'ammo', name: 'Arrows', uses: { current: 2, max: 5 } }] });
+  const plan = (choice, s = sheet(), globals = []) => planAttack(s, enhancementCatalog(globals.map((e) => normalizeEnhancement(e, e.id)), s), choice);
+
+  it('adds up damage, AP and Advantage of the chosen Enhancements', () => {
+    const r = plan({ weapon: { kind: 'item', itemId: 'bow' }, enhancements: [{ id: 'default:power', count: 2 }, { id: 'default:precise', count: 1 }] });
+    expect(r).toMatchObject({ ok: true, ap: 5, base: 5, kind: 'piercing', range: 6, advantage: 1, defence: 'physical' });
+    expect(r.chosen.map((e) => e.count)).toEqual([2, 1]);
+  });
+
+  it('Unarmed is always there: 0 Bludgeoning for 1 AP', () => {
+    expect(plan({ weapon: { kind: 'unarmed' } })).toMatchObject({ ok: true, ap: 1, base: 0, kind: 'bludgeoning' });
+    expect(defaultSheetHasUnarmed()).toBe(true);
+  });
+
+  it('a Singular Enhancement can be used once; costs must be payable', () => {
+    const single = { id: 'g1', name: 'Snipe', repeatable: false, cost: { item: { itemId: 'ammo', uses: 2 } }, effect: { range: 4, statuses: [{ key: 'burning', stacks: 2 }] } };
+    expect(plan({ weapon: { kind: 'unarmed' }, enhancements: [{ id: 'g1', count: 2 }] }, sheet(), [single]).ok).toBe(false);
+    const r = plan({ weapon: { kind: 'item', itemId: 'bow' }, enhancements: [{ id: 'g1', count: 1 }] }, sheet(), [single]);
+    expect(r).toMatchObject({ ok: true, range: 10, costs: { items: [{ itemId: 'ammo', uses: 2 }] }, statuses: [{ key: 'burning', stacks: 2 }] });
+    const poor = normalizeSheet({ ...sheet(), items: [{ id: 'ammo', name: 'Arrows', uses: { current: 1, max: 5 } }] });
+    expect(plan({ weapon: { kind: 'unarmed' }, enhancements: [{ id: 'g1', count: 1 }] }, poor, [single]).ok).toBe(false);
+  });
+
+  it('measures Spaces between tokens, in the air by Pythagoras', () => {
+    const a = { col: 0, row: 0, size: 1, height: 0 };
+    expect(tokenDistance(a, { col: 3, row: 0, size: 1, height: 0 })).toBe(3);
+    expect(tokenDistance(a, { col: 2, row: 2, size: 1, height: 0 })).toBe(3); // one diagonal costs 2
+    expect(tokenDistance(a, { col: 3, row: 0, size: 1, height: 4 })).toBe(5);
+    expect(tokenDistance(a, { col: 1, row: 0, size: 1, height: 1 })).toBe(1); // 1.41 rounds to 1
+  });
+});
+
+const defaultSheetHasUnarmed = () => normalizeSheet({}).unarmed.kind === 'bludgeoning';
+
+describe('attacking with weapons and Enhancements', () => {
+  const addBow = (g, id, weapon = {}) =>
+    g.call('sheet:list', { characterId: id, list: 'items', action: 'add', name: 'Bow', usesMax: 3, weapon: { base: 3, kind: 'piercing', range: 6, ...weapon } });
+
+  it('rolls a weapon with its Dice Roll Bonus, and applies its Unique Effect and item cost', async () => {
+    const ctx = await setup();
+    const { g, a, o, p } = ctx;
+    const item = (await addBow(g, a.id, { dice: [{ sides: 6, sign: 1 }], unique: [{ name: 'Pin', text: 'It cannot move.' }] })).sheet.items[0];
+    const ammo = (await g.call('sheet:list', { characterId: a.id, list: 'items', action: 'add', name: 'Arrows', usesMax: 5 })).sheet.items[1];
+    await g.call('arcane:enhancement:save', { enhancement: { name: 'Volley', repeatable: true, cost: { ap: 1, item: { itemId: ammo.id, uses: 2 } }, effect: { damage: 2 } } });
+    const volley = (await g.call('arcane:enhancements')).enhancements[0];
+    await p.call('battle:target', { characterId: a.id, tokenId: o.token });
+    const seen = nextPending(g);
+    expect((await roll(ctx, { weapon: { kind: 'item', itemId: item.id }, enhancements: [{ id: volley.id, count: 2 }] })).ok).toBe(true);
+    const pending = await seen;
+    expect(pending).toMatchObject({ weaponName: 'Bow', ap: 3, base: 7, kind: 'piercing' });
+    expect(pending.roll.terms.some((t) => t.label === 'Bow (d6)' && Math.abs(t.value) >= 1 && Math.abs(t.value) <= 6)).toBe(true);
+    server.shared.attacks.get(pending.id).roll.natural = 10;
+    expect((await g.call('attack:apply', { id: pending.id, total: 20, base: 7, kind: 'piercing', ap: 3, statuses: [] })).ok).toBe(true);
+    const after = await sheetOf(g, a.id);
+    expect(after.ap.current).toBe(1);
+    expect(after.items.find((i) => i.id === ammo.id).uses.current).toBe(1);
+    expect(texts().some((t) => /Bow: Pin\. It cannot move\./.test(t))).toBe(true);
+    expect(texts().some((t) => /spends 4 uses of Arrows/.test(t))).toBe(true);
+  });
+
+  it('asks before shooting a target out of range, and shoots anyway when told', async () => {
+    const ctx = await setup();
+    const { g, a, o, p } = ctx;
+    const item = (await addBow(g, a.id, { range: 0 })).sheet.items[0];
+    await p.call('battle:target', { characterId: a.id, tokenId: o.token });
+    const first = await roll(ctx, { weapon: { kind: 'item', itemId: item.id } });
+    expect(first).toMatchObject({ ok: true, needsConfirm: { range: 0 } });
+    expect(first.needsConfirm.targets[0]).toMatchObject({ name: 'Ogre', distance: 1 });
+    expect((await g.call('attack:list')).attacks).toHaveLength(0);
+    expect((await roll(ctx, { weapon: { kind: 'item', itemId: item.id }, confirmRange: true })).ok).toBe(true);
+    expect((await g.call('attack:list')).attacks).toHaveLength(1);
+  });
+
+  it('only the GM makes global Enhancements; everyone can read them', async () => {
+    const ctx = await setup();
+    expect(await ctx.p.call('arcane:enhancement:save', { enhancement: { name: 'X' } })).toMatchObject({ ok: false, code: 'forbidden' });
+    const saved = await ctx.g.call('arcane:enhancement:save', { enhancement: { name: 'Fury', effect: { advantage: 2, dice: [{ sides: 4, sign: -1 }] } } });
+    expect(saved.enhancement).toMatchObject({ name: 'Fury', effect: { advantage: 2, dice: [{ sides: 4, sign: -1 }] } });
+    expect((await ctx.p.call('arcane:enhancements')).enhancements).toHaveLength(1);
+    await ctx.g.call('arcane:enhancement:save', { id: saved.enhancement.id, enhancement: { name: 'Fury 2' } });
+    expect((await ctx.p.call('arcane:enhancements')).enhancements[0].name).toBe('Fury 2');
+    await ctx.g.call('arcane:enhancement:delete', { id: saved.enhancement.id });
+    expect((await ctx.p.call('arcane:enhancements')).enhancements).toHaveLength(0);
   });
 });

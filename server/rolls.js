@@ -16,7 +16,9 @@ export function buildRoll(sheet, request, rng = rollD20) {
 
   const dice = Array.from({ length: plan.diceCount }, () => rng());
   const natural = plan.net < 0 ? Math.min(...dice) : Math.max(...dice);
-  const total = natural + plan.terms.reduce((sum, t) => sum + t.value, 0);
+  // Dice Roll Bonuses are rolled with the d20 and added or subtracted like any other bonus.
+  const terms = [...plan.terms, ...plan.bonusDice.map((d) => ({ label: `${d.source} (d${d.sides})`, value: d.sign * randomInt(1, d.sides + 1) }))];
+  const total = natural + terms.reduce((sum, t) => sum + t.value, 0);
   const flags = [];
   if (natural === 20) flags.push('critical');
   if (natural === 1) flags.push('critical_failure');
@@ -27,7 +29,7 @@ export function buildRoll(sheet, request, rng = rollD20) {
     advantage: { net: plan.net, sources: plan.sources },
     dice,
     natural,
-    terms: plan.terms,
+    terms,
     total,
     expression: plan.expression,
     flags,

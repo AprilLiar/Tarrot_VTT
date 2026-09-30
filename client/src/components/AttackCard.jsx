@@ -61,16 +61,16 @@ export function AttackInbox() {
 }
 
 // The card is deliberately small: the GM decides the Total, the Base damage, the damage type, the AP
-// cost and any statuses. The natural roll, the critical range, the targets (chosen by the player) and
+// cost and any statuses (all prefilled from the weapon and Enhancements the player chose). The natural roll, the critical range, the targets (chosen by the player) and
 // each target's Defence are automatic, and the outcome per target is shown as it will be applied.
 function AttackCard({ attack, onClose }) {
   const t = useT();
   const { toast } = useApp();
   const [total, setTotal] = useState(String(attack.roll.total));
-  const [base, setBase] = useState('1');
-  const [kind, setKind] = useState('bludgeoning');
+  const [base, setBase] = useState(String(attack.base));
+  const [kind, setKind] = useState(attack.kind);
   const [ap, setAp] = useState(String(attack.ap));
-  const [statuses, setStatuses] = useState([]); // [{ key, stacks }]
+  const [statuses, setStatuses] = useState(() => attack.statuses.map((x) => ({ key: x.key, stacks: x.stacks }))); // [{ key, stacks }]
   const [info, setInfo] = useState([]); // what the server knows about each target
   const [busy, setBusy] = useState(false);
 
@@ -118,11 +118,22 @@ function AttackCard({ attack, onClose }) {
   }
 
   return (
-    <Dialog title={t('{name} attacks ({mastery})', { name: attack.characterName, mastery: { t: attack.masteryLabel } })} onClose={onClose}>
+    <Dialog title={t('{name} attacks with {weapon}', { name: attack.characterName, weapon: attack.weaponName })} onClose={onClose}>
       <div className="flex flex-col gap-3" data-testid="attack-card">
         <div className="text-sm opacity-80" data-testid="attack-roll-info">
           {t('Rolled {total} (natural {natural}) against {label}', { total: attack.roll.total, natural: attack.roll.natural, label: { t: attack.roll.against?.label } })}
         </div>
+
+        {attack.enhancements.length > 0 && (
+          <div className="text-sm opacity-80" data-testid="attack-enhancements">
+            {t('Enhancements: {list}', { list: attack.enhancements.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name)).join(', ') })}
+          </div>
+        )}
+        {attack.unique.map((u, i) => (
+          <div key={i} className="rounded-lg bg-white/5 p-2 text-sm" data-testid="attack-unique">
+            <span className="font-medium">{u.name}</span> ({u.source}): {u.text}
+          </div>
+        ))}
 
         <div className="grid grid-cols-2 gap-2">
           <label className={field}>
