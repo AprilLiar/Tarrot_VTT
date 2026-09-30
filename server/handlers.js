@@ -10,6 +10,11 @@ import { registerSceneHandlers } from './sceneHandlers.js';
 import { registerAttackHandlers } from './attackHandlers.js';
 import { registerSpellHandlers } from './spellHandlers.js';
 import { registerStanceHandlers } from './stanceHandlers.js';
+import { registerLockHandlers } from './lockHandlers.js';
+import { registerManifestHandlers } from './manifestHandlers.js';
+import * as lockStore from './locks.js';
+import { lockedError } from './locks.js';
+import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
@@ -53,8 +58,11 @@ export function registerHandlers(io, socket, db, shared) {
     io.emit('pcs:updated', pcs);
   }
 
-  const emitSheet = (characterId, sheet) =>
-    io.to(GM_ROOM).to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet });
+  // The GM sees the whole sheet; the player's devices get it with the locked parts of the Arcane tab emptied.
+  const emitSheet = async (characterId, sheet) => {
+    io.to(GM_ROOM).emit('sheet:updated', { characterId, sheet });
+    io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
+  };
 
   // The GM controls every character; a player controls only their own PC.
   async function requireControl(characterId) {
@@ -85,6 +93,7 @@ export function registerHandlers(io, socket, db, shared) {
           return reply({ ok: false, code: 'forbidden', error: say('Choose who you are first.') });
         }
         const result = (await fn(payload ?? {})) ?? {};
+        if (result.sheet && isPlayer()) result.sheet = redactSheet(result.sheet, await lockStore.listLocks(db));
         if (broadcast) await broadcastRoster();
         reply({ ok: true, ...result });
       } catch (err) {
@@ -181,6 +190,7 @@ export function registerHandlers(io, socket, db, shared) {
 
   on('sheet:set', { needsIdentity: true }, async ({ characterId, path, value }) => {
     const c = await requireControl(characterId);
+    if (isPlayer() && String(path).startsWith('stones.') && stonesLocked(await lockStore.listLocks(db))) throw lockedError();
     const sheet = await sheets.updateSheet(db, c.id, (s) => sheets.applySet(s, path, value, c));
     emitSheet(c.id, sheet);
     // A token's footprint follows the sheet's Size.
@@ -190,7 +200,20 @@ export function registerHandlers(io, socket, db, shared) {
 
   on('sheet:list', { needsIdentity: true }, async ({ characterId, list, action, ...rest }) => {
     const c = await requireControl(characterId);
-    const sheet = await sheets.updateSheet(db, c.id, (s) => sheets.applyList(s, list, action, rest));
+    // Locked parts of the Arcane tab cannot be used by a player (the GM is never held back).
+    const locked = isPlayer() && list === 'spellDrafts' ? await lockStore.listLocks(db) : [];
+    if (list === 'spellDrafts' && combinationsLocked(locked)) throw lockedError();
+    const keepRunes = list === 'spellDrafts' && fineTuningLocked(locked);
+    if (keepRunes && action === 'add' && rest.draft) delete rest.draft.runes;
+    const sheet = await sheets.updateSheet(db, c.id, (s) => {
+      const next = sheets.applyList(s, list, action, rest);
+      if (keepRunes && action === 'update') {
+        const before = s.spellDrafts.find((d) => d.id === rest.id);
+        const after = next.spellDrafts.find((d) => d.id === rest.id);
+        if (before && after) after.runes = before.runes;
+      }
+      return next;
+    });
     emitSheet(c.id, sheet);
     return { sheet };
   });
@@ -311,9 +334,11 @@ export function registerHandlers(io, socket, db, shared) {
 
   // ---- Attacks ---------------------------------------------------------------
 
-  registerAttackHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerAttackHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
 
   registerSpellHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm });
+  registerLockHandlers({ io, db, on, emitSheet });
 
   registerStanceHandlers({ io, db, on, isGm, identity });
 

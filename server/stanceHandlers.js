@@ -1,5 +1,7 @@
 import * as stances from './stances.js';
 import { visibleStances } from '../shared/stances.js';
+import { listLocks } from './locks.js';
+import { stancesLocked } from '../shared/locks.js';
 
 // Socket events for Stances (see the Stances tab in the README).
 //  - stance:list   { signs (the GM's vibe texts), stances }  the GM gets everything, a player only the Stances
@@ -16,7 +18,9 @@ export function registerStanceHandlers(ctx) {
     const all = await stances.listAll(db);
     const vibes = await stances.listVibes(db);
     if (isGm()) return { vibes, stances: all };
-    return { vibes, stances: visibleStances(all, identity().characterId) };
+    // What is locked is left out for players (the client draws a blurred picture in its place).
+    const locks = await listLocks(db);
+    return { vibes, stances: visibleStances(all, identity().characterId).filter((s) => !stancesLocked(locks, s.sign)) };
   });
   on('stance:save', { gmOnly: true }, async (p) => {
     const stance = await stances.saveStance(db, p);

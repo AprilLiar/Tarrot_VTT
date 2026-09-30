@@ -4,6 +4,8 @@ import * as sheets from './sheet.js';
 import * as scenes from './scenes.js';
 import * as arcane from './arcane.js';
 import * as stances from './stances.js';
+import { listLocks, lockedError } from './locks.js';
+import { magicLocked, stancesLocked, manifestationsLocked } from '../shared/locks.js';
 import * as D from '../shared/rules-data.js';
 import { buildRoll } from './rolls.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
@@ -18,7 +20,7 @@ import { T } from '../shared/localization.js';
 //                  the Arcane tab, posts it in the chat and sends a pending attack to the GM's confirm card.
 //  - attack:list / attack:targets / attack:apply / attack:cancel   (GM only)
 export function registerAttackHandlers(ctx) {
-  const { io, db, on, requireControl, emitSheet, authorName, shared, rooms } = ctx;
+  const { io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms } = ctx;
   const { GM_ROOM, CHAT_ROOM } = rooms;
   const pending = shared.attacks;
 
@@ -62,6 +64,9 @@ export function registerAttackHandlers(ctx) {
     const choice = { weapon: p.weapon, enhancements: p.enhancements };
     let plan = planAttack(sheet, catalog, choice);
     if (!plan.ok) throw new AppError('bad_value', plan.error, plan.params);
+    // A player cannot use what the GM has locked (Magic, a Zodiac's Stances, Manifestations).
+    const locks = isGm() ? [] : await listLocks(db);
+    if ((plan.spellIds.length && magicLocked(locks)) || (plan.manifestationIds.length && manifestationsLocked(locks))) throw lockedError();
     if (sheet.ap.current < plan.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
     const picked = [...(shared.targets.get(c.id) ?? [])];
     if (!picked.length) throw new AppError('no_target', 'Select at least one target first.');
@@ -77,6 +82,7 @@ export function registerAttackHandlers(ctx) {
 
     // A Stance must be learned by this character (a base Stance too).
     const stance = p.stance == null ? null : await stances.getStance(db, p.stance);
+    if (stance && stancesLocked(locks, stance.sign)) throw lockedError();
     if (stance && !stance.learned.includes(c.id)) throw new AppError('forbidden', 'That Stance is not learned by this character.');
 
     // Where the attacker stands, and how far each target is (the range is only a suggestion).

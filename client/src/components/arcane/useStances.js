@@ -16,9 +16,11 @@ export function useStances() {
     load();
     socket.on('connect', load);
     socket.on('stances:changed', load);
+    socket.on('locks:changed', load); // what is locked is left out of the list for players
     return () => {
       socket.off('connect', load);
       socket.off('stances:changed', load);
+      socket.off('locks:changed', load);
     };
   }, [load]);
   return data;
