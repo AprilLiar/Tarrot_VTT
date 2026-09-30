@@ -8,6 +8,7 @@ import { cellAt, cellToUnits, distanceSquares, dropCell, templateShape, toUnits 
 import Dialog, { btn, btnDanger } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
+import { CombatBar } from './CombatBar.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -448,7 +449,7 @@ export default function BattleView() {
       )}
 
       {ruler && (
-        <div className="pointer-events-none absolute left-1/2 top-16 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1 text-lg" data-testid="ruler-distance">
+        <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1 text-lg" data-testid="ruler-distance">
           {distanceSquares(ruler.a, ruler.b)} squares
         </div>
       )}
@@ -467,6 +468,8 @@ export default function BattleView() {
           </button>
         </div>
       </div>
+
+      {ready && <CombatBar battle={battle} />}
 
       {tools && ready && (
         <div className="absolute left-2 top-1/2 z-20 flex max-h-[60%] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-black/55 p-1 backdrop-blur" data-no-pan data-testid="battle-tools">

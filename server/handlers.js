@@ -293,7 +293,7 @@ export function registerHandlers(io, socket, db, shared) {
     requireControl,
     emitSheet,
     shared,
-    rooms: { GM_ROOM, VIEW_ROOM, charRoom },
+    rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
   });
 
   // ---- Music -----------------------------------------------------------------

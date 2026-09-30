@@ -1,5 +1,6 @@
 import { AppError } from './errors.js';
 import * as scenes from './scenes.js';
+import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
 
 // Battle mode: tokens on a square grid over the scene's battle picture, shared
@@ -323,6 +324,6 @@ export async function buildBattle(db, { forGm, targets, combat = null }) {
     rows,
     tokens,
     marks,
-    combat,
+    combat: combatView(combat, tokens),
   };
 }

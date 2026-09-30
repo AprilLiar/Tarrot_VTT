@@ -1,6 +1,8 @@
 import * as scenes from './scenes.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
+import * as combat from './combat.js';
+import { buildRoll, rollD20 } from './rolls.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
 
@@ -16,7 +18,7 @@ import { AppError } from './errors.js';
 export function registerSceneHandlers(ctx) {
   const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, shared, rooms } = ctx;
   const targets = shared.targets;
-  const { GM_ROOM, VIEW_ROOM, charRoom } = rooms;
+  const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
 
   // --- helpers --------------------------------------------------------------
 
@@ -31,6 +33,7 @@ export function registerSceneHandlers(ctx) {
   }
 
   async function broadcastStage() {
+    await syncCombat();
     const [full, filtered] = await Promise.all([stageFor(true), stageFor(false)]);
     io.to(GM_ROOM).emit('stage:updated', full);
     io.to(VIEW_ROOM).emit('stage:updated', filtered);
@@ -288,8 +291,9 @@ export function registerSceneHandlers(ctx) {
     if (token.ownerKind === 'character') await requireControl(token.ownerId);
     else if (!isGm()) throw new AppError('forbidden', 'GM only.');
     if (token.hidden && !isGm()) throw new AppError('forbidden', 'You cannot move that.');
-    // Movement is only paid on the character's own turn; there is no turn tracker yet, so every move is free.
-    const isOwnTurn = shared.combat?.activeCharacterId === token.ownerId && token.ownerKind === 'character';
+    // Movement is only paid on the character's own turn; outside combat every move is free.
+    const turn = combat.activeEntry(shared.combat);
+    const isOwnTurn = !!turn && turn.tokenId === token.id && token.ownerKind === 'character';
     const result = await battle.moveStep(db, {
       token,
       dc: p.dc,
@@ -320,6 +324,187 @@ export function registerSceneHandlers(ctx) {
     }
     await broadcastStage();
   });
+
+  // ---- Combat tracker (state in shared.combat, see server/combat.js) -----------------
+
+  // Actions run one at a time, so a double tap on "Next turn" cannot skip a turn.
+  const locked = (fn) => {
+    const run = (shared.combatChain ?? Promise.resolve()).then(fn, fn);
+    shared.combatChain = run.catch(() => {});
+    return run;
+  };
+
+  // A chat line from the tracker. Lines about hidden tokens are never sent (they would give them away).
+  function say(text, token) {
+    if (token?.hidden) return;
+    const message = shared.chat.add({ type: 'text', author: { role: 'gm', name: 'Combat' }, text });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+  }
+
+  const requireCombat = () => {
+    if (!shared.combat) throw new AppError('no_combat', 'There is no combat.');
+    return shared.combat;
+  };
+
+  // The active combatant starts a turn: announce it, then apply Bleeding, Burning and AP changes.
+  async function beginTurn(c) {
+    const entry = combat.activeEntry(c);
+    if (!entry) return;
+    const token = await battle.getToken(db, entry.tokenId);
+    say(`Round ${c.round}: ${token.name}'s turn.`, token);
+    if (entry.ownerKind !== 'character') return;
+    let lines = [];
+    const sheet = await sheets.updateSheet(db, entry.ownerId, (s) => {
+      const out = combat.startOfTurn(s, token.name);
+      lines = out.lines;
+      return out.sheet;
+    });
+    emitSheet(entry.ownerId, sheet);
+    for (const line of lines) say(line, token);
+  }
+
+  // The active combatant ends a turn: unspent Movement is lost, AP is refilled.
+  async function finishTurn(entry) {
+    await battle.clearBank(db, entry.tokenId);
+    if (entry.ownerKind === 'character') {
+      emitSheet(entry.ownerId, await sheets.updateSheet(db, entry.ownerId, combat.endOfTurn));
+    }
+  }
+
+  // Keeps the combat in step with the map before every stage broadcast.
+  async function syncCombat() {
+    const c = shared.combat;
+    if (!c) return;
+    const sceneId = await scenes.getActiveSceneId(db);
+    if (sceneId !== c.sceneId) {
+      shared.combat = null;
+      return;
+    }
+    const tokens = await battle.listTokens(db, sceneId, { forGm: true });
+    const { activeRemoved } = combat.reconcile(c, tokens);
+    if (!c.order.length) shared.combat = null;
+    else if (activeRemoved && c.phase === 'active') await beginTurn(c);
+  }
+
+  // Rolls one combatant's initiative: a character rolls its Speed skill (shown in the chat like any
+  // roll); a temporary NPC has no sheet and rolls a plain d20.
+  async function rollInitiative(c, entry) {
+    const token = await battle.getToken(db, entry.tokenId);
+    if (entry.ownerKind === 'character') {
+      const sheet = await sheets.getSheet(db, entry.ownerId);
+      const roll = buildRoll(sheet, combat.SPEED_ROLL);
+      combat.setInitiative(c, entry.tokenId, roll.total);
+      if (!token.hidden) {
+        const message = shared.chat.add({
+          type: 'roll',
+          author: isGm() ? { role: 'gm', name: 'GM' } : { role: 'player', name: token.name },
+          characterId: entry.ownerId,
+          characterName: token.name,
+          roll: { ...roll, title: 'Initiative (Speed)' },
+        });
+        io.to(CHAT_ROOM).emit('chat:message', message);
+      }
+    } else {
+      const n = rollD20();
+      combat.setInitiative(c, entry.tokenId, n);
+      say(`${token.name} rolls Initiative: ${n}.`, token);
+    }
+  }
+
+  const gmCombat = (event, fn) =>
+    on(event, { gmOnly: true }, (p) =>
+      locked(async () => {
+        const out = await fn(p ?? {});
+        await broadcastStage();
+        return out;
+      }),
+    );
+
+  gmCombat('combat:start', async () => {
+    if (shared.combat) throw new AppError('combat_running', 'A combat is already running.');
+    const sceneId = await scenes.getActiveSceneId(db);
+    if (sceneId == null) throw new AppError('no_scene', 'There is no active scene.');
+    const tokens = await battle.listTokens(db, sceneId, { forGm: true });
+    shared.combat = combat.newCombat(sceneId, tokens);
+    say('Combat begins. Roll for Initiative.');
+  });
+
+  // A player rolls their own PC; the GM can roll anyone (and re-roll).
+  on('combat:roll', { needsIdentity: true }, (p) =>
+    locked(async () => {
+      const c = requireCombat();
+      const entry = combat.findEntry(c, p.tokenId);
+      if (!entry) throw new AppError('not_found', 'That character is not in the combat.');
+      if (!isGm()) {
+        if (entry.ownerKind !== 'character') throw new AppError('forbidden', 'You cannot roll for that.');
+        await requireControl(entry.ownerId);
+        if (entry.initiative != null) throw new AppError('already_rolled', 'Initiative is already rolled. Ask the GM to change it.');
+      }
+      await rollInitiative(c, entry);
+      await broadcastStage();
+    }),
+  );
+
+  gmCombat('combat:roll_npcs', async () => {
+    const c = requireCombat();
+    for (const entry of [...c.order]) {
+      if (entry.initiative != null) continue;
+      const token = await battle.getToken(db, entry.tokenId);
+      if (token.kind === 'pc') continue;
+      await rollInitiative(c, entry);
+    }
+  });
+
+  gmCombat('combat:set_initiative', async (p) => combat.setInitiative(requireCombat(), p.tokenId, p.value));
+
+  gmCombat('combat:begin', async () => {
+    const c = requireCombat();
+    combat.begin(c);
+    say('Combat begins. Round 1.');
+    await beginTurn(c);
+  });
+
+  // Ends the active turn and starts the next one. The GM, or the player whose turn it is.
+  on('combat:next', { needsIdentity: true }, (p) =>
+    locked(async () => {
+      const c = requireCombat();
+      const entry = combat.activeEntry(c);
+      if (!entry) throw new AppError('bad_phase', 'Combat has not begun.');
+      if (!isGm() && !(isPlayer() && entry.ownerKind === 'character' && entry.ownerId === identity().characterId)) {
+        throw new AppError('forbidden', 'Only the GM or the player whose turn it is can end it.');
+      }
+      if (p?.tokenId != null && p.tokenId !== entry.tokenId) throw new AppError('stale', 'That turn is already over.');
+      await finishTurn(entry);
+      combat.advance(c);
+      await beginTurn(c);
+      await broadcastStage();
+    }),
+  );
+
+  gmCombat('combat:reorder', async (p) => combat.reorder(requireCombat(), p.ids));
+
+  gmCombat('combat:add', async (p) => {
+    const c = requireCombat();
+    combat.addCombatant(c, await battle.getToken(db, p.tokenId));
+  });
+
+  gmCombat('combat:remove', async (p) => {
+    const c = requireCombat();
+    const wasActive = combat.activeEntry(c)?.tokenId === p.tokenId;
+    if (!combat.findEntry(c, p.tokenId)) throw new AppError('not_found', 'That character is not in the combat.');
+    await battle.clearBank(db, p.tokenId).catch(() => {});
+    combat.removeCombatant(c, p.tokenId);
+    if (!c.order.length) shared.combat = null;
+    else if (wasActive) await beginTurn(c);
+  });
+
+  gmCombat('combat:end', async () => {
+    const c = requireCombat();
+    for (const entry of c.order) await battle.clearBank(db, entry.tokenId).catch(() => {});
+    say(c.phase === 'active' ? `Combat ends after ${c.round} round${c.round === 1 ? '' : 's'}.` : 'Combat cancelled.');
+    shared.combat = null;
+  });
+
 
   // Drawings and spell templates: the GM and the Display can add them; anyone of them can
   // remove one; only the GM can clear them all. Pings are never stored.

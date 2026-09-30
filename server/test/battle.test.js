@@ -131,6 +131,12 @@ async function withPicture(g, name, type = 'pc') {
   return id;
 }
 const stageOf = async (s) => (await s.call('stage:get')).stage;
+// Starts a combat with the given [tokenId, initiative] pairs; the highest is up first.
+async function startCombat(g, pairs) {
+  expect((await g.call('combat:start')).ok).toBe(true);
+  for (const [tokenId, value] of pairs) expect((await g.call('combat:set_initiative', { tokenId, value })).ok).toBe(true);
+  expect((await g.call('combat:begin')).ok).toBe(true);
+}
 const stageWhere = (sock, pred) =>
   new Promise((resolve) => {
     const on = (st) => {
@@ -327,7 +333,7 @@ describe('the D-pad', () => {
   it('on its own turn it banks Movement for 1 AP, but only after confirmation', async () => {
     const { g, p, a, id } = await ready();
     await g.call('sheet:set', { characterId: a, path: 'movement', value: 3 });
-    server.shared.combat = { activeCharacterId: a };
+    await startCombat(g, [[id, 10]]);
 
     const ask = await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 });
     expect(ask).toMatchObject({ ok: true, moved: false, needsConfirm: { aps: 1, movement: 3 } });
@@ -348,17 +354,19 @@ describe('the D-pad', () => {
 
   it('the Free Movement checkbox and other turns move for nothing', async () => {
     const { g, p, a, id } = await ready();
-    server.shared.combat = { activeCharacterId: a };
+    const bob = await withPicture(g, 'Bob');
+    const bt = (await g.call('battle:add', { characterId: bob })).id;
+    await startCombat(g, [[id, 10], [bt, 5]]);
     const r = await p.call('battle:move', { tokenId: id, dc: 1, dr: 0, free: true });
     expect(r).toMatchObject({ moved: true, free: true });
-    server.shared.combat = { activeCharacterId: 99999 };
+    await g.call('combat:next'); // Bob's turn now
     expect((await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).free).toBe(true);
     expect((await g.call('sheet:get', { characterId: a })).sheet.ap.current).toBe(4);
   });
 
   it('alternates diagonal costs and refuses to move with no AP or no Movement', async () => {
     const { g, p, a, id } = await ready();
-    server.shared.combat = { activeCharacterId: a };
+    await startCombat(g, [[id, 10]]);
     await g.call('sheet:set', { characterId: a, path: 'movement', value: 4 });
     await p.call('battle:move', { tokenId: id, dc: 1, dr: 1, confirmAp: true }); // banks 4, pays 1
     await p.call('battle:move', { tokenId: id, dc: 1, dr: 1 }); // diagonal number two costs 2
