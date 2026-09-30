@@ -110,12 +110,20 @@ export const DEFAULT_ENHANCEMENTS = [
   },
 ];
 
-// Every Enhancement a character can pick: the defaults, the global ones and the character's own.
+// A spell can be used while it is not destroyed and has uses left (a Spell tattoo has no uses).
+const spellUsable = (sp) => !sp.destroyed && (sp.tattoo || sp.uses.current > 0);
+export const SPELL_PREFIX = 'spell:';
+
+// Every Enhancement a character can pick: the defaults, the global ones, the character's own, and its
+// finished spells whose effect is an Enhancement (used like any other, once per attack).
 export function enhancementCatalog(globals, sheet) {
   return [
     ...DEFAULT_ENHANCEMENTS,
     ...(globals ?? []).map((e) => ({ ...e, origin: 'global' })),
     ...(sheet?.enhancements ?? []).map((e) => ({ ...e, origin: 'character' })),
+    ...(sheet?.spells ?? [])
+      .filter((sp) => sp.effect.kind === 'enhancement' && spellUsable(sp))
+      .map((sp) => ({ ...sp.effect.enhancement, id: `${SPELL_PREFIX}${sp.id}`, name: sp.name, description: sp.description, repeatable: false, origin: 'spell', spellId: sp.id })),
   ];
 }
 
@@ -142,8 +150,14 @@ export function tokenDistance(a, b) {
 
 // ---- Planning an attack ------------------------------------------------------------------------
 
-// The weapon a choice points at: { name, cfg, source } or null. `source` says how it rolls.
+// The weapon a choice points at: { name, cfg, ... } or null. A spell rolls the Magic Mastery (`mastery`),
+// the others the Prime stat.
 export function findWeapon(sheet, weapon) {
+  if (weapon?.kind === 'spell') {
+    const sp = (sheet.spells ?? []).find((x) => x.id === weapon.spellId);
+    if (sp && sp.effect.kind === 'weapon' && spellUsable(sp)) return { name: sp.name, cfg: sp.effect.weapon, spellId: sp.id, mastery: 'magic' };
+    return null;
+  }
   if (weapon?.kind === 'unarmed') return { name: T('Unarmed Attack'), cfg: sheet.unarmed, unarmed: true };
   if (weapon?.kind === 'item') {
     const item = sheet.items.find((i) => i.id === weapon.itemId);
@@ -152,7 +166,7 @@ export function findWeapon(sheet, weapon) {
   return null;
 }
 
-// choice: { weapon: { kind: 'unarmed' } | { kind: 'item', itemId }, enhancements: [{ id, count }] }
+// choice: { weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId }, enhancements: [{ id, count }] }
 // -> { ok: true, weapon, ap, base, kind, defence, range, advantage, statuses, dice, unique, costs, chosen }
 //  | { ok: false, error, params }
 export function planAttack(sheet, catalog, choice) {
@@ -229,6 +243,8 @@ export function planAttack(sheet, catalog, choice) {
     unique,
     costs,
     chosen: picked.map(({ e, count }) => ({ id: e.id, name: e.name, count })),
+    // The spells this attack uses up a little of (durability is checked when the attack is applied).
+    spellIds: [...(w.spellId ? [w.spellId] : []), ...picked.filter(({ e }) => e.spellId).map(({ e }) => e.spellId)],
   };
 }
 

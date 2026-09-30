@@ -199,7 +199,7 @@ export function WeaponFields({ form, setForm }) {
 
 // ---- Enhancement -----------------------------------------------------------------------------------------
 
-const enhancementToForm = (e, items) => ({
+export const enhancementToForm = (e, items) => ({
   name: e?.name ?? '',
   description: e?.description ?? '',
   repeatable: e?.repeatable ?? false,
@@ -219,7 +219,7 @@ const enhancementToForm = (e, items) => ({
   unique: e?.effect.unique ?? [],
 });
 
-const formToEnhancement = (f) => ({
+export const formToEnhancement = (f) => ({
   name: f.name.trim(),
   description: f.description,
   repeatable: f.repeatable,
@@ -239,36 +239,38 @@ const formToEnhancement = (f) => ({
   },
 });
 
-// `items` are the items of the character the Enhancement belongs to (for the Item cost); a global
-// Enhancement has none, so it cannot cost an item's uses.
-export function EnhancementDialog({ enhancement, items, onClose, onSave }) {
-  const t = useT();
-  const [f, setF] = useState(() => enhancementToForm(enhancement, items));
-  const up = (patch) => setF({ ...f, ...patch });
-  const valid =
-    f.name.trim().length > 0 &&
-    isNum(f.ap, 0, MAX_AP_COST) &&
-    isNum(f.dmgAmount, 1, 999) &&
-    isNum(f.itemUses, 1, D.ITEM_USES_MAX) &&
-    isNum(f.damage, -99, 99) &&
-    isNum(f.range, -99, 99) &&
-    isNum(f.advantage, -10, 10);
+export const enhancementValid = (f) =>
+  f.name.trim().length > 0 &&
+  isNum(f.ap, 0, MAX_AP_COST) &&
+  isNum(f.dmgAmount, 1, 999) &&
+  isNum(f.itemUses, 1, D.ITEM_USES_MAX) &&
+  isNum(f.damage, -99, 99) &&
+  isNum(f.range, -99, 99) &&
+  isNum(f.advantage, -10, 10);
 
+// The fields of an Enhancement (a spell whose effect is an Enhancement uses them too). `items` are the items
+// of the character it belongs to (for the Item cost); a global Enhancement has none.
+export function EnhancementFields({ f, setF, items, withName = true }) {
+  const t = useT();
+  const up = (patch) => setF({ ...f, ...patch });
   return (
-    <FormDialog title={enhancement ? t('Edit Enhancement') : t('New Enhancement')} submitLabel={enhancement ? t('Save') : t('Add')} onClose={onClose} canSubmit={valid} run={() => onSave(formToEnhancement(f))}>
-      <label className={label}>
-        {t('Name')}
-        <input className={input} data-testid="enh-name" value={f.name} maxLength={D.NAME_MAX} autoFocus onChange={(e) => up({ name: e.target.value })} />
-      </label>
-      <label className={label}>
-        {t('Description')}
-        <textarea className={`${input} min-h-16`} value={f.description} maxLength={D.TEXT_MAX} onChange={(e) => up({ description: e.target.value })} />
-      </label>
+    <>
+      {withName && (
+        <>
+          <label className={label}>
+            {t('Name')}
+            <input className={input} data-testid="enh-name" value={f.name} maxLength={D.NAME_MAX} autoFocus onChange={(e) => up({ name: e.target.value })} />
+          </label>
+          <label className={label}>
+            {t('Description')}
+            <textarea className={`${input} min-h-16`} value={f.description} maxLength={D.TEXT_MAX} onChange={(e) => up({ description: e.target.value })} />
+          </label>
+        </>
+      )}
       <label className="flex min-h-10 items-center gap-2 text-sm">
         <input type="checkbox" className="h-5 w-5" data-testid="enh-repeatable" checked={f.repeatable} onChange={(e) => up({ repeatable: e.target.checked })} />
         {t('Repeatable (can be used several times in one attack)')}
       </label>
-
       <div className={box}>
         <div className="text-xs uppercase tracking-wide opacity-60">{t('Cost')}</div>
         <label className={label}>
@@ -329,6 +331,16 @@ export function EnhancementDialog({ enhancement, items, onClose, onSave }) {
         <DiceList value={f.dice} onChange={(v) => up({ dice: v })} title={t('Dice Roll Bonuses')} />
         <UniqueList value={f.unique} onChange={(v) => up({ unique: v })} title={t('Unique Effects')} />
       </div>
+    </>
+  );
+}
+
+export function EnhancementDialog({ enhancement, items, onClose, onSave }) {
+  const t = useT();
+  const [f, setF] = useState(() => enhancementToForm(enhancement, items));
+  return (
+    <FormDialog title={enhancement ? t('Edit Enhancement') : t('New Enhancement')} submitLabel={enhancement ? t('Save') : t('Add')} onClose={onClose} canSubmit={enhancementValid(f)} run={() => onSave(formToEnhancement(f))}>
+      <EnhancementFields f={f} setF={setF} items={items} />
     </FormDialog>
   );
 }

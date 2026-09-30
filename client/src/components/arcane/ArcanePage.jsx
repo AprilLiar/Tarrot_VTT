@@ -4,15 +4,18 @@ import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
 import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
 import { TargetPicker, useTargets } from '../sheet/TargetPicker.jsx';
+import Magic, { emptyWork } from './Magic.jsx';
 import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapon } from './editors.jsx';
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
+import { weaponSummary, enhancementSummary } from './summaries.js';
 import { enhancementCatalog, planAttack, MAX_COUNT } from '../../../../shared/arcane.js';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
 import { useT } from '../../i18n.jsx';
 
 // The Arcane tab: everything a character attacks with. This part has the General sub-tab (weapons and
-// Enhancements, and the footer that makes the attack); Magic, Stances and Manifest come later.
+// Enhancements), Magic (stones, schemes, spells) and the footer that makes the attack; Stances and Manifest
+// come later.
 // Without a character (the GM's general Arcane tab) it edits what is shared by every character.
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -34,6 +37,7 @@ export const emptyDraft = () => ({ weapon: 'unarmed', counts: {}, advantage: 0, 
 export default function ArcanePage({ s, draft, setDraft }) {
   const t = useT();
   const [tab, setTab] = useState('general');
+  const [work, setWork] = useState(emptyWork); // the spell being built in Magic (kept while switching tabs)
   return (
     <div data-testid="arcane" className="flex flex-col gap-3">
       <div className="flex overflow-hidden rounded-xl text-sm font-medium" role="tablist" aria-label={t('Arcane')}>
@@ -51,103 +55,38 @@ export default function ArcanePage({ s, draft, setDraft }) {
           </button>
         ))}
       </div>
-      {tab === 'general' ? (
-        s ? <General s={s} draft={draft} setDraft={setDraft} /> : <GlobalGeneral />
-      ) : (
+      {tab === 'general' && (s ? <General s={s} draft={draft} setDraft={setDraft} /> : <GlobalGeneral />)}
+      {tab === 'magic' && (s ? <Magic s={s} draft={draft} setDraft={setDraft} work={work} setWork={setWork} /> : <GmOnlyNote />)}
+      {(tab === 'stances' || tab === 'manifest') && (
         <p className={`${card} text-sm opacity-70`} data-testid="arcane-later">
           {t('This part of the Arcane tab is not built yet.')}
         </p>
       )}
+      {s && <AttackFooter s={s} draft={draft} setDraft={setDraft} />}
     </div>
   );
 }
 
-// ---- Summaries -----------------------------------------------------------------------------------------
-
-function weaponSummary(cfg, t) {
-  const parts = [
-    t('{base} {kind}, {defence}, {ap} AP', { base: cfg.base, kind: { t: cap(cfg.kind) }, defence: { t: `${cap(cfg.defence)} Defence` }, ap: cfg.ap }),
-  ];
-  if (cfg.range != null) parts.push(t('Range {n}', { n: cfg.range }));
-  for (const st of cfg.statuses) parts.push(t(D.STATUSES.find((x) => x.key === st.key)?.name));
-  for (const d of cfg.dice) parts.push(`${d.sign < 0 ? '-' : '+'}d${d.sides}`);
-  for (const u of cfg.unique) parts.push(u.name);
-  return parts.join('; ');
-}
-
-function statusNames(list, t) {
-  return list.map((st) => {
-    const info = D.STATUSES.find((x) => x.key === st.key);
-    return info?.stackable ? `${t(info.name)} ${st.stacks}` : t(info?.name);
-  });
-}
-
-function enhancementSummary(e, items, t) {
-  const cost = [];
-  if (e.cost.ap) cost.push(t('{n} AP', { n: e.cost.ap }));
-  if (e.cost.damage) cost.push(t('{n} {kind} damage to you', { n: e.cost.damage.amount, kind: { t: e.cost.damage.kind === 'true' ? 'True' : cap(e.cost.damage.kind) } }));
-  cost.push(...statusNames(e.cost.statuses, t));
-  if (e.cost.item) cost.push(t('{n} uses of {item}', { n: e.cost.item.uses, item: items.find((i) => i.id === e.cost.item.itemId)?.name ?? '?' }));
-  const fx = [];
-  if (e.effect.damage) fx.push(t('Damage {n}', { n: signed(e.effect.damage) }));
-  if (e.effect.range) fx.push(t('Range {n}', { n: signed(e.effect.range) }));
-  if (e.effect.advantage) fx.push(t('Advantage {n}', { n: signed(e.effect.advantage) }));
-  fx.push(...statusNames(e.effect.statuses, t));
-  for (const d of e.effect.dice) fx.push(`${d.sign < 0 ? '-' : '+'}d${d.sides}`);
-  for (const u of e.effect.unique) fx.push(u.name);
-  const out = [];
-  if (cost.length) out.push(t('Cost: {list}', { list: cost.join(', ') }));
-  if (fx.length) out.push(t('Effect: {list}', { list: fx.join(', ') }));
-  return out.join('. ');
+// Magic belongs to a character; the general tab has nothing to show for it yet.
+function GmOnlyNote() {
+  const t = useT();
+  return <p className={`${card} text-sm opacity-70`}>{t('Open a character\'s Arcane tab to work with its Magic.')}</p>;
 }
 
 // ---- The character's General tab ---------------------------------------------------------------------
 
 function General({ s, draft, setDraft }) {
   const t = useT();
-  const { toast } = useApp();
   const { sheet, characterId } = s;
   const globals = useGlobalEnhancements();
   const info = useTargets(characterId);
   const catalog = useMemo(() => enhancementCatalog(globals, sheet), [globals, sheet]);
-  const [busy, setBusy] = useState(false);
-  const [far, setFar] = useState(null); // { range, targets: [{ name, distance }] }
-  const [options, setOptions] = useState(false);
   const [dialog, setDialog] = useState(null); // { type: 'weapon', item } | { type: 'enhancement', enhancement } | { type: 'delete', enhancement }
 
   const weapons = [{ id: 'unarmed', name: t('Unarmed Attack'), cfg: sheet.unarmed }, ...sheet.items.filter((i) => i.weapon).map((i) => ({ id: i.id, name: i.name, cfg: i.weapon, item: i }))];
-  const choice = {
-    weapon: draft.weapon === 'unarmed' ? { kind: 'unarmed' } : { kind: 'item', itemId: draft.weapon },
-    enhancements: Object.entries(draft.counts).filter(([, n]) => n > 0).map(([id, count]) => ({ id, count })),
-  };
-  const plan = planAttack(sheet, catalog, choice);
-  const modifierOk = isWholeNumber(draft.modifier) && Math.abs(Number(draft.modifier)) <= 99;
-  const manual = plan.ok ? Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, draft.advantage + plan.advantage)) : draft.advantage;
-  const rp = planRoll(sheet, { kind: 'weapon', key: 'prime', advantage: manual, modifier: modifierOk ? Number(draft.modifier) : 0, dice: plan.ok ? plan.dice : [] });
-  const totalMod = rp.ok ? rp.terms.reduce((n, x) => n + x.value, 0) : 0;
-  const targets = info?.targets ?? [];
-
-  let blocked = null;
-  if (!plan.ok) blocked = t(plan.error, plan.params);
-  else if (!info) blocked = t('Attacks need a Battle map.');
-  else if (targets.length === 0) blocked = t('Select a target below first.');
-  else if (sheet.ap.current < plan.ap) blocked = t('Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
-  else if (!modifierOk) blocked = t('The custom modifier must be a whole number from -99 to 99.');
-
   const setCount = (id, n) => setDraft({ ...draft, counts: { ...draft.counts, [id]: Math.max(0, n) } });
 
-  async function done(confirmRange = false) {
-    setBusy(true);
-    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, advantage: draft.advantage, modifier: Number(draft.modifier), confirmRange });
-    setBusy(false);
-    if (!r.ok) return toast(r.error);
-    if (r.needsConfirm) return setFar(r.needsConfirm);
-    setFar(null);
-    setDraft({ ...draft, counts: {} });
-  }
-
-  const chosenNames = plan.ok ? [plan.weapon.name, ...plan.chosen.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name))] : [];
-  const mine = catalog.filter((e) => e.origin !== 'character');
+  const mine = catalog.filter((e) => e.origin === 'default' || e.origin === 'global');
   const own = catalog.filter((e) => e.origin === 'character');
 
   // (Shared Enhancements are edited in the GM's general Arcane tab, not here.)
@@ -235,6 +174,77 @@ function General({ s, draft, setDraft }) {
         </section>
       )}
 
+      {dialog?.type === 'weapon' && <UnarmedDialog s={s} onClose={() => setDialog(null)} />}
+      {dialog?.type === 'enhancement' && (
+        <EnhancementDialog
+          enhancement={dialog.enhancement}
+          items={sheet.items}
+          onClose={() => setDialog(null)}
+          onSave={(enhancement) => (dialog.enhancement ? s.list('enhancements', 'update', { id: dialog.enhancement.id, enhancement }) : s.list('enhancements', 'add', { enhancement }))}
+        />
+      )}
+      {dialog?.type === 'delete' && (
+        <FormDialog title={t('Delete Enhancement')} submitLabel={t('Delete')} danger onClose={() => setDialog(null)} run={() => s.list('enhancements', 'remove', { id: dialog.enhancement.id })}>
+          <p className="text-sm">{t('Delete {name}? This cannot be undone.', { name: dialog.enhancement.name })}</p>
+        </FormDialog>
+      )}
+    </>
+  );
+}
+
+// What the draft points at, in the shape the server understands.
+export function weaponChoice(draft) {
+  if (draft.weapon === 'unarmed') return { kind: 'unarmed' };
+  if (draft.weapon.startsWith('spell:')) return { kind: 'spell', spellId: draft.weapon.slice('spell:'.length) };
+  return { kind: 'item', itemId: draft.weapon };
+}
+
+// The footer, in every tab of a character: what this attack is made of, its total modifier, and Done.
+function AttackFooter({ s, draft, setDraft }) {
+  const t = useT();
+  const { toast } = useApp();
+  const { sheet, characterId } = s;
+  const globals = useGlobalEnhancements();
+  const info = useTargets(characterId);
+  const catalog = useMemo(() => enhancementCatalog(globals, sheet), [globals, sheet]);
+  const [busy, setBusy] = useState(false);
+  const [far, setFar] = useState(null); // { range, targets: [{ name, distance }] }
+  const [options, setOptions] = useState(false);
+
+  const choice = {
+    weapon: weaponChoice(draft),
+    enhancements: Object.entries(draft.counts).filter(([, n]) => n > 0).map(([id, count]) => ({ id, count })),
+  };
+  const plan = planAttack(sheet, catalog, choice);
+  const modifierOk = isWholeNumber(draft.modifier) && Math.abs(Number(draft.modifier)) <= 99;
+  const manual = plan.ok ? Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, draft.advantage + plan.advantage)) : draft.advantage;
+  // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
+  const request = plan.ok && plan.weapon.mastery ? { kind: 'mastery', key: plan.weapon.mastery } : { kind: 'weapon', key: 'prime' };
+  const rp = planRoll(sheet, { ...request, advantage: manual, modifier: modifierOk ? Number(draft.modifier) : 0, dice: plan.ok ? plan.dice : [] });
+  const totalMod = rp.ok ? rp.terms.reduce((n, x) => n + x.value, 0) : 0;
+  const targets = info?.targets ?? [];
+
+  let blocked = null;
+  if (!plan.ok) blocked = t(plan.error, plan.params);
+  else if (!info) blocked = t('Attacks need a Battle map.');
+  else if (targets.length === 0) blocked = t('Select a target first (in General).');
+  else if (sheet.ap.current < plan.ap) blocked = t('Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
+  else if (!modifierOk) blocked = t('The custom modifier must be a whole number from -99 to 99.');
+
+  async function done(confirmRange = false) {
+    setBusy(true);
+    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, advantage: draft.advantage, modifier: Number(draft.modifier), confirmRange });
+    setBusy(false);
+    if (!r.ok) return toast(r.error);
+    if (r.needsConfirm) return setFar(r.needsConfirm);
+    setFar(null);
+    setDraft({ ...draft, counts: {} });
+  }
+
+  const chosenNames = plan.ok ? [plan.weapon.name, ...plan.chosen.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name))] : [];
+
+  return (
+    <>
       {/* The footer: what this attack is made of, and Done. */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/15 bg-[#14111d] py-2 pl-3 pr-28" data-testid="arcane-footer">
         <div className="flex items-center gap-2">
@@ -310,20 +320,6 @@ function General({ s, draft, setDraft }) {
         </Dialog>
       )}
 
-      {dialog?.type === 'weapon' && <UnarmedDialog s={s} onClose={() => setDialog(null)} />}
-      {dialog?.type === 'enhancement' && (
-        <EnhancementDialog
-          enhancement={dialog.enhancement}
-          items={sheet.items}
-          onClose={() => setDialog(null)}
-          onSave={(enhancement) => (dialog.enhancement ? s.list('enhancements', 'update', { id: dialog.enhancement.id, enhancement }) : s.list('enhancements', 'add', { enhancement }))}
-        />
-      )}
-      {dialog?.type === 'delete' && (
-        <FormDialog title={t('Delete Enhancement')} submitLabel={t('Delete')} danger onClose={() => setDialog(null)} run={() => s.list('enhancements', 'remove', { id: dialog.enhancement.id })}>
-          <p className="text-sm">{t('Delete {name}? This cannot be undone.', { name: dialog.enhancement.name })}</p>
-        </FormDialog>
-      )}
     </>
   );
 }

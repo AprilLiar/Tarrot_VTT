@@ -25,6 +25,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add status... | Добавить состояние... |
 | Advantage | Преимущество |
 | Close | Закрыть |
+| Cancel | Отмена |
 | Settings | Настройки |
 | Who are you? | Кто вы? |
 | Dismiss | Закрыть |
@@ -51,20 +52,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Decline | Отказаться |
 | Accept | Принять |
 | This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
-| {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
-| Range {n} | Дальность {n} |
-| {n} AP | {n} ОД |
-| {n} {kind} damage to you | {n} урона ({kind}) вам |
-| {n} uses of {item} | {n} исп. предмета {item} |
-| Damage {n} | Урон {n} |
-| Advantage {n} | Преимущество {n} |
-| Cost: {list} | Цена: {list} |
-| Effect: {list} | Эффект: {list} |
+| Open a character's Arcane tab to work with its Magic. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. |
 | Unarmed Attack | Атака без оружия |
-| Attacks need a Battle map. | Для атаки нужна карта боя. |
-| Select a target below first. | Сначала выберите цель ниже. |
-| Not enough AP: this attack costs {cost} and you have {have}. | Не хватает ОД: атака стоит {cost}, а у вас {have}. |
-| The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
 | Default | Стандартное |
 | Everyone | Для всех |
 | This character | Этот персонаж |
@@ -78,8 +67,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Enhancements | Усиления |
 | New Enhancement | Новое усиление |
 | Targets | Цели |
+| Delete Enhancement | Удалить усиление |
+| Delete {name}? This cannot be undone. | Удалить: {name}? Это нельзя отменить. |
+| Attacks need a Battle map. | Для атаки нужна карта боя. |
+| Select a target first (in General). | Сначала выберите цель (во вкладке «Общее»). |
+| Not enough AP: this attack costs {cost} and you have {have}. | Не хватает ОД: атака стоит {cost}, а у вас {have}. |
+| The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
 | Nothing chosen | Ничего не выбрано |
+| Advantage {n} | Преимущество {n} |
 | Disadvantage {n} | Помеха {n} |
+| {n} AP | {n} ОД |
 | Options | Настройки |
 | Done | Готово |
 | Attack options | Параметры атаки |
@@ -92,13 +89,78 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} ({n} Spaces) | {name} ({n} кл.) |
 | No | Нет |
 | Attack anyway | Всё равно атаковать |
-| Delete Enhancement | Удалить усиление |
-| Delete {name}? This cannot be undone. | Удалить: {name}? Это нельзя отменить. |
 | Edit Unarmed Attack | Изменить атаку без оружия |
 | Save | Сохранить |
 | Enhancements for everyone | Усиления для всех |
 | These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИП, помимо Мощной и Точной атаки. Чтобы создать усиление для одного персонажа, откройте его вкладку Аркана. |
 | None yet | Пока нет |
+| Stones | Камни |
+| Editor | Редактор |
+| Spell Drafts | Черновики заклинаний |
+| Created Spells | Созданные заклинания |
+| Magic | Магия |
+| Spell Stones | Камни заклинаний |
+| How many of each Spell Stone this character has. Crafting a spell spends them; drafting does not. | Сколько камней каждого вида у этого персонажа. Создание заклинания тратит их, черновик — нет. |
+| {name} stones | Камни: {name} |
+| A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
+| Saved to Spell Drafts. | Сохранено в черновики заклинаний. |
+| Saved to Spell Drafts, marked Illegal. | Сохранено в черновики с пометкой «Недопустимо». |
+| New spell | Новое заклинание |
+| Description | Описание |
+| Add {name} | Добавить: {name} |
+| Tap a stone on the right to add it. Tap a stone in the table, then another one, to draw an arrow between them (again to remove it). Tap a stone twice to write a note. | Коснитесь камня справа, чтобы добавить его. Коснитесь камня в таблице, затем другого — между ними появится стрелка (ещё раз — уберёт её). Дважды коснитесь камня, чтобы написать заметку. |
+| {name} selected | Выбран: {name} |
+| Note | Заметка |
+| Remove stone | Убрать камень |
+| Legal scheme | Схема допустима |
+| Illegal | Недопустимо |
+| Spell Fine Tuning | Тонкая настройка заклинания |
+| Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
+| Move left | Сдвинуть влево |
+| Move right | Сдвинуть вправо |
+| Save changes | Сохранить изменения |
+| Save to Spell Drafts | Сохранить в черновики |
+| An illegal scheme is still saved as a draft, marked Illegal, but it cannot be crafted. | Недопустимая схема всё равно сохраняется как черновик с пометкой «Недопустимо», но создать по ней заклинание нельзя. |
+| Note on {name} | Заметка о камне: {name} |
+| Crafted {name}. | Создано: {name}. |
+| Search | Поиск |
+| Search names and descriptions | Поиск по названиям и описаниям |
+| Stones used | Использованные камни |
+| No draft matches. | Подходящих черновиков нет. |
+| No drafts yet. | Черновиков пока нет. |
+| Craft | Создать |
+| Delete draft | Удалить черновик |
+| Craft {name} | Создать: {name} |
+| This scheme is illegal, so it cannot be crafted. | Эта схема недопустима, поэтому заклинание создать нельзя. |
+| {name}: needs {need}, you have {have} | {name}: нужно {need}, у вас {have} |
+| Notes | Заметки |
+| Crafting spends these stones and makes a Magic roll in the chat (only for the GM to see how skilled you are). | Создание тратит эти камни и делает бросок Магии в чате (только чтобы ГМ увидел ваше мастерство). |
+| No spells yet. Craft one from a draft. | Заклинаний пока нет. Создайте одно из черновика. |
+| Spell tattoo | Татуировка-заклинание |
+| Destroyed | Уничтожено |
+| No uses | Без использований |
+| Uses {cur}/{max} | Использования {cur}/{max} |
+| Stabilization {n} | Стабилизация {n} |
+| Weapon | Оружие |
+| Enhancement | Усиление |
+| Chosen as weapon | Выбрано как оружие |
+| Use as weapon | Использовать как оружие |
+| Add to attack | Добавить к атаке |
+| Grant a spell | Выдать заклинание |
+| Delete spell | Удалить заклинание |
+| Edit spell | Изменить заклинание |
+| Grant | Выдать |
+| Icon | Значок |
+| Effect | Эффект |
+| Set by the GM | Задаёт ГМ |
+| Spell tattoo (no uses; durability is a Strength Save) | Татуировка-заклинание (без использований; прочность — спасбросок Силы) |
+| Uses left | Осталось использований |
+| Max uses | Макс. использований |
+| Stabilization | Стабилизация |
+| Bases | Сборы |
+| Modifiers and Links | Модификаторы и связи |
+| Release | Форма |
+| Spell scheme | Схема заклинания |
 | Remove die | Убрать кость |
 | Add or subtract | Прибавить или вычесть |
 | Die size | Размер кости |
@@ -116,9 +178,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
 | Dice Roll Bonuses | Бонусы кубиков |
 | Unique Effects | Уникальные эффекты |
-| Edit Enhancement | Изменить усиление |
-| Add | Добавить |
-| Description | Описание |
 | Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Cost | Цена |
 | AP | ОД |
@@ -128,9 +187,17 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | It spends uses of an item | Тратит использования предмета |
 | Item | Предмет |
 | Uses spent | Потрачено использований |
-| Effect | Эффект |
 | Damage | Урон |
 | Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
+| Edit Enhancement | Изменить усиление |
+| Add | Добавить |
+| {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
+| Range {n} | Дальность {n} |
+| {n} {kind} damage to you | {n} урона ({kind}) вам |
+| {n} uses of {item} | {n} исп. предмета {item} |
+| Damage {n} | Урон {n} |
+| Cost: {list} | Цена: {list} |
+| Effect: {list} | Эффект: {list} |
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
@@ -139,7 +206,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
-| Cancel | Отмена |
 | New character | Новый персонаж |
 | Create | Создать |
 | Type | Тип |
@@ -176,7 +242,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Send | Отправить |
 | Picture | Картинка |
 | Pictures | Картинки |
-| Search | Поиск |
 | Battle | Бой |
 | You cannot move there. | Туда нельзя переместиться. |
 | Battle controls | Управление в бою |
@@ -196,6 +261,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Free Movement (does not spend Movement or AP) | Свободное перемещение (не тратит движение и ОД) |
 | Attack | Атака |
 | No AP left to attack. | Не осталось ОД для атаки. |
+| Select a target below first. | Сначала выберите цель ниже. |
 | Spend AP to move? | Потратить ОД на движение? |
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
 | Yes | Да |
@@ -242,7 +308,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
 | Nobody to send it to. | Некому отправить. |
 | Send to | Отправить кому |
-| Weapon | Оружие |
 | (empty) | (пусто) |
 | Use | Использовать |
 | Uses | Использования |
@@ -548,7 +613,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Physical Save | Физический спасбросок |
 | Mental | Ментальная |
 | Mental Save | Ментальный спасбросок |
-| Magic | Магия |
 | Mastery: Magic | Мастерство: Магия |
 | Magic (Combat Mastery Roll) | Магия (проверка боевого мастерства) |
 | Magic attack | Атака: Магия |
@@ -608,6 +672,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Hit | Попадание |
 | Heavy Hit | Сильное попадание |
 | Brutal Hit | Жестокое попадание |
+| Blood Oxydization | Окисление крови |
+| The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. | Кровь становится гораздо более кислотной (из-за проваленного спасброска Силы против татуировки-заклинания). Не автоматизировано. |
 | Bleeding | Кровотечение |
 | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). | X чистого урона в начале хода. Снимается только лечением или полезным предметом за 1 ОД (только формулировка; использование предметов не автоматизировано). |
 | Blinded | Ослеплён |
@@ -685,6 +751,33 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Weakened | Ослаблен |
 | Disadvantage X on physical saves (Strength, Dexterity). | Помеха X на физические спасброски (Сила, Ловкость). |
 | Weapon Attack Roll | Бросок атаки оружием |
+| Cancer | Рак |
+| Records an emotional phenomenon and feelings. | Записывает эмоциональное явление и чувства. |
+| Virgo | Дева |
+| Records a physical phenomenon. | Записывает физическое явление. |
+| Taurus | Телец |
+| Stabilizes the effect by reducing its power by several Spell Levels, but granting additional uses. | Стабилизирует эффект, снижая его силу на несколько уровней заклинания, но давая дополнительные использования. |
+| Leo | Лев |
+| Creates a positive version of the recorded effect. | Создаёт положительную версию записанного эффекта. |
+| Scorpio | Скорпион |
+| Makes the effect weaker but longer-lasting. | Делает эффект слабее, но длительнее. |
+| Sagittarius | Стрелец |
+| Makes the effect weaker but with much greater range. | Делает эффект слабее, но с намного большей дальностью. |
+| Pisces | Рыбы |
+| The effect envelops the mage and makes them immune to it. | Эффект окутывает мага и делает его невосприимчивым к нему. |
+| Libra | Весы |
+| Combines two different effects, halving the strength of each. | Объединяет два разных эффекта, вдвое ослабляя каждый. |
+| Capricorn | Козерог |
+| Slightly weakens the effects but lets one act as a catalyst for the other. | Немного ослабляет эффекты, но позволяет одному стать катализатором для другого. |
+| Aries | Овен |
+| Aggressive release of the recorded phenomenon. | Агрессивное высвобождение записанного явления. |
+| Gemini | Близнецы |
+| Stealthy release suited for traps, but it takes time to charge. | Скрытое высвобождение, подходящее для ловушек, но требующее времени на зарядку. |
+| Aquarius | Водолей |
+| Precise, targeted release that grows stronger the more restrictions are placed on it. | Точечное высвобождение, которое становится сильнее с каждым наложенным ограничением. |
+| Base | Сбор |
+| Modifier | Модификатор |
+| Link | Связь |
 | Initiative (Speed) | Инициатива (скорость) |
 | NW | СЗ |
 | N | С |
@@ -722,6 +815,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} spends {n} uses of {item}. | {name} тратит {n} исп. предмета {item}. |
 | {name} spends {n} AP. | {name} тратит ОД: {n}. |
 | {name} gains Exposed 1 (natural 1). | {name} получает состояние «Раскрыт» 1 (натуральная 1). |
+| {spell} holds: Stabilization rises to {n}. | {spell} держится: Стабилизация растёт до {n}. |
+| {spell} bites {name}: Blood Oxydization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
+| {spell} falters and is destroyed. | {spell} даёт сбой и уничтожается. |
+| {spell} falters: Stabilization resets to {n} and it loses a use ({left} left). | {spell} даёт сбой: Стабилизация сбрасывается до {n}, теряется одно использование (осталось {left}). |
 | {source}: {name}. {text} | {source}: {name}. {text} |
 | Combat | Бой |
 | That attack is no longer waiting. | Эта атака больше не ожидает. |
@@ -851,7 +948,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Combat Mastery | Боевое мастерство |
 | Mastery tier | Уровень мастерства |
 | Stacks | Накопления |
-| Max uses | Макс. использований |
 | Unknown field. | Неизвестное поле. |
 | Only NPCs can be Minions. | Приспешниками могут быть только НПС. |
 | Minion must be true or false. | Значение «приспешник» должно быть «да» или «нет». |
@@ -864,7 +960,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid states. | Неверные состояния. |
 | Invalid state. | Неверное состояние. |
 | No uses left. | Использований не осталось. |
+| Too many spells. | Слишком много заклинаний. |
 | Unknown list. | Неизвестный список. |
+| Spell crafting (Magic Roll) | Создание заклинания (бросок Магии) |
+| That spell no longer exists. | Этого заклинания больше нет. |
+| That draft no longer exists. | Этого черновика больше нет. |
+| You need {need} {stone} stones and have {have}. | Нужно камней ({stone}): {need}, у вас {have}. |
+| Only the GM can change that. | Это может менять только ГМ. |
+| A destroyed spell cannot be changed. | Уничтоженное заклинание изменить нельзя. |
+| {name} crafts the spell {spell}. | {name} создаёт заклинание {spell}. |
 | Choose a weapon first. | Сначала выберите оружие. |
 | That Enhancement no longer exists. | Этого усиления больше нет. |
 | Each Enhancement is listed once; set how many times to use it. | Каждое усиление указывается один раз; задайте, сколько раз его использовать. |
