@@ -35,6 +35,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Player characters | Персонажи игроков |
 | No characters yet. Ask the GM to create one. | Персонажей пока нет. Попросите мастера создать персонажа. |
 | Name | Имя |
+| PC | Игрок |
+| NPC | НПС |
 | Delete | Удалить |
 | Back | Назад |
 | These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
@@ -73,6 +75,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Select a target first (in General). | Сначала выберите цель (во вкладке «Общее»). |
 | Not enough AP: this attack costs {cost} and you have {have}. | Не хватает ОД: атака стоит {cost}, а у вас {have}. |
 | The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
+| Stance: {name} | Стойка: {name} |
 | Nothing chosen | Ничего не выбрано |
 | Advantage {n} | Преимущество {n} |
 | Disadvantage {n} | Помеха {n} |
@@ -161,6 +164,40 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Modifiers and Links | Модификаторы и связи |
 | Release | Форма |
 | Spell scheme | Схема заклинания |
+| Loading... | Загрузка... |
+| Variations: {n} | Вариаций: {n} |
+| Edit vibe | Изменить описание знака |
+| You have not seen this Stance yet. | Вы ещё не видели эту Стойку. |
+| Stance tree | Дерево Стоек |
+| Learned | Изучена |
+| Known, not learned | Известна, не изучена |
+| Known by characters | Известна персонажам |
+| Hidden from players | Скрыта от игроков |
+| Chosen for the attack | Выбрана для атаки |
+| Use in attack | Использовать в атаке |
+| Add variation | Добавить вариацию |
+| Delete Stance | Удалить Стойку |
+| Delete {name} and every variation hanging from it? This cannot be undone. | Удалить «{name}» и все вариации, зависящие от неё? Это нельзя отменить. |
+| Stance roll | Бросок Стойки |
+| No effect | Без эффекта |
+| Vibe of {name} | Описание знака: {name} |
+| Vibe | Описание |
+| Empty brings back the default text. | Пустое поле возвращает стандартный текст. |
+| Edit Stance | Изменить Стойку |
+| New variation of {name} | Новая вариация: {name} |
+| Add | Добавить |
+| Colour of the circle | Цвет круга |
+| Character-Known (characters have seen it and can read it) | Известна персонажам (они видели её и могут читать) |
+| Learned by (can use it in attacks) | Изучили (могут использовать в атаках) |
+| Nobody found. | Никого не найдено. |
+| What each Stance roll does | Что делает каждый бросок Стойки |
+| Same as the band above (-) | Как в диапазоне выше (-) |
+| Roll bonus | Бонус к броску |
+| Range | Дальность |
+| Damage | Урон |
+| Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
+| Dice Roll Bonuses | Бонусы кубиков |
+| Unique Effects | Уникальные эффекты |
 | Remove die | Убрать кость |
 | Add or subtract | Прибавить или вычесть |
 | Die size | Размер кости |
@@ -174,10 +211,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | vs Physical Defence | против физической защиты |
 | vs Mental Defence | против ментальной защиты |
 | Range in Spaces (empty for no range check) | Дальность в клетках (пусто — без проверки дальности) |
-| Range | Дальность |
-| Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
-| Dice Roll Bonuses | Бонусы кубиков |
-| Unique Effects | Уникальные эффекты |
 | Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Cost | Цена |
 | AP | ОД |
@@ -187,10 +220,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | It spends uses of an item | Тратит использования предмета |
 | Item | Предмет |
 | Uses spent | Потрачено использований |
-| Damage | Урон |
 | Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
 | Edit Enhancement | Изменить усиление |
-| Add | Добавить |
 | {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
 | Range {n} | Дальность {n} |
 | {n} {kind} damage to you | {n} урона ({kind}) вам |
@@ -198,6 +229,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Damage {n} | Урон {n} |
 | Cost: {list} | Цена: {list} |
 | Effect: {list} | Эффект: {list} |
+| Roll {n} | Бросок {n} |
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
@@ -209,8 +241,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | New character | Новый персонаж |
 | Create | Создать |
 | Type | Тип |
-| PC | Игрок |
-| NPC | НПС |
 | Folder | Папка |
 | New folder | Новая папка |
 | Inside | Внутри |
@@ -390,6 +420,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} attacks with {weapon} | {name} атакует: {weapon} |
 | Rolled {total} (natural {natural}) against {label} | Выпало {total} (на кубике {natural}) против: {label} |
 | Enhancements: {list} | Усиления: {list} |
+| Stance {name}: rolled {total}, band {band} | Стойка «{name}»: выпало {total}, диапазон {band} |
 | Total | Итог |
 | Attack total | Итог атаки |
 | no sheet | нет листа |
@@ -486,7 +517,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add here | Добавить сюда |
 | Subfolder | Подпапка |
 | Upload failed. | Не удалось загрузить. |
-| Loading... | Загрузка... |
 | No pictures yet. Add one to use this character on a scene. | Картинок пока нет. Добавьте одну, чтобы вывести персонажа на сцену. |
 | Untitled | Без названия |
 | Delete {name} | Удалить: {name} |
@@ -778,6 +808,24 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Base | Сбор |
 | Modifier | Модификатор |
 | Link | Связь |
+| Bold and headlong: strike first and think later. | Смелость и напор: бей первым, думай потом. |
+| Patient and unshakable: hold the ground and outlast. | Терпение и непоколебимость: стой на месте и переживи всех. |
+| Quick and doubled: two moves where others make one. | Быстрота и двойственность: два движения там, где другие делают одно. |
+| Protective and tidal: feelings shape the fight. | Защита и приливы: чувства определяют бой. |
+| Proud and radiant: fight as if the world is watching. | Гордость и сияние: сражайся так, будто весь мир смотрит. |
+| Precise and careful: every motion is measured. | Точность и внимательность: каждое движение выверено. |
+| Balanced and poised: answer force with force. | Равновесие и выдержка: отвечай силой на силу. |
+| Patient and venomous: wait, then strike deep. | Терпение и яд: жди, а затем бей глубоко. |
+| Free and far-reaching: strike from a distance. | Свобода и размах: бей издалека. |
+| Disciplined and enduring: a steady climb, no shortcuts. | Дисциплина и стойкость: ровный подъём, без коротких путей. |
+| Odd and inventive: break the pattern. | Странность и изобретательность: сломай шаблон. |
+| Fluid and elusive: slip away and give way. | Текучесть и неуловимость: ускользай и уступай. |
+| Less than 10 | Меньше 10 |
+| 10-14 | 10-14 |
+| 15-19 | 15-19 |
+| 20-24 | 20-24 |
+| 25-29 | 25-29 |
+| 30 or more | 30 и больше |
 | Initiative (Speed) | Инициатива (скорость) |
 | NW | СЗ |
 | N | С |
@@ -823,6 +871,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Combat | Бой |
 | That attack is no longer waiting. | Эта атака больше не ожидает. |
 | Select at least one target first. | Сначала выберите хотя бы одну цель. |
+| That Stance is not learned by this character. | Эта Стойка не изучена этим персонажем. |
+| {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
 | Invalid track. | Неверный трек. |
 | That track no longer exists. | Этого трека больше нет. |
 | Invalid playlist. | Неверный плейлист. |
@@ -969,6 +1019,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Only the GM can change that. | Это может менять только ГМ. |
 | A destroyed spell cannot be changed. | Уничтоженное заклинание изменить нельзя. |
 | {name} crafts the spell {spell}. | {name} создаёт заклинание {spell}. |
+| That Stance no longer exists. | Этой Стойки больше нет. |
+| Unknown sign. | Неизвестный знак. |
+| Too many Stances. | Слишком много Стоек. |
+| A base Stance cannot be deleted. | Базовую Стойку нельзя удалить. |
 | Choose a weapon first. | Сначала выберите оружие. |
 | That Enhancement no longer exists. | Этого усиления больше нет. |
 | Each Enhancement is listed once; set how many times to use it. | Каждое усиление указывается один раз; задайте, сколько раз его использовать. |

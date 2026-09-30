@@ -5,6 +5,8 @@ import { FormDialog } from '../sheet/SheetLists.jsx';
 import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
 import { TargetPicker, useTargets } from '../sheet/TargetPicker.jsx';
 import Magic, { emptyWork } from './Magic.jsx';
+import Stances from './Stances.jsx';
+import { useStances } from './useStances.js';
 import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapon } from './editors.jsx';
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
 import { weaponSummary, enhancementSummary } from './summaries.js';
@@ -32,7 +34,7 @@ const TABS = [
   { id: 'manifest', label: 'Manifest', width: '30%', bg: 'bg-yellow-700', active: 'ring-yellow-300' },
 ];
 
-export const emptyDraft = () => ({ weapon: 'unarmed', counts: {}, advantage: 0, modifier: '0' });
+export const emptyDraft = () => ({ weapon: 'unarmed', counts: {}, stance: null, advantage: 0, modifier: '0' });
 
 export default function ArcanePage({ s, draft, setDraft }) {
   const t = useT();
@@ -57,7 +59,8 @@ export default function ArcanePage({ s, draft, setDraft }) {
       </div>
       {tab === 'general' && (s ? <General s={s} draft={draft} setDraft={setDraft} /> : <GlobalGeneral />)}
       {tab === 'magic' && (s ? <Magic s={s} draft={draft} setDraft={setDraft} work={work} setWork={setWork} /> : <GmOnlyNote />)}
-      {(tab === 'stances' || tab === 'manifest') && (
+      {tab === 'stances' && <Stances s={s} draft={draft} setDraft={setDraft} />}
+      {tab === 'manifest' && (
         <p className={`${card} text-sm opacity-70`} data-testid="arcane-later">
           {t('This part of the Arcane tab is not built yet.')}
         </p>
@@ -207,6 +210,8 @@ function AttackFooter({ s, draft, setDraft }) {
   const globals = useGlobalEnhancements();
   const info = useTargets(characterId);
   const catalog = useMemo(() => enhancementCatalog(globals, sheet), [globals, sheet]);
+  const { stances } = useStances();
+  const stance = draft.stance ? stances.find((x) => x.id === draft.stance) : null;
   const [busy, setBusy] = useState(false);
   const [far, setFar] = useState(null); // { range, targets: [{ name, distance }] }
   const [options, setOptions] = useState(false);
@@ -233,15 +238,15 @@ function AttackFooter({ s, draft, setDraft }) {
 
   async function done(confirmRange = false) {
     setBusy(true);
-    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, advantage: draft.advantage, modifier: Number(draft.modifier), confirmRange });
+    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, stance: draft.stance, advantage: draft.advantage, modifier: Number(draft.modifier), confirmRange });
     setBusy(false);
     if (!r.ok) return toast(r.error);
     if (r.needsConfirm) return setFar(r.needsConfirm);
     setFar(null);
-    setDraft({ ...draft, counts: {} });
+    setDraft({ ...draft, counts: {}, stance: null });
   }
 
-  const chosenNames = plan.ok ? [plan.weapon.name, ...plan.chosen.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name))] : [];
+  const chosenNames = plan.ok ? [plan.weapon.name, ...plan.chosen.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name)), ...(stance ? [t('Stance: {name}', { name: stance.name })] : [])] : [];
 
   return (
     <>

@@ -129,6 +129,11 @@ function AttackCard({ attack, onClose }) {
             {t('Enhancements: {list}', { list: attack.enhancements.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name)).join(', ') })}
           </div>
         )}
+        {attack.stance && (
+          <div className="text-sm opacity-80" data-testid="attack-stance">
+            {t('Stance {name}: rolled {total}, band {band}', { name: attack.stance.name, total: attack.stance.total, band: t(attack.stance.band) })}
+          </div>
+        )}
         {attack.unique.map((u, i) => (
           <div key={i} className="rounded-lg bg-white/5 p-2 text-sm" data-testid="attack-unique">
             <span className="font-medium">{u.name}</span> ({u.source}): {u.text}

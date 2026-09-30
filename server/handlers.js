@@ -9,6 +9,7 @@ import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
 import { registerAttackHandlers } from './attackHandlers.js';
 import { registerSpellHandlers } from './spellHandlers.js';
+import { registerStanceHandlers } from './stanceHandlers.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
@@ -313,6 +314,8 @@ export function registerHandlers(io, socket, db, shared) {
   registerAttackHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
 
   registerSpellHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+
+  registerStanceHandlers({ io, db, on, isGm, identity });
 
   // ---- Music -----------------------------------------------------------------
 
