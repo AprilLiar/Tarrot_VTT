@@ -79,7 +79,7 @@ function Stones({ s }) {
     <section aria-label={t('Spell Stones')}>
       <h3 className={heading}>{t('Spell Stones')}</h3>
       <p className="mb-2 text-xs opacity-50">{t('How many of each Spell Stone this character has. Crafting a spell spends them; drafting does not.')}</p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
         {KINDS.flatMap((kind) => STONES.filter((x) => x.kind === kind)).map((x) => (
           <div key={x.sign} className={`${card} flex flex-col items-center gap-1 p-2`} data-testid={`stone-${x.sign}`}>
             <StoneChip sign={x.sign} tabIndex={-1} />
@@ -164,7 +164,8 @@ function Editor({ s, work, setWork }) {
   const selStone = scheme.stones.find((x) => x.id === sel);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
+      <div className="flex flex-col gap-3 lg:col-start-2 lg:row-start-1">
       <div className="flex gap-2">
         <label className={`${label} flex-1`}>
           {t('Name')}
@@ -178,7 +179,9 @@ function Editor({ s, work, setWork }) {
         {t('Description')}
         <textarea className={`${input} min-h-16`} data-testid="spell-description" value={work.description} maxLength={D.TEXT_MAX} onChange={(e) => setWork({ ...work, description: e.target.value })} />
       </label>
+      </div>
 
+      <div className="flex flex-col gap-3 lg:col-start-1 lg:row-span-3 lg:row-start-1">
       <div className="flex gap-2">
         <div
           className="min-w-0 flex-1"
@@ -218,6 +221,9 @@ function Editor({ s, work, setWork }) {
         </div>
       )}
 
+      </div>
+
+      <div className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2">
       <div className={card} data-testid="scheme-status" data-legal={check.ok ? 'true' : 'false'}>
         {check.ok ? (
           <span className="text-green-400">{t('Legal scheme')}</span>
@@ -257,6 +263,7 @@ function Editor({ s, work, setWork }) {
         {work.id ? t('Save changes') : t('Save to Spell Drafts')}
       </button>
       {!check.ok && <p className="text-xs opacity-60">{t('An illegal scheme is still saved as a draft, marked Illegal, but it cannot be crafted.')}</p>}
+      </div>
 
       {noteFor && <NoteDialog stone={scheme.stones.find((x) => x.id === noteFor)} onClose={() => setNoteFor(null)} onSave={(note) => { setScheme({ ...scheme, stones: scheme.stones.map((x) => (x.id === noteFor ? { ...x, note } : x)) }); setShown(note.trim() ? noteFor : null); }} />}
     </div>
@@ -299,14 +306,14 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <input className={input} type="search" data-testid="draft-search" aria-label={t('Search')} placeholder={t('Search names and descriptions')} value={query} onChange={(e) => setQuery(e.target.value)} />
-      <div className="flex flex-wrap gap-2" aria-label={t('Stones used')}>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <input className={`${input} col-span-full`} type="search" data-testid="draft-search" aria-label={t('Search')} placeholder={t('Search names and descriptions')} value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="col-span-full flex flex-wrap gap-2" aria-label={t('Stones used')}>
         {STONES.map((x) => (
           <StoneChip key={x.sign} sign={x.sign} size={38} data-testid={`filter-${x.sign}`} aria-pressed={signs.includes(x.sign)} style={{ width: 38, height: 38, border: `3px solid ${KIND_COLORS[x.kind]}`, opacity: signs.length && !signs.includes(x.sign) ? 0.45 : 1, outline: signs.includes(x.sign) ? '2px solid #fff' : 'none' }} onClick={() => toggle(x.sign)} />
         ))}
       </div>
-      {list.length === 0 && <p className="text-sm opacity-60">{s.sheet.spellDrafts.length ? t('No draft matches.') : t('No drafts yet.')}</p>}
+      {list.length === 0 && <p className="col-span-full text-sm opacity-60">{s.sheet.spellDrafts.length ? t('No draft matches.') : t('No drafts yet.')}</p>}
       {list.map((d) => {
         const ok = validateScheme(d.scheme).ok;
         return (
@@ -386,8 +393,8 @@ function Spells({ s, draft, setDraft }) {
   const [remove, setRemove] = useState(null);
   const chosenWeapon = draft.weapon;
   return (
-    <div className="flex flex-col gap-3">
-      {s.sheet.spells.length === 0 && <p className="text-sm opacity-60">{t('No spells yet. Craft one from a draft.')}</p>}
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {s.sheet.spells.length === 0 && <p className="col-span-full text-sm opacity-60">{t('No spells yet. Craft one from a draft.')}</p>}
       {s.sheet.spells.map((sp) => {
         const isWeapon = sp.effect.kind === 'weapon';
         const enhId = `spell:${sp.id}`;
@@ -430,7 +437,7 @@ function Spells({ s, draft, setDraft }) {
         );
       })}
       {gm && (
-        <button className={btn} data-testid="spell-grant" onClick={() => setDialog({ spell: null })}>
+        <button className={`${btn} col-span-full`} data-testid="spell-grant" onClick={() => setDialog({ spell: null })}>
           {t('Grant a spell')}
         </button>
       )}

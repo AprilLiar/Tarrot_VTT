@@ -31,7 +31,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
   }
 
   return (
-    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-24 w-full' : 'w-full'} style={mini ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
+    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
       <defs>
         <marker id={`${uid}-a`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill="#e2e8f0" />

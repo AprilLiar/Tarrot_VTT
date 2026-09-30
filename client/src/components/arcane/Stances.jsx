@@ -20,6 +20,8 @@ const label = 'flex flex-col gap-1 text-sm';
 const RING = 84; // distance between rings of the tree
 const NODE = 27; // radius of a circle in the tree
 const signOf = (sign) => STONES.find((x) => x.sign === sign);
+// The signs in the order of the zodiac.
+const ZODIAC = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
 
 // The circle of a Stance: the sign in its colour.
 function Glyph({ sign, color, size = 56 }) {
@@ -52,8 +54,8 @@ export default function Stances({ s, draft, setDraft }) {
   if (open) return <Tree sign={open} all={stances.filter((x) => x.sign === open)} vibes={vibes} s={s} draft={draft} setDraft={setDraft} gm={gm} onBack={() => setOpen(null)} />;
 
   return (
-    <div className="flex flex-col gap-2" data-testid="stances-list">
-      {STONES.map((x) => {
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="stances-list">
+      {ZODIAC.map(signOf).map((x) => {
         const base = stances.find((st) => st.id === `base:${x.sign}`);
         const count = stances.filter((st) => st.sign === x.sign && st.parentId).length;
         return (
@@ -140,7 +142,7 @@ function Tree({ sign, all, vibes, s, draft, setDraft, gm, onBack }) {
       {!current ? (
         <p className={`${card} text-sm opacity-70`}>{t('You have not seen this Stance yet.')}</p>
       ) : (
-        <>
+        <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
           <svg viewBox={`${-size} ${-size} ${size * 2} ${size * 2}`} className="mx-auto w-full" style={{ maxHeight: '26rem' }} role="img" aria-label={t('Stance tree')}>
             {all.map((x) => {
               const p = pos.get(x.id);
@@ -199,7 +201,7 @@ function Tree({ sign, all, vibes, s, draft, setDraft, gm, onBack }) {
               )}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {dialog?.vibe && <VibeDialog sign={sign} current={vibes[sign] ?? ''} onClose={() => setDialog(null)} />}

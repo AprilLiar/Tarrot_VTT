@@ -48,6 +48,15 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await p.getByTestId('ap-up').click();
   await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '3');
 
+  // The Defences have faint drawings behind them, and the stats and skills are tinted by their stats.
+  await expect(p.getByTestId('icon-shield')).toHaveCount(1);
+  await expect(p.getByTestId('icon-brain')).toHaveCount(1);
+  await expect(p.getByTestId('stat-strength')).toHaveCSS('background-color', 'rgba(239, 68, 68, 0.2)');
+  await expect(p.getByTestId('stat-luck')).toHaveCSS('background-color', 'rgba(234, 179, 8, 0.2)');
+  await expect(p.getByTestId('skill-stamina')).toHaveCSS('background-color', 'rgba(239, 68, 68, 0.2)');
+  // A skill that takes the better of two stats has a gradient from one colour to the other.
+  await expect(p.getByTestId('skill-body_movement')).toHaveCSS('background-image', /linear-gradient\(90deg, rgba\(239, 68, 68, 0.2\), rgba\(34, 197, 94, 0.2\)\)/);
+
   await p.getByTestId('view-arcane').click();
   // The Arcane view uses the whole width, and the Chat button is the last button of its footer.
   const box = await p.getByTestId('arcane').boundingBox();

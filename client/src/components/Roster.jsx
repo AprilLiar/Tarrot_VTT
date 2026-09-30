@@ -255,7 +255,7 @@ export default function Roster() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
+    <main className="mx-auto w-full max-w-[2000px] p-4">
       <div className="mb-3 flex gap-2">
         <button className={btnPrimary} data-testid="new-character" onClick={() => setDialog({ kind: 'new-character', folderId: null })}>
           {t('New character')}
@@ -268,7 +268,8 @@ export default function Roster() {
       {folders.length === 0 && characters.length === 0 && (
         <p className="text-sm opacity-60">{t('Nothing here yet. Create your first character.')}</p>
       )}
-      <ul>
+      {/* On a wide screen the list flows into columns so the space is used. */}
+      <ul className="lg:columns-2 lg:gap-6 2xl:columns-3 [&>li]:break-inside-avoid">
         {tree(null, 0)}
         {characterRows(null, 0)}
       </ul>

@@ -1,3 +1,4 @@
+/* global getComputedStyle */
 import { test, expect } from '@playwright/test';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
@@ -79,6 +80,44 @@ test('Stances: the GM edits the tree and the table, teaches a Stance; the player
   await expect(p.getByTestId('stance-state')).toHaveText('Known, not learned');
   await expect(p.getByTestId('stance-use')).toHaveCount(0);
 
+  await ctx.close();
+  await gmCtx.close();
+});
+
+test('the Arcane cards fill the width: three to a row on a PC, one on a phone; the sheet has three columns', async ({ browser }) => {
+  const name = `Wide-${uid()}`;
+  const gmCtx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  const gm = await gmCtx.newPage();
+  await gm.goto('/');
+  await gm.getByTestId('pick-gm').click();
+  await createPc(gm, name);
+  await gm.getByTestId('character-row').filter({ hasText: name }).click();
+  await gm.getByTestId('open-sheet').click();
+
+  // Three columns on a PC.
+  const cols = await gm.getByTestId('sheet-columns').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(cols).toBe(3);
+
+  await gm.getByTestId('view-arcane').click();
+  await gm.getByTestId('arcane-tab-stances').click();
+  await expect(gm.locator('[data-testid^="stance-sign-"]')).toHaveCount(12);
+  const tops = await gm.locator('[data-testid^="stance-sign-"]').evaluateAll((els) => els.slice(0, 4).map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(tops[0]).toBe(tops[1]);
+  expect(tops[1]).toBe(tops[2]);
+  expect(tops[3]).toBeGreaterThan(tops[2]); // the fourth starts a new row
+  // The signs follow the zodiac.
+  await expect(gm.locator('[data-testid^="stance-sign-"]').first()).toHaveAttribute('data-testid', 'stance-sign-aries');
+
+  // On a phone the cards are one per row.
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: name }).click();
+  await p.getByTestId('view-arcane').click();
+  await p.getByTestId('arcane-tab-stances').click();
+  await expect(p.locator('[data-testid^="stance-sign-"]')).toHaveCount(12);
+  const lefts = await p.locator('[data-testid^="stance-sign-"]').evaluateAll((els) => els.slice(0, 2).map((e) => Math.round(e.getBoundingClientRect().left)));
+  expect(lefts[0]).toBe(lefts[1]);
   await ctx.close();
   await gmCtx.close();
 });

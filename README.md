@@ -329,6 +329,23 @@ Layout, top to bottom:
 
 Experience Modifier, Physical/Mental Defence, X Defences and max HP are editable fields.
 
+**Layout (decided after the second playtest):** the interface fills the whole width of the screen, and the same
+goes for every page: unused space is filled, not left empty.
+- **Sheet on a PC (1024 px and wider):** **three columns**. Left: the vitals (AP cubes, HP, Physical and Mental
+  Defence, Movement, Size, Experience Modifier, Height), the Combat Masteries (three in a row) and the Battle remote.
+  Middle: Stats and Skills. Right: Features, Inventory, Resistances, Statuses, Stage and Pictures. The name, the
+  Back link and the Sheet | Arcane switch share one row. On a phone it stays one column.
+- **Defences:** Physical Defence has a faint shield and Mental Defence a faint brain drawn behind the value.
+- **Tints (20% transparent):** every Stat card and every Skill row is tinted by its stat: Strength red, Dexterity
+  green, Intelligence blue, Spirit purple, Luck yellow. A skill that takes the better of two stats has a gradient from
+  one colour to the other (Body Movement red to green, Likability purple to blue...); the Prime skill (Awareness) has a
+  gradient through all five colours (decided).
+- **Scroll bars** everywhere are thin and in the interface's violet and dark colours.
+- **Card grids:** Stances (in the order of the zodiac), Spell Drafts, Created Spells, Tarot Cards, Manifestations,
+  Weapons and Enhancements are grids: 3 cards per row on a PC, 2 on a tablet, 1 on a phone (decided). The mini picture
+  of a spell scheme on a draft is larger. The spell editor and a Stance's tree with its table sit side by side on a PC.
+  The Characters page lists folders in columns on a wide screen.
+
 Decided for the sheet:
 - **Item uses:** a Use button subtracts 1; the number can also be typed. At 0 the item stays,
   marked empty, and can be refilled.
