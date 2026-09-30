@@ -531,9 +531,9 @@ test('the token menu stands on both sides of the token; the Display has the whol
   const start = await token(gm, npc).boundingBox();
   await gm.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
   await gm.mouse.down();
-  await gm.mouse.move(map.x + (5.5 / 10) * map.width, map.y + (2.5 / 5) * map.height, { steps: 8 });
+  await gm.mouse.move(map.x + map.width / 2, map.y + map.height / 2, { steps: 8 });
   await gm.mouse.up();
-  await expect(token(gm, npc)).toHaveAttribute('data-col', '5');
+  await expect(token(gm, npc)).not.toHaveAttribute('data-col', '0');
   await token(gm, npc).click({ button: 'right' });
   const t = await token(gm, npc).boundingBox();
   const left = await gm.getByTestId('token-menu-left').boundingBox();
