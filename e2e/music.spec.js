@@ -2,8 +2,16 @@ import { test, expect } from '@playwright/test';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
-const desktop = (browser) => browser.newContext({ viewport: { width: 1280, height: 800 } });
-const phone = (browser) => browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+// The tests use made-up video ids, so the real YouTube player must never load: on a machine with
+// internet it would report "video not found" and (correctly) skip every track. With the player
+// blocked the app just plays nothing, and the tests check what the server and the bar show.
+async function newContext(browser, options) {
+  const context = await browser.newContext(options);
+  await context.route(/^https?:\/\/([^/]*\.)?(youtube\.com|ytimg\.com|googlevideo\.com)\//, (route) => route.abort());
+  return context;
+}
+const desktop = (browser) => newContext(browser, { viewport: { width: 1280, height: 800 } });
+const phone = (browser) => newContext(browser, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
 async function open(context, role) {
   const page = await context.newPage();

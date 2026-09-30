@@ -471,6 +471,7 @@ Behaviour:
   looping. Reported durations under 5 seconds (an advert) are ignored and the largest is kept.
 - Deleting the playing track or playlist stops the music.
 - The GM's browser tab must stay open for the GM to hear it; nothing else depends on it.
+- The end-to-end tests block YouTube (they use made-up video ids, which the real player rightly rejects and skips), so they check the server, the bar and the controls, not sound.
 - I could not check real YouTube playback in my test environment (it has no access to YouTube), so
   the first Render playtest is the real test of sound.
 
