@@ -444,11 +444,19 @@ Decided:
   Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
   Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
-  token for its circles: **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove**
-  (**Remove** takes the token off the map). **Set Height** is the number of Spaces the character is
-  in the air (0 to 99); it shows as "+X sp." above the token for everyone and changes nothing else
-  yet.
-- **Dragging** a token (GM and Display) is free and snaps to a square for everyone; it costs no
+  token for its circles, standing on the two sides of the token (up to two per side, each column
+  centred on the middle of the token; next to a screen edge the column moves beside the other one):
+  **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove** (takes the token off the map).
+  **Set Height** is the number of Spaces the character is in the air (0 to 99), changed with **Up**,
+  **Down** and **Reset** buttons (no typing; every press is saved at once); it shows as "+X sp." above
+  the token for everyone and changes nothing else yet. The same buttons sit on the character
+  sheet next to Movement and Size while the character has a token on the active Battle map.
+  **Who:** the GM and the **Display Screen** get every circle (in Scene mode: Token Settings,
+  Hide/Reveal and Remove); a desktop player gets only **Set Height** and only for their own
+  character. Controls on the Display and in Scene and Battle are meant to be usable with the mouse
+  alone. (decided) A token or figure the Display hides is gone from the Display too, so only the
+  GM can reveal it again.
+- **Dragging** a token (GM, Display, and a player for their own character) is free and snaps to a square for everyone; it costs no
   movement.
 - **Tools** (GM and Display): Move, Draw, Ping, Ruler, Area, Erase, on a **static bar** on the left
   (it never moves or changes size). Picking a tool opens its options in a separate panel to the right
@@ -457,7 +465,8 @@ Decided:
     the part of a drawing under it, splitting the drawing where it is cut; **Clean** removes all
     drawings.
   - **Area:** circle, cone (90 degrees), **arc** (a 180 degree cone), line and square templates sized
-    in squares and rotated by dragging; **Clean** removes all areas.
+    in squares (with up and down arrows to the right of the number field, usable on a touch
+    screen) and rotated by dragging; **Clean** removes all areas.
   - **Erase:** click any drawing or area to remove it whole.
   - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
     Display alike (a decision of mine: they share the same tools).
@@ -704,7 +713,7 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
 - GM only: `scene:create` `{ name, folderId?, data? }`, `scene:rename`, `scene:move`,
   `scene:set_image` `{ id, data }`, `scene:delete`, `scene:activate` `{ id | null }`,
   `scene_folder:*` and `temp_npc_folder:*` (create, rename, move, delete), `temp_npc:*` (create,
-  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }`.
+  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }` (GM and Display).
 - `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
   for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
 - `stage:summon` `{ owner, pictureId? }` and `stage:dismiss` `{ id }`: the GM for anyone; a player
@@ -735,9 +744,9 @@ Battle (Phase 5a):
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
 - GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
-  `{ id }`, `battle:update` `{ id, pictureId?, hidden?, height? }`, `battle:clear_bank` `{ id }`,
+  `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height? }` (GM and Display; a player only `height`, for their own PC), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.
-- GM and Display: `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
+- GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
   `mark:remove` `{ id }`, `mark:clear` `{ kind? }` (Clean), `mark:erase` `{ x, y, r }` (the eraser: picture
   fractions and a radius in picture widths; splits the drawings it cuts), `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
   `battle:pinged`.
