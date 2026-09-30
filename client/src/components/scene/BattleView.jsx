@@ -5,9 +5,10 @@ import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { cellAt, cellToUnits, distanceSquares, dropCell, templateShape, toUnits } from '../../lib/battleMath.js';
-import Dialog, { btn, btnDanger } from '../Dialog.jsx';
+import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
+import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
 import { CombatBar } from './CombatBar.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
@@ -124,6 +125,43 @@ function GridPanel({ scene, battle, onClose }) {
   );
 }
 
+// How many Spaces a character is in the air. It shows as "+X sp." above the token.
+function HeightDialog({ token, onClose }) {
+  const { toast } = useApp();
+  const [value, setValue] = useState(String(token.height));
+  const valid = isWholeNumber(value) && Number(value) >= 0 && Number(value) <= 99;
+  async function save() {
+    const r = await call('battle:update', { id: token.id, height: Number(value) });
+    if (!r.ok) toast(r.error);
+    else onClose();
+  }
+  return (
+    <Dialog title={`Height: ${token.name}`} onClose={onClose}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) save();
+        }}
+      >
+        <label className="flex flex-col gap-1 text-sm">
+          Spaces in the air (0 for the ground)
+          <IntInput label="Height in Spaces" value={value} onChange={setValue} />
+        </label>
+        {!valid && <p className="text-sm text-red-400">Use a whole number from 0 to 99.</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" className={btn} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className={btnPrimary} disabled={!valid} data-testid="height-set">
+            Set
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 function Ping({ ping, unit }) {
   return (
     <circle cx={ping.x} cy={ping.y} r={unit * 0.6} fill="none" stroke="#fbbf24" strokeWidth={unit * 0.15} className="battle-ping" />
@@ -154,6 +192,9 @@ export default function BattleView() {
   const [menu, setMenu] = useState(null);
   const [settings, setSettings] = useState(null);
   const [drag, setDrag] = useState(null); // { id, u, v } a token being dragged (picture fractions)
+  const [drawMode, setDrawMode] = useState('pen'); // 'pen' | 'eraser'
+  const [heightFor, setHeightFor] = useState(null); // id of the token whose height is being set
+  const erasing = useRef({ busy: false, pending: null, last: null });
 
   const aspect = battle?.aspect ?? 1;
   const ready = !!(scene && battle?.imageId);
@@ -183,14 +224,39 @@ export default function BattleView() {
   const inside = ({ u, v }) => u >= 0 && u <= 1 && v >= 0 && v <= 1;
 
   // ---- tools on the map surface ------------------------------------------------
+
+  // The eraser rubs out parts of drawings. Calls are sent one at a time, newest position last.
+  const eraserRadius = () => width * 4; // picture widths
+  function eraseAt(f) {
+    const st = erasing.current;
+    const r = eraserRadius();
+    if (st.last && Math.hypot(f.u - st.last.u, (f.v - st.last.v) / aspect) < r / 3) return;
+    st.last = f;
+    st.pending = { x: f.u, y: f.v, r };
+    if (st.busy) return;
+    st.busy = true;
+    (async () => {
+      while (st.pending) {
+        const args = st.pending;
+        st.pending = null;
+        await call('mark:erase', args);
+      }
+      st.busy = false;
+    })();
+  }
   function surfaceDown(e) {
-    if (!tools || tool === 'select' || !ready || e.button === 2) return;
+    // Erase works by clicking the marks themselves, so the map must not capture the pointer.
+    if (!tools || tool === 'select' || tool === 'erase' || !ready || e.button === 2) return;
     const f = toFractions(e);
     if (!inside(f)) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     if (tool === 'ping') {
       call('battle:ping', { x: f.u, y: f.v });
+    } else if (tool === 'draw' && drawMode === 'eraser') {
+      erasing.current.last = null;
+      setDraft({ kind: 'erase', u: f.u, v: f.v });
+      eraseAt(f);
     } else if (tool === 'draw') {
       setDraft({ kind: 'draw', points: [[f.u, f.v]] });
     } else if (tool === 'ruler') {
@@ -210,6 +276,9 @@ export default function BattleView() {
       if (Math.hypot((f.u - last[0]) * aspect, f.v - last[1]) * 1 > 0.004 && inside(f) && draft.points.length < 500) {
         setDraft({ ...draft, points: [...draft.points, [f.u, f.v]] });
       }
+    } else if (draft.kind === 'erase') {
+      setDraft({ ...draft, u: f.u, v: f.v });
+      if (inside(f)) eraseAt(f);
     } else if (draft.kind === 'ruler') {
       setDraft({ ...draft, b: cellAt(f.u, f.v, battle.grid, aspect) });
     } else if (draft.kind === 'template') {
@@ -221,7 +290,7 @@ export default function BattleView() {
   async function surfaceUp() {
     const d = draft;
     setDraft(null);
-    if (!d) return;
+    if (!d || d.kind === 'erase') return;
     if (d.kind === 'draw') {
       const pts = d.points.length >= 2 ? d.points : [d.points[0], [d.points[0][0] + 0.001, d.points[0][1]]];
       const r = await call('mark:add', { kind: 'draw', data: { color, width: Math.round(width * 1000), points: pts } });
@@ -345,8 +414,20 @@ export default function BattleView() {
               {battle.marks
                 .filter((m) => m.kind === 'draw')
                 .map((m) => (
+                  <g key={m.id}>
+                  {eraseMode && (
+                    // A wide invisible line so a thin drawing is easy to click.
+                    <polyline
+                      points={m.points.map((p) => `${p[0]},${p[1] / aspect}`).join(' ')}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={Math.max(m.width / 1000, unit * 0.4)}
+                      strokeLinecap="round"
+                      style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                      onClick={() => call('mark:remove', { id: m.id })}
+                    />
+                  )}
                   <polyline
-                    key={m.id}
                     data-testid="battle-drawing"
                     points={m.points.map((p) => `${p[0]},${p[1] / aspect}`).join(' ')}
                     fill="none"
@@ -354,10 +435,13 @@ export default function BattleView() {
                     strokeWidth={m.width / 1000}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={eraseMode ? { cursor: 'pointer', pointerEvents: 'stroke' } : undefined}
-                    onClick={eraseMode ? () => call('mark:remove', { id: m.id }) : undefined}
+                    style={{ pointerEvents: 'none' }}
                   />
+                  </g>
                 ))}
+              {draft?.kind === 'erase' && (
+                <circle cx={draft.u} cy={draft.v / aspect} r={eraserRadius()} fill="#ffffff" fillOpacity={0.15} stroke="#ffffff" strokeWidth={unit * 0.03} />
+              )}
               {draft?.kind === 'draw' && (
                 <polyline points={draft.points.map((p) => `${p[0]},${p[1] / aspect}`).join(' ')} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" />
               )}
@@ -398,6 +482,7 @@ export default function BattleView() {
                 data-col={t.col}
                 data-row={t.row}
                 data-size={t.size}
+                data-height={t.height}
                 data-targeted={t.targetedBy.length > 0 ? 'true' : 'false'}
                 data-no-pan
                 className={`absolute select-none ${t.hidden ? 'opacity-50' : ''} ${tools && tool === 'select' ? 'cursor-grab' : ''}`}
@@ -421,6 +506,15 @@ export default function BattleView() {
                   <img src={imageUrl(t.imageId)} alt={t.name} draggable={false} className="h-full w-full object-contain" />
                 </div>
                 {t.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
+                {t.height > 0 && (
+                  <div
+                    data-testid="token-height"
+                    className="pointer-events-none absolute bottom-full left-1/2 mb-px -translate-x-1/2 whitespace-nowrap rounded bg-sky-700/90 px-1 text-white"
+                    style={{ fontSize: `calc(var(--map-w) * ${unit * 0.32})` }}
+                  >
+                    +{t.height} sp.
+                  </div>
+                )}
                 <div
                   data-testid="token-name"
                   className="pointer-events-none absolute left-1/2 top-full mt-px -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 text-white"
@@ -472,89 +566,129 @@ export default function BattleView() {
       {ready && <CombatBar battle={battle} />}
 
       {tools && ready && (
-        <div className="absolute left-2 top-1/2 z-20 flex max-h-[60%] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-black/55 p-1 backdrop-blur" data-no-pan data-testid="battle-tools">
-          {[
-            ['select', 'Move'],
-            ['draw', 'Draw'],
-            ['ping', 'Ping'],
-            ['ruler', 'Ruler'],
-            ['template', 'Area'],
-            ['erase', 'Erase'],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              data-testid={`tool-${id}`}
-              aria-pressed={tool === id}
-              className={`min-h-10 rounded-lg px-3 text-sm ${tool === id ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`}
-              onClick={() => setTool(id)}
-            >
-              {label}
+        <>
+          {/* The tool bar never changes; a tool's options open in their own panel beside it. */}
+          <div
+            className="absolute left-2 top-1/2 z-20 flex max-h-[80%] w-24 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-black/55 p-1 backdrop-blur"
+            data-no-pan
+            data-testid="battle-tools"
+          >
+            {[
+              ['select', 'Move'],
+              ['draw', 'Draw'],
+              ['ping', 'Ping'],
+              ['ruler', 'Ruler'],
+              ['template', 'Area'],
+              ['erase', 'Erase'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                data-testid={`tool-${id}`}
+                aria-pressed={tool === id}
+                className={`min-h-10 rounded-lg px-3 text-sm ${tool === id ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`}
+                onClick={() => setTool(id)}
+              >
+                {label}
+              </button>
+            ))}
+            <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={showGrid} data-testid="toggle-grid" onClick={() => setShowGrid(!showGrid)}>
+              Grid {showGrid ? 'on' : 'off'}
             </button>
-          ))}
-          {(tool === 'draw' || tool === 'template') && (
-            <div className="flex flex-wrap gap-1 p-1" data-testid="tool-colors">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  aria-label={`Colour ${c}`}
-                  aria-pressed={color === c}
-                  className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-white' : 'border-transparent'}`}
-                  style={{ background: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-          )}
-          {tool === 'draw' && (
-            <div className="flex gap-1 p-1">
-              {[0.002, 0.004, 0.008].map((wd) => (
-                <button key={wd} aria-pressed={width === wd} className={`min-h-8 flex-1 rounded ${width === wd ? 'bg-violet-700' : 'bg-white/10'}`} onClick={() => setWidth(wd)}>
-                  {wd === 0.002 ? 'S' : wd === 0.004 ? 'M' : 'L'}
-                </button>
-              ))}
-            </div>
-          )}
-          {tool === 'template' && (
-            <div className="flex flex-col gap-1 p-1 text-xs">
-              <select className="min-h-9 rounded bg-white/10 px-1" aria-label="Shape" data-testid="template-shape" value={shape} onChange={(e) => setShape(e.target.value)}>
-                <option value="circle">Circle</option>
-                <option value="cone">Cone</option>
-                <option value="line">Line</option>
-                <option value="square">Square</option>
-              </select>
-              <label className="flex items-center gap-1">
-                Squares
-                <input
-                  type="number"
-                  min="1"
-                  max="60"
-                  aria-label="Template size"
-                  data-testid="template-size"
-                  className="min-h-9 w-14 rounded bg-black/40 px-1 text-center"
-                  value={tsize}
-                  onChange={(e) => setTsize(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
-                />
-              </label>
-              <span className="opacity-70">Press for the start, drag for the direction.</span>
-            </div>
-          )}
-          <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={showGrid} data-testid="toggle-grid" onClick={() => setShowGrid(!showGrid)}>
-            Grid {showGrid ? 'on' : 'off'}
-          </button>
-          {isGm && (
-            <>
+            {isGm && (
               <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="open-grid" onClick={() => setGridOpen(!gridOpen)}>
                 Set grid
               </button>
-              <button className="min-h-9 rounded-lg bg-white/10 px-3 text-xs" data-testid="clear-drawings" onClick={() => call('mark:clear', { kind: 'draw' })}>
-                Clear drawings
-              </button>
-              <button className="min-h-9 rounded-lg bg-white/10 px-3 text-xs" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
-                Clear areas
-              </button>
-            </>
+            )}
+          </div>
+
+          {(tool === 'draw' || tool === 'template' || tool === 'erase') && (
+            <div
+              className="absolute left-28 top-1/2 z-20 flex max-h-[80%] w-44 -translate-y-1/2 flex-col gap-2 overflow-y-auto rounded-xl bg-black/55 p-2 text-xs backdrop-blur"
+              data-no-pan
+              data-testid="tool-options"
+            >
+              {tool === 'draw' && (
+                <div className="flex gap-1" role="radiogroup" aria-label="Drawing mode">
+                  {[
+                    ['pen', 'Pen'],
+                    ['eraser', 'Eraser'],
+                  ].map(([id, label]) => (
+                    <button
+                      key={id}
+                      role="radio"
+                      aria-checked={drawMode === id}
+                      data-testid={`draw-mode-${id}`}
+                      className={`min-h-9 flex-1 rounded-lg ${drawMode === id ? 'bg-violet-700' : 'bg-white/10'}`}
+                      onClick={() => setDrawMode(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {((tool === 'draw' && drawMode === 'pen') || tool === 'template') && (
+                <div className="flex flex-wrap gap-1" data-testid="tool-colors">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      aria-label={`Colour ${c}`}
+                      aria-pressed={color === c}
+                      className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-white' : 'border-transparent'}`}
+                      style={{ background: c }}
+                      onClick={() => setColor(c)}
+                    />
+                  ))}
+                </div>
+              )}
+              {tool === 'draw' && (
+                <div className="flex gap-1">
+                  {[0.002, 0.004, 0.008].map((wd) => (
+                    <button key={wd} aria-pressed={width === wd} aria-label={drawMode === 'eraser' ? 'Eraser size' : 'Line width'} className={`min-h-8 flex-1 rounded ${width === wd ? 'bg-violet-700' : 'bg-white/10'}`} onClick={() => setWidth(wd)}>
+                      {wd === 0.002 ? 'S' : wd === 0.004 ? 'M' : 'L'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tool === 'draw' && (
+                <>
+                  <span className="opacity-70">{drawMode === 'eraser' ? 'Drag over a drawing to rub it out.' : 'Press and drag to draw.'}</span>
+                  <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-drawings" onClick={() => call('mark:clear', { kind: 'draw' })}>
+                    Clean
+                  </button>
+                </>
+              )}
+              {tool === 'template' && (
+                <>
+                  <select className="min-h-9 rounded bg-white/10 px-1" aria-label="Shape" data-testid="template-shape" value={shape} onChange={(e) => setShape(e.target.value)}>
+                    <option value="circle">Circle</option>
+                    <option value="cone">Cone</option>
+                    <option value="arc">Arc</option>
+                    <option value="line">Line</option>
+                    <option value="square">Square</option>
+                  </select>
+                  <label className="flex items-center gap-1">
+                    Squares
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      aria-label="Template size"
+                      data-testid="template-size"
+                      className="min-h-9 w-14 rounded bg-black/40 px-1 text-center"
+                      value={tsize}
+                      onChange={(e) => setTsize(Math.max(1, Math.min(60, Number(e.target.value) || 1)))}
+                    />
+                  </label>
+                  <span className="opacity-70">Press for the start, drag for the direction.</span>
+                  <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
+                    Clean
+                  </button>
+                </>
+              )}
+              {tool === 'erase' && <span className="opacity-70">Click a drawing or an area to remove it.</span>}
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {isGm && gridOpen && ready && <GridPanel scene={scene} battle={battle} onClose={() => setGridOpen(false)} />}
@@ -573,7 +707,19 @@ export default function BattleView() {
             await call('battle:update', { id: menuToken.id, hidden: !menuToken.hidden });
             setMenu(null);
           }}
+          onHeight={() => {
+            setHeightFor(menuToken.id);
+            setMenu(null);
+          }}
+          onRemove={async () => {
+            const r = await call('battle:remove', { id: menuToken.id });
+            if (!r.ok) toast(r.error);
+            setMenu(null);
+          }}
         />
+      )}
+      {heightFor != null && battle.tokens.find((t) => t.id === heightFor) && (
+        <HeightDialog token={battle.tokens.find((t) => t.id === heightFor)} onClose={() => setHeightFor(null)} />
       )}
       {settings && <TokenSettings token={battle.tokens.find((t) => t.id === settings.id) ?? settings} onClose={() => setSettings(null)} />}
     </div>

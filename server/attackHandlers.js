@@ -29,15 +29,32 @@ export function registerAttackHandlers(ctx) {
     const c = await requireControl(p.characterId);
     if (!D.MASTERIES.includes(p.mastery)) throw new AppError('bad_value', 'Choose a Combat Mastery.');
     if (!Number.isInteger(p.ap) || p.ap < 1 || p.ap > 2) throw new AppError('bad_value', 'A basic attack costs 1 or 2 AP.');
+    if (p.defence !== 'physical' && p.defence !== 'mental') throw new AppError('bad_value', 'Choose Physical or Mental Defence.');
     const sheet = await sheets.getSheet(db, c.id);
+    if (sheet.ap.current < p.ap) throw new AppError('no_ap', `Not enough AP: this attack costs ${p.ap} and you have ${sheet.ap.current}.`);
+    const picked = [...(shared.targets.get(c.id) ?? [])];
+    if (!picked.length) throw new AppError('no_target', 'Select at least one target first.');
+    const infos = [];
+    for (const id of picked) {
+      try {
+        infos.push(await attack.targetInfo(db, id));
+      } catch {
+        // A token that has left the map is dropped.
+      }
+    }
+    if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
     const roll = buildRoll(sheet, { kind: 'mastery', key: p.mastery, advantage: p.advantage, modifier: p.modifier });
     const masteryLabel = D.MASTERY_LABELS[p.mastery];
     roll.title = `${masteryLabel} attack`;
+    // The number to beat, shown big next to the total on the roll card.
+    roll.against = {
+      label: `${p.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
+      targets: infos.map((t) => ({ name: t.name, value: t.defence[p.defence] })),
+    };
 
     // Where the attacker stands and who they have targeted (single target from the phone).
     const sceneId = await scenes.getActiveSceneId(db);
     const token = sceneId == null ? null : await battle.tokenForCharacter(db, sceneId, c.id);
-    const targeted = shared.targets.get(c.id);
     const attackId = shared.nextAttackId = (shared.nextAttackId ?? 0) + 1;
     const entry = {
       id: attackId,
@@ -48,8 +65,9 @@ export function registerAttackHandlers(ctx) {
       mastery: p.mastery,
       masteryLabel,
       ap: p.ap,
+      defenceKind: p.defence,
       roll,
-      targets: targeted != null ? [targeted] : [],
+      targets: infos.map((t) => t.tokenId),
     };
     pending.set(attackId, entry);
     while (pending.size > attack.MAX_PENDING) pending.delete(pending.keys().next().value);
@@ -83,7 +101,15 @@ export function registerAttackHandlers(ctx) {
 
   on('attack:apply', { gmOnly: true }, async (p) => {
     const entry = get(p.id);
-    const clean = attack.cleanApply(entry, p);
+    const infos = [];
+    for (const id of entry.targets) {
+      try {
+        infos.push(await attack.targetInfo(db, id));
+      } catch {
+        // A token that has left the map is skipped.
+      }
+    }
+    const clean = attack.cleanApply(entry, p, infos);
     // Claim it first, so a double tap cannot apply it twice.
     pending.delete(p.id);
     try {

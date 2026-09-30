@@ -19,10 +19,11 @@ export function tokenInTemplate(template, token, grid, aspect) {
   const along = dx * dir.x + dy * dir.y;
   const across = -dx * dir.y + dy * dir.x;
   if (template.shape === 'line') return along >= -eps && along <= len + eps && Math.abs(across) <= grid.cell / 2 + eps;
-  // cone: a 90 degree wedge
+  // cone: a 90 degree wedge; arc: a 180 degree one
   if (dist > len + eps) return false;
   if (dist < eps) return true;
-  return Math.abs(Math.atan2(across, along)) <= Math.PI / 4 + eps;
+  const half = template.shape === 'arc' ? Math.PI / 2 : Math.PI / 4;
+  return Math.abs(Math.atan2(across, along)) <= half + eps;
 }
 
 export const tokensInTemplate = (template, tokens, grid, aspect) => tokens.filter((t) => tokenInTemplate(template, t, grid, aspect));

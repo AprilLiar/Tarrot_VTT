@@ -267,12 +267,12 @@ export function registerSceneHandlers(ctx) {
   });
   on('battle:remove', { gmOnly: true }, async (p) => {
     await battle.removeToken(db, p.id);
-    for (const [who, tokenId] of targets) if (tokenId === p.id) targets.delete(who);
+    for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });
   on('battle:update', { gmOnly: true }, async (p) => {
-    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden });
-    if (p.hidden === true) for (const [who, tokenId] of targets) if (tokenId === p.id) targets.delete(who);
+    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height });
+    if (p.hidden === true) for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });
   on('battle:clear_bank', { gmOnly: true }, async (p) => {
@@ -314,7 +314,7 @@ export function registerSceneHandlers(ctx) {
     return result;
   });
 
-  // Targeting: which token a character has picked. In memory only; used by attacks in Phase 6.
+  // Targeting: the tokens a character has picked (any number). In memory only; used by attacks.
   on('battle:target', { needsIdentity: true }, async (p) => {
     const characterId = p.characterId;
     await requireControl(characterId);
@@ -325,7 +325,11 @@ export function registerSceneHandlers(ctx) {
       if (token.hidden && !isGm()) throw new AppError('not_found', 'That token is not on the map.');
       const sceneId = await scenes.getActiveSceneId(db);
       if (token.sceneId !== sceneId) throw new AppError('not_found', 'That token is not on the active map.');
-      targets.set(characterId, token.id);
+      // One tap selects, the next tap on the same token deselects.
+      const set = targets.get(characterId) ?? new Set();
+      if (!set.delete(token.id)) set.add(token.id);
+      if (set.size) targets.set(characterId, set);
+      else targets.delete(characterId);
     }
     await broadcastStage();
   });
@@ -524,9 +528,17 @@ export function registerSceneHandlers(ctx) {
     await battle.removeMark(db, p.id);
     await broadcastStage();
   });
-  on('mark:clear', { gmOnly: true }, async (p) => {
+  // "Clean" in the Draw and Area tools: the GM and the Display can wipe every drawing or area.
+  on('mark:clear', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can clean the map.');
     await battle.clearMarks(db, p.kind);
     await broadcastStage();
+  });
+  // The eraser: rubs out the parts of drawings within a small circle (x, y in picture fractions).
+  on('mark:erase', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
+    const changed = await battle.eraseMarksAt(db, p);
+    if (changed) await broadcastStage();
   });
   on('battle:ping', { needsIdentity: true }, (p) => {
     if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can ping.');

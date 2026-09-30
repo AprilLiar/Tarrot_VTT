@@ -45,7 +45,7 @@ function sheetSize(json) {
   }
 }
 
-const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals,
+const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
                           c.name AS cname, c.type AS ctype, c.sheet AS csheet,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
                           p.image_id AS image_id
@@ -72,8 +72,10 @@ function toToken(r, targets) {
     hidden: Number(r.hidden) === 1,
     bank: Number(r.bank),
     diagonals: Number(r.diagonals),
+    // Spaces the character is in the air (shown above the token).
+    height: Number(r.height ?? 0),
     // Characters that currently have this token targeted (set from the remote).
-    targetedBy: targets ? [...targets.entries()].filter(([, tokenId]) => tokenId === Number(r.id)).map(([who]) => who) : [],
+    targetedBy: targets ? [...targets.entries()].filter(([, set]) => set.has(Number(r.id))).map(([who]) => who) : [],
   };
 }
 
@@ -154,7 +156,9 @@ export async function placeToken(db, id, col, row) {
   await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, id] });
 }
 
-export async function updateToken(db, id, { pictureId, hidden }) {
+export const HEIGHT_MAX = 99;
+
+export async function updateToken(db, id, { pictureId, hidden, height }) {
   const token = await getToken(db, id);
   if (pictureId !== undefined) {
     const pictures = await scenes.listPictures(db, { kind: token.ownerKind, id: token.ownerId });
@@ -164,6 +168,10 @@ export async function updateToken(db, id, { pictureId, hidden }) {
   if (hidden !== undefined) {
     if (typeof hidden !== 'boolean') throw new AppError('bad_value', 'Hidden must be true or false.');
     await db.execute({ sql: 'UPDATE battle_tokens SET hidden = ? WHERE id = ?', args: [hidden ? 1 : 0, id] });
+  }
+  if (height !== undefined) {
+    if (!Number.isInteger(height) || height < 0 || height > HEIGHT_MAX) throw new AppError('bad_value', `Height must be from 0 to ${HEIGHT_MAX} Spaces.`);
+    await db.execute({ sql: 'UPDATE battle_tokens SET height = ? WHERE id = ?', args: [height, id] });
   }
 }
 
@@ -249,7 +257,7 @@ export async function moveStep(db, { token, dc, dr, freeChecked, confirmAp, isOw
 
 export const MAX_MARKS = 300;
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const SHAPES = ['circle', 'cone', 'line', 'square'];
+const SHAPES = ['circle', 'cone', 'arc', 'line', 'square'];
 const bad = (m) => new AppError('bad_mark', m);
 
 export function cleanMark(kind, data) {
@@ -294,6 +302,57 @@ export async function addMark(db, kind, data) {
 export async function removeMark(db, id) {
   if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid mark.');
   await db.execute({ sql: 'DELETE FROM battle_marks WHERE id = ?', args: [id] });
+}
+
+// The eraser. Removes the parts of every drawing that pass within `r` (picture widths) of (x, y),
+// which are fractions of the picture. A drawing that is cut in the middle becomes two drawings.
+// -> true when something was erased
+export async function eraseMarksAt(db, { x, y, r }) {
+  const ok = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  if (!ok(x, 0, 1) || !ok(y, 0, 1) || !ok(r, 0.001, 0.2)) throw new AppError('bad_value', 'Erase on the map.');
+  const scene = await activeBattleScene(db);
+  const marks = (await listMarks(db, scene.id)).filter((m) => m.kind === 'draw');
+  const aspect = scene.battleAspect;
+  // Distances are measured in picture widths, so the eraser is round.
+  const dist = (p) => Math.hypot(p[0] - x, (p[1] - y) / aspect);
+  const segmentDist = (a, b) => {
+    const ax = a[0] - x, ay = (a[1] - y) / aspect, bx = b[0] - x, by = (b[1] - y) / aspect;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+    return Math.hypot(ax + t * dx, ay + t * dy);
+  };
+  let changed = false;
+  for (const m of marks) {
+    const pts = m.points;
+    const pieces = [];
+    let cur = [];
+    for (let i = 0; i < pts.length; i++) {
+      const inside = dist(pts[i]) <= r;
+      if (inside) {
+        if (cur.length) pieces.push(cur);
+        cur = [];
+        continue;
+      }
+      cur.push(pts[i]);
+      // A long segment can pass through the eraser without a point inside it: cut there too.
+      if (i + 1 < pts.length && dist(pts[i + 1]) > r && segmentDist(pts[i], pts[i + 1]) <= r) {
+        pieces.push(cur);
+        cur = [];
+      }
+    }
+    if (cur.length) pieces.push(cur);
+    const kept = pieces.filter((p) => p.length >= 2);
+    const untouched = kept.length === 1 && kept[0].length === pts.length;
+    if (untouched) continue;
+    changed = true;
+    await db.execute({ sql: 'DELETE FROM battle_marks WHERE id = ?', args: [m.id] });
+    for (const piece of kept) {
+      const data = { color: m.color, width: m.width, points: piece };
+      await db.execute({ sql: 'INSERT INTO battle_marks (scene_id, kind, data) VALUES (?, ?, ?)', args: [scene.id, 'draw', JSON.stringify(data)] });
+    }
+  }
+  return changed;
 }
 
 export async function clearMarks(db, kind) {

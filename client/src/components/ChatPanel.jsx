@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { socket } from '../socket.js';
 import { call, useApp } from '../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 
@@ -47,12 +48,38 @@ function RollCard({ m }) {
       <div className="text-sm font-medium uppercase tracking-wide" data-testid="roll-title">
         {roll.title}
       </div>
-      <div
-        className={`text-5xl font-bold leading-tight ${crit ? 'text-green-400' : fail ? 'text-red-400' : ''}`}
-        data-testid="roll-total"
-      >
-        {roll.total}
-      </div>
+      {roll.against ? (
+        // A roll against something (an attack against a Defence): the number rolled next to the number to beat.
+        <div className="mt-1 flex items-center gap-3" data-testid="roll-versus">
+          <div>
+            <div className="text-xs uppercase tracking-wide opacity-60">Attack Value</div>
+            <div className={`text-5xl font-bold leading-tight ${crit ? 'text-green-400' : fail ? 'text-red-400' : ''}`} data-testid="roll-total">
+              {roll.total}
+            </div>
+          </div>
+          <div className="text-lg opacity-60">vs</div>
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide opacity-60" data-testid="roll-against-label">
+              Target Value ({roll.against.label})
+            </div>
+            {roll.against.targets.map((t, i) => (
+              <div key={i} className="flex items-baseline gap-2">
+                <span className={`${roll.against.targets.length > 1 ? 'text-3xl' : 'text-5xl'} font-bold leading-tight`} data-testid="roll-target-value">
+                  {t.value}
+                </span>
+                {roll.against.targets.length > 1 && <span className="truncate text-xs opacity-70">{t.name}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`text-5xl font-bold leading-tight ${crit ? 'text-green-400' : fail ? 'text-red-400' : ''}`}
+          data-testid="roll-total"
+        >
+          {roll.total}
+        </div>
+      )}
       {(crit || fail) && (
         <div className={`text-sm font-semibold ${crit ? 'text-green-400' : 'text-red-400'}`}>
           {crit ? 'Critical' : 'Critical Failure'}
@@ -70,6 +97,47 @@ function RollCard({ m }) {
           <DiceLine roll={roll} />
         </div>
       )}
+    </div>
+  );
+}
+
+// One line for the popup that shows a new message while the chat is closed.
+function popupText(m) {
+  if (m.type === 'roll') {
+    const vs = m.roll.against ? ` vs ${m.roll.against.targets.map((t) => t.value).join(', ')}` : '';
+    return `${m.characterName}: ${m.roll.title} ${m.roll.total}${vs}`;
+  }
+  return `${m.author.name}: ${m.text}`;
+}
+
+// New messages rise from the corner for two seconds while the chat is closed. Several at once stack
+// upwards instead of overlapping.
+const POPUP_MS = 2000;
+function ChatPopups({ chatOpen }) {
+  const [popups, setPopups] = useState([]);
+  const openRef = useRef(chatOpen);
+  openRef.current = chatOpen;
+  useEffect(() => {
+    const timers = [];
+    const onMessage = (m) => {
+      if (openRef.current) return;
+      setPopups((list) => [...list, { key: m.id, text: popupText(m) }]);
+      timers.push(setTimeout(() => setPopups((list) => list.filter((p) => p.key !== m.id)), POPUP_MS + 300));
+    };
+    socket.on('chat:message', onMessage);
+    return () => {
+      socket.off('chat:message', onMessage);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  if (chatOpen || popups.length === 0) return null;
+  return (
+    <div className="pointer-events-none fixed bottom-20 right-4 z-30 flex w-72 max-w-[calc(100vw-2rem)] flex-col items-end gap-1" data-testid="chat-popups">
+      {popups.map((p) => (
+        <div key={p.key} data-testid="chat-popup" className="chat-popup w-full rounded-lg bg-slate-800/95 px-3 py-2 text-sm shadow-lg">
+          {p.text}
+        </div>
+      ))}
     </div>
   );
 }
@@ -116,6 +184,8 @@ export default function ChatPanel() {
       >
         Chat{unread > 0 ? ` (${unread})` : ''}
       </button>
+
+      <ChatPopups chatOpen={chatOpen} />
 
       {chatOpen && (
         <aside

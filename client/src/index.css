@@ -40,3 +40,26 @@ body { margin: 0; background: #0f0d14; color: #e8e4f0; }
     opacity: 0;
   }
 }
+
+/* A chat message that appears while the chat is closed: rises in, stays two seconds, fades out. */
+@keyframes chat-popup {
+  0% {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  87% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+.chat-popup {
+  animation: chat-popup 2.3s ease-out forwards;
+}
