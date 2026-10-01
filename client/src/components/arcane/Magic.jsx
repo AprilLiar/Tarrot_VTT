@@ -171,7 +171,7 @@ function Editor({ s, work, setWork }) {
           {t('Name')}
           <input className={input} data-testid="spell-name" value={work.name} maxLength={D.NAME_MAX} onChange={(e) => setWork({ ...work, name: e.target.value })} />
         </label>
-        <button className={`${btn} self-end`} data-testid="spell-new" onClick={() => { setWork(emptyWork()); setSel(null); }}>
+        <button className={`${btn} self-end`} data-testid="spell-new" disabled={busy} onClick={() => { setWork(emptyWork()); setSel(null); }}>
           {t('New spell')}
         </button>
       </div>
