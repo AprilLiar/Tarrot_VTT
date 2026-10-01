@@ -30,7 +30,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
     }
   }
 
-  return (
+  const svg = (
     <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
       <defs>
         <marker id={`${uid}-a`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -96,14 +96,27 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
           </g>
         );
       })}
-      {noteOpen && byId.get(noteOpen)?.note.trim() && (
+      {noteOpen && !mini && byId.get(noteOpen)?.note.trim() && (
         <foreignObject x={Math.min(pos.get(noteOpen).x * C + R - 4, width * C - 176)} y={Math.max(0, pos.get(noteOpen).y * C - R - 6)} width="170" height="120" style={{ overflow: 'visible' }}>
-          <div className="rounded-lg border border-blue-400 bg-[#1e293b] p-2 text-xs text-white shadow-lg" data-testid="stone-note" xmlns="http://www.w3.org/1999/xhtml">
+          <div className="rounded-lg border border-blue-400 bg-[#1e293b] p-2 text-base text-white shadow-lg" data-testid="stone-note" xmlns="http://www.w3.org/1999/xhtml">
             {byId.get(noteOpen).note}
           </div>
         </foreignObject>
       )}
     </svg>
+  );
+  if (!mini) return svg;
+  // The small snapshot is scaled down, so its note is an ordinary box over it (a note drawn inside the picture would shrink
+  // with it): the standard text size of the interface.
+  return (
+    <div className="relative">
+      {svg}
+      {noteOpen && byId.get(noteOpen)?.note.trim() && (
+        <div className="absolute inset-x-1 top-1 z-10 max-h-full overflow-auto whitespace-pre-wrap rounded-lg border border-blue-400 bg-[#1e293b] p-2 text-base text-white shadow-lg" data-testid="stone-note">
+          {byId.get(noteOpen).note}
+        </div>
+      )}
+    </div>
   );
 }
 

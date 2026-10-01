@@ -105,7 +105,7 @@ export function BattleRemote({ s, onAttack }) {
               <div>
                 <div className="text-xs opacity-60">{t('AP')}</div>
                 <div className="flex justify-center">
-                  <ApCubes current={s.sheet.ap.current} max={apMax} testId="remote-ap" />
+                  <ApCubes current={s.sheet.ap.current} max={apMax} arrows={false} onChange={(n) => call('sheet:set', { characterId: s.characterId, path: 'ap.current', value: n }).then((r) => !r.ok && toast(r.error))} testId="remote-ap" />
                 </div>
               </div>
               <div>

@@ -76,7 +76,7 @@ async function fight() {
   await g.call('sheet:set', { characterId: foe, path: 'defence.physical', value: 5 });
   return { g, p, a, aToken, foe, foeToken, ally, allyToken };
 }
-const act = (g, ctx, extra = {}) => g.call('spontaneous:do', { characterId: ctx.a, ap: 1, targetMode: 'none', roll: 'magic', defence: 'physical', effects: { help: { sides: 6 } }, ...extra });
+const act = (g, ctx, extra = {}) => g.call('spontaneous:do', { characterId: ctx.a, ap: 1, roll: 'magic', defence: 'physical', effects: { help: { sides: 6 } }, ...extra });
 
 const cards = () => server.shared.chat.history().filter((m) => m.type === 'effects');
 const lastCard = () => cards().at(-1);
@@ -84,7 +84,7 @@ const lastCard = () => cards().at(-1);
 async function applyOnFoe(ctx, apply = {}) {
   await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
   const seen = seenPending(ctx.g);
-  await act(ctx.g, ctx, { ap: 2, targetMode: 'one', roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, temp: { value: 4 } } });
+  await act(ctx.g, ctx, { ap: 2, roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, temp: { value: 4 } } });
   const pending = await seen;
   server.shared.attacks.get(pending.id).roll.natural = 10;
   const r = await ctx.g.call('attack:apply', { id: pending.id, total: 20, base: 5, kind: 'fire', ap: 2, statuses: [{ key: 'burning', stacks: 2 }], ...apply });
@@ -151,7 +151,7 @@ describe('Revert and Edit on effect cards', () => {
     const ctx = await fight();
     await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
     const seen = seenPending(ctx.g);
-    await act(ctx.g, ctx, { targetMode: 'one', roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' } } });
+    await act(ctx.g, ctx, { roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' } } });
     const pending = await seen;
     const entry = server.shared.attacks.get(pending.id);
     entry.roll.natural = 7;

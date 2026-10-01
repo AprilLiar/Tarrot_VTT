@@ -557,6 +557,27 @@ describe('named areas and area targeting', () => {
     expect(await names(g)).toEqual(['arc 1']); // nothing left: the first again
   });
 
+  it('an area can be moved and turned by the GM and the Display, keeping its name; players cannot', async () => {
+    const g = await gm();
+    const d = await display();
+    await battleScene(g);
+    const a = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const p = await player(a);
+    await g.call('mark:add', area('arc', 3, 2, 3));
+    const mark = (await stageOf(g)).battle.marks[0];
+    expect(await p.call('mark:update', { id: mark.id, x: 5 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await g.call('mark:update', { id: mark.id, x: 5.3, y: 4, angle: 400 })).ok).toBe(true);
+    expect((await stageOf(g)).battle.marks[0]).toMatchObject({ shape: 'arc', n: 1, size: 3, x: 5.5, y: 4, angle: 40 });
+    expect((await d.call('mark:update', { id: mark.id, angle: -90 })).ok).toBe(true);
+    expect((await stageOf(g)).battle.marks[0]).toMatchObject({ x: 5.5, angle: 270, n: 1 });
+    expect(await g.call('mark:update', { id: mark.id, x: 'far' })).toMatchObject({ ok: false });
+    expect(await g.call('mark:update', { id: 9999, x: 1 })).toMatchObject({ ok: false, code: 'not_found' });
+    // A drawing is not an area.
+    await g.call('mark:add', { kind: 'draw', data: { color: '#ff0000', width: 4, points: [[0.1, 0.1], [0.4, 0.4]] } });
+    const drawing = (await stageOf(g)).battle.marks.find((m) => m.kind === 'draw');
+    expect(await g.call('mark:update', { id: drawing.id, x: 1 })).toMatchObject({ ok: false, code: 'not_found' });
+  });
+
   it('picking an area picks everyone inside it, live, and the tokens show as targeted', async () => {
     const g = await gm();
     await battleScene(g);

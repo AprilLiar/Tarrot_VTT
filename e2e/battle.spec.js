@@ -414,6 +414,11 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
 
   await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
+  // The cubes on the Battle remote can be tapped to set the AP too.
+  await p.getByTestId('remote-ap').getByTestId('ap-cube-set').nth(1).click();
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '2');
+  await p.getByTestId('remote-ap').getByTestId('ap-cube-set').nth(3).click();
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
   await p.getByTestId('target-option').filter({ hasText: npc }).click();
   // Attack opens the Arcane tab; the target is mirrored there. Precise Attack (1 AP) makes it a 2 AP attack.
   await p.getByTestId('attack-open').click();
@@ -751,6 +756,55 @@ test('areas: named, lit up while drawn, cancelled in the Deadzone, and picked as
   await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'false');
 
   await ctx.close();
+  await gmCtx.close();
+});
+
+test('areas: Move drags an area, and Ctrl or Shift with the mouse wheel turns the selected one', async ({ browser }) => {
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await battleScene(gm, `Spin-${uid()}`);
+  const map = await gm.getByTestId('battle-map').boundingBox();
+  const at = (fx, fy) => [map.x + fx * map.width, map.y + fy * map.height];
+  await gm.getByTestId('tool-template').click();
+  await gm.getByTestId('template-shape').selectOption('circle');
+  await gm.getByTestId('template-size').fill('1');
+  await gm.mouse.move(...at(0.3, 0.5));
+  await gm.mouse.down();
+  await gm.mouse.move(...at(0.32, 0.5), { steps: 3 });
+  await gm.mouse.up();
+  const area = gm.getByTestId('battle-template');
+  await expect(area).toHaveCount(1);
+  const x0 = Number(await area.getAttribute('data-x'));
+
+  // Move mode: the area is dragged to another place and stays there for everybody.
+  await gm.getByTestId('template-move').click();
+  await expect(gm.getByTestId('template-move')).toHaveAttribute('aria-pressed', 'true');
+  await gm.mouse.move(...at(0.3, 0.5));
+  await gm.mouse.down();
+  await gm.mouse.move(...at(0.5, 0.5), { steps: 8 });
+  await gm.mouse.up();
+  await expect.poll(async () => Number(await area.getAttribute('data-x'))).toBeGreaterThan(x0 + 1);
+  await expect(area).toHaveAttribute('data-selected', 'true');
+  const a0 = Number(await area.getAttribute('data-angle'));
+
+  // Ctrl + wheel: 1 degree. Shift + wheel: 15 degrees.
+  await gm.keyboard.down('Control');
+  await gm.mouse.wheel(0, 100);
+  await gm.keyboard.up('Control');
+  await expect.poll(async () => Number(await area.getAttribute('data-angle'))).toBe((a0 + 1) % 360);
+  await gm.keyboard.down('Shift');
+  await gm.mouse.wheel(0, 100);
+  await gm.keyboard.up('Shift');
+  await expect.poll(async () => Number(await area.getAttribute('data-angle'))).toBe((a0 + 16) % 360);
+  // Without a modifier the wheel still zooms the map, and the angle is saved on the server (a second screen sees it).
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await expect(tv.getByTestId('battle-template')).toHaveAttribute('data-angle', String((a0 + 16) % 360));
+
+  // Leaving Move mode drops the selection: pressing the empty map draws a new area again.
+  await gm.getByTestId('template-move').click();
+  await expect(area).toHaveAttribute('data-selected', 'false');
+  await tvCtx.close();
   await gmCtx.close();
 });
 

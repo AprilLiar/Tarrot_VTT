@@ -201,6 +201,12 @@ export default function BattleView() {
   const [width, setWidth] = useState(0.004);
   const [shape, setShape] = useState('cone');
   const [tsize, setTsize] = useState(4);
+  const [moveMode, setMoveMode] = useState(false); // Area tool: "Move" (drag areas around, turn the selected one with the wheel)
+  const [selArea, setSelArea] = useState(null); // the area selected in Move mode
+  const [edit, setEdit] = useState(null); // { id, x, y, angle }: an area being moved or turned, until the server has it
+  const editRef = useRef(null);
+  const editTimer = useRef(null);
+  const moveDrag = useRef(null); // { id, offX, offY }
   const [deadzone] = useSetting('deadzone'); // times the area's size from where the drag began (setting)
   const [natural, setNatural] = useState({ w: 0, h: 0 }); // the battle picture's own size in pixels
   const [gridOpen, setGridOpen] = useState(false);
@@ -265,7 +271,62 @@ export default function BattleView() {
       st.busy = false;
     })();
   }
+  // ---- Move mode of the Area tool ---------------------------------------------------------------
+  const isMove = !!tools && tool === 'template' && moveMode;
+  const saveEdit = (now) => {
+    clearTimeout(editTimer.current);
+    const run = async () => {
+      editTimer.current = null;
+      const v = editRef.current;
+      if (!v) return;
+      const r = await call('mark:update', { id: v.id, x: v.x, y: v.y, angle: v.angle });
+      if (!r.ok) toast(r.error);
+      if (!editTimer.current && !moveDrag.current) {
+        editRef.current = null;
+        setEdit(null);
+      }
+    };
+    if (now) run();
+    else editTimer.current = setTimeout(run, 150);
+  };
+  const shown = (m) => (edit?.id === m.id ? { ...m, ...edit } : m);
+  const areaMark = (id) => battle?.marks.find((m) => m.id === id && m.kind === 'template');
+  function areaDown(e, m) {
+    if (!isMove || e.button === 2) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const f = toFractions(e);
+    const cur = shown(m);
+    moveDrag.current = { id: m.id, offX: (f.u - battle.grid.ox) / battle.grid.cell - cur.x, offY: (f.v - battle.grid.oy) / (battle.grid.cell * aspect) - cur.y, moved: false };
+    setSelArea(m.id);
+  }
+  // Ctrl + wheel turns the selected area by 1 degree, Shift + wheel by 15 (the wheel up turns it counter-clockwise).
+  useEffect(() => {
+    if (!isMove || selArea == null) return undefined;
+    const onWheel = (e) => {
+      if (!e.ctrlKey && !e.shiftKey) return;
+      const m = areaMark(selArea);
+      if (!m) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const d = e.deltaY || e.deltaX;
+      if (!d) return;
+      const cur = editRef.current?.id === m.id ? editRef.current : { id: m.id, x: m.x, y: m.y, angle: m.angle };
+      const next = { ...cur, angle: (((cur.angle + Math.sign(d) * (e.ctrlKey ? 1 : 15)) % 360) + 360) % 360 };
+      editRef.current = next;
+      setEdit(next);
+      saveEdit(false);
+    };
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => window.removeEventListener('wheel', onWheel, { capture: true });
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   function surfaceDown(e) {
+    if (tools && tool === 'template' && moveMode) {
+      // A press on the empty map in Move mode only drops the selection.
+      if (e.button !== 2) setSelArea(null);
+      return;
+    }
     // Erase works by clicking the marks themselves, so the map must not capture the pointer.
     if (!tools || tool === 'select' || tool === 'erase' || !ready || e.button === 2) return;
     const f = toFractions(e);
@@ -290,6 +351,21 @@ export default function BattleView() {
     }
   }
   function surfaceMove(e) {
+    const md = moveDrag.current;
+    if (md) {
+      const f = toFractions(e);
+      const m = areaMark(md.id);
+      if (!m) return;
+      const x = Math.round(((f.u - battle.grid.ox) / battle.grid.cell - md.offX) * 2) / 2;
+      const y = Math.round(((f.v - battle.grid.oy) / (battle.grid.cell * aspect) - md.offY) * 2) / 2;
+      const cur = editRef.current?.id === m.id ? editRef.current : { id: m.id, x: m.x, y: m.y, angle: m.angle };
+      if (x !== cur.x || y !== cur.y) {
+        md.moved = true;
+        editRef.current = { ...cur, x, y };
+        setEdit(editRef.current);
+      }
+      return;
+    }
     if (!draft) return;
     const f = toFractions(e);
     if (draft.kind === 'draw') {
@@ -313,6 +389,12 @@ export default function BattleView() {
     }
   }
   async function surfaceUp() {
+    if (moveDrag.current) {
+      const md = moveDrag.current;
+      moveDrag.current = null;
+      if (md.moved) saveEdit(true);
+      return;
+    }
     const d = draft;
     setDraft(null);
     if (!d || d.kind === 'erase') return;
@@ -416,7 +498,7 @@ export default function BattleView() {
               className="pointer-events-none absolute inset-0 h-full w-full"
               viewBox={`0 0 1 ${1 / aspect}`}
               data-testid="battle-overlay"
-              style={{ pointerEvents: eraseMode ? 'auto' : 'none' }}
+              style={{ pointerEvents: eraseMode || isMove ? 'auto' : 'none' }}
             >
               {battle.showGrid && (
                 <g stroke="#ffffff" strokeOpacity={gridOpen ? 0.7 : 0.28} strokeWidth={unit * 0.03} data-testid="battle-grid">
@@ -425,17 +507,23 @@ export default function BattleView() {
               )}
               {battle.marks
                 .filter((m) => m.kind === 'template')
-                .map((m) => {
+                .map((original) => {
+                  const m = shown(original);
                   const sh = templateShape(m, battle.grid, aspect);
                   const common = {
                     key: m.id,
                     fill: m.color,
-                    fillOpacity: 0.3,
-                    stroke: m.color,
-                    strokeWidth: unit * 0.06,
+                    fillOpacity: selArea === m.id && isMove ? 0.45 : 0.3,
+                    stroke: selArea === m.id && isMove ? '#ffffff' : m.color,
+                    strokeWidth: unit * (selArea === m.id && isMove ? 0.1 : 0.06),
                     'data-testid': 'battle-template',
-                    style: eraseMode ? { cursor: 'pointer', pointerEvents: 'all' } : undefined,
+                    'data-selected': selArea === m.id && isMove ? 'true' : 'false',
+                    'data-angle': m.angle,
+                    'data-x': m.x,
+                    'data-y': m.y,
+                    style: eraseMode ? { cursor: 'pointer', pointerEvents: 'all' } : isMove ? { cursor: 'move', pointerEvents: 'all' } : undefined,
                     onClick: eraseMode ? () => call('mark:remove', { id: m.id }) : undefined,
+                    onPointerDown: isMove ? (e) => areaDown(e, original) : undefined,
                   };
                   if (sh.type === 'circle') return <circle {...common} cx={sh.cx} cy={sh.cy} r={sh.r} />;
                   if (sh.type === 'rect') return <rect {...common} x={sh.x} y={sh.y} width={sh.size} height={sh.size} />;
@@ -444,7 +532,8 @@ export default function BattleView() {
                 })}
               {battle.marks
                 .filter((m) => m.kind === 'template')
-                .map((m) => {
+                .map((original) => {
+                  const m = shown(original);
                   const o = cellToUnits(m.x, m.y, battle.grid, aspect);
                   return (
                     <text key={`n${m.id}`} data-testid="battle-template-name" x={o.x} y={o.y} textAnchor="middle" dominantBaseline="central" fontSize={unit * 0.4} fill="#ffffff" stroke="#000000" strokeWidth={unit * 0.06} paintOrder="stroke" style={{ pointerEvents: 'none' }}>
@@ -648,7 +737,13 @@ export default function BattleView() {
                 data-testid={`tool-${id}`}
                 aria-pressed={tool === id}
                 className={`min-h-10 rounded-lg px-3 text-sm ${tool === id ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`}
-                onClick={() => setTool(id)}
+                onClick={() => {
+                  setTool(id);
+                  if (id !== 'template') {
+                    setMoveMode(false);
+                    setSelArea(null);
+                  }
+                }}
               >
                 {label}
               </button>
@@ -761,7 +856,10 @@ export default function BattleView() {
                       ))}
                     </div>
                   </div>
-                  <span className="opacity-70">{t('Press for the start, drag for the direction.')}</span>
+                  <button type="button" aria-pressed={moveMode} className={`min-h-9 rounded-lg px-3 text-sm ${moveMode ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`} data-testid="template-move" onClick={() => { setMoveMode(!moveMode); setSelArea(null); }}>
+                    {t('Move')}
+                  </button>
+                  <span className="opacity-70">{moveMode ? t('Drag an area to move it. With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15.') : t('Press for the start, drag for the direction.')}</span>
                   <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
                     {t('Clean')}
                   </button>

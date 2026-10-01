@@ -232,7 +232,8 @@ required to take any action in combat. (decided)
 cube with all its corners; an **empty** cube is an AP the character does not have and a cube **filled with the UI
 colour** is one it has, filled from left to right. On the sheet, small arrow buttons beside the cubes lower and raise
 the amount; the Battle remote shows the cubes without arrows. **Tapping a cube fills the AP up to it, including it**
-(an alternative to the arrows, on the sheet and on the Battle remote); it can never set 0, the arrows still do.
+(an alternative to the arrows, on the sheet and on the Battle remote, where tapping is the way to edit the AP there); it can
+never set 0, the arrows on the sheet still do.
 
 ### Resources and defences
 Each character has current and max HP, Physical Defence and Mental Defence. All hand-entered.
@@ -259,8 +260,9 @@ otherwise the new die is lost (decided).
 
 ### Spontaneous Action
 A core rule (decided): a one-time action the GM makes up on the spot, stored nowhere. A button **Spontaneous
-Action** in the **General tab** of a character's Arcane tab (GM only) opens the menu: **1 or 2 AP**; **targets** None,
-One or Several (chosen in the Targets list of the General tab; None means the acting character itself); any
+Action** in the **General tab** of a character's Arcane tab (GM only) opens the menu: **1 or 2 AP**; there is **no
+setting for the number of targets**: it goes to **all the selected targets** (chosen in the Targets list of the General
+tab; with none selected it is for the acting character itself); any
 combination of the effects **Damage** (value and type), **Help** (a Help Die of a chosen size), **Status** (any
 status, with stacks where it stacks) and **Temp HP** (a value); and, when Damage or Status is chosen, the **roll**
 (Weapon attack: Prime + Experience, Magic, Stances or Manifest) and the **Defence** it is rolled against (Physical or
@@ -445,6 +447,9 @@ Implemented behaviour (Phase 3):
   an item between any two characters at once, with no confirmation.
 
 ### Small interface rules (decided)
+- **Parameter icons:** Movement, Size and Experience Modifier on the sheet have a small icon (footsteps, a growing square,
+  a star) before their labels, like the faint shield and brain behind the Defences.
+- **Notes on stones** (in the Spell Drafts and in the editor) are shown in the interface's standard text size.
 - **Icon:** the web service has an icon (a wooden box of Tarrot cards): `client/public/favicon-32.png`, `icon-192.png`
   and `apple-touch-icon.png` (on the interface's dark colour), linked from `client/index.html`.
 - **Drop-down menus** are dark with light text, in the interface's colours (`color-scheme: dark` and styled options), not
@@ -612,6 +617,11 @@ Decided:
     new one is the **largest number of that shape still on the map plus 1**. A name never changes: with every other Arc
     deleted, Arc (7) stays Arc (7). Clean (all areas deleted) starts again at 1. The name is written on the map at the
     area's origin, for everyone. (Areas drawn before names existed were numbered once, in the order they were drawn.)
+  - **Move (decided):** a **Move** button in the Area tool's options switches it to moving areas: dragging an area moves it
+    (snapped to half a square like a new one) and selects it (drawn with a white outline); a press on the empty map drops
+    the selection. **With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15**
+    (Ctrl is the fine one, Shift the fast one; wheel down turns clockwise); the wheel does not zoom the map then. The
+    GM and the Display can do it; the name never changes. Turning has no touch control. (`mark:update`)
   - **Highlight while drawing (decided):** while an area is being dragged, the characters that would be inside it get a
     noticeable cyan glow; it disappears when the area is created (or cancelled).
   - **Erase:** click any drawing or area to remove it whole.
@@ -1187,7 +1197,7 @@ Battle (Phase 5a):
   A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], table: [6 rows] }`; a
   row is `{ same: true }` or `{ same: false, effect: { bonus, advantage, range, damage, statuses, dice, unique } }`.
   Every change is followed by `stances:changed` to all clients. Stored in the tables `stances` and `stance_vibes`.
-- Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, targetMode: 'none'|'one'|'many', roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
+- Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
 - Spells: `spell:craft` `{ characterId, draftId }` (spends the stones, posts a Magic roll and a chat line, adds the
   spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
   icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),
@@ -1213,7 +1223,7 @@ Battle (Phase 5a):
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
   needs AP. `battle:target` `{ characterId, tokenId | null }`: toggles a token in the selected targets of a PC
-  (the GM or that PC's player), or clears all targets (tokens and areas) with `null`; `battle:target_area` `{ characterId,
+  (the GM or that PC's player), or clears all targets (tokens and areas) with `null`; `mark:update` `{ id, x?, y?, angle? }` (GM and Display) moves or turns an area. `battle:target_area` `{ characterId,
   markId | null }` toggles an area the same way (`null` clears the area picks). Area marks in `stage.battle.marks` carry
   `n` (their number) and `targetedBy` (the characters that picked them). `settings:force` `{ key, value }` (GM only) is
   relayed to every socket as `setting:forced` `{ key, value }`.
