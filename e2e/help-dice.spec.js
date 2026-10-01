@@ -58,4 +58,6 @@ test('Help Dice: granted by a Spontaneous Action, asked before a roll, spent onc
   await p.getByTestId('help-proceed').click();
   await expect(p.getByTestId('roll-card').last()).toContainText('d8');
   await expect(p.getByTestId('help-track')).toHaveAttribute('data-count', '0');
+  await ctx.close();
+  await gmCtx.close();
 });
