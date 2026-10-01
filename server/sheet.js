@@ -350,6 +350,8 @@ export function applyList(sheet, list, action, p = {}) {
       const i = find(arr, p.id);
       name(p.draft?.name);
       arr[i] = { ...normalizeDraft(p.draft, p.id), id: p.id };
+      // A crafted spell always shows the chain of the draft it came from.
+      for (const sp of next.spells) if (sp.draftId === p.id) sp.runes = arr[i].runes;
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

@@ -783,8 +783,21 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   be saved as a **Spell Draft** and is marked with red "Illegal".
 - **Notes:** double-tap a stone to give it a free text note. A stone with a note has a blue glow and a
   small "1" at its top right; a press shows the note in a pop-up tied to the "1"; double-tap edits it.
-- **Spell Fine Tuning:** placeholder for now: three runes "1", "2", "3" whose order can be rearranged
-  and saved.
+- **Spell Fine Tuning (decided):** a chain of **runes**, typed like text. The runes come from the rune reference PDF (61
+  runes with a hand-drawn picture, a name and a category), ported as vector pictures drawn in the text colour. The
+  categories are **Logic** (10), **Properties** (15), **Modifiers** (10), **Targeting & Geometry** (9), **Actions** (6)
+  and **Elements & Essences** (11), plus a last special category **Spell Stones**: the twelve stones' symbols as
+  additional runes (symbols only, not the physical stones). In the editor the player opens a category (one at a time,
+  all closed at first) and sees its runes with their names; **tapping a rune appends it to the end of the chain**. The
+  same rune can be used any number of times. The chain holds **at most 99** runes, runs **left to right on one line**
+  and scrolls sideways only when it is wider than the screen. **Backspace** removes the last rune, tapping a rune in the
+  chain selects it and **Remove selected** takes it out, **Clear** empties the chain after a confirmation; runes cannot
+  be reordered. The chain is saved with the draft, shown (small) on the draft's card in the compendium, and **shown large
+  in a panel under the description of a crafted spell**. A crafted spell **always follows the chain of its draft**
+  (it keeps a link to the draft; an edit of the draft updates the spell; if the draft is deleted the spell keeps the
+  last chain; a spell granted by the GM has no chain). The chain has no effect on the rules (no legality check). The old
+  placeholder runes "1, 2, 3" were dropped: existing drafts start with an empty chain. With Spell Fine Tuning locked a
+  player cannot change the chain and sees none (drafts and spells).
 - **Compendium drawer:** all saved spells (drafts) with name, description and a visual snapshot of the
   scheme; filters: any number of stones of chosen Zodiacs used, and a search over names and
   descriptions. From it a spell can be **edited** (loaded into the editor) or **crafted**.
@@ -935,7 +948,7 @@ Stones, Spell Combinations, Spell Fine Tuning.
   **part** toggles its lock: in the Stances list a tap on a sign (instead of opening it), and in the general Magic and
   Manifest tabs the tiles Spell Stones, Spell Combinations, Spell Fine Tuning, Tarot Cards and Manifestations.
 - **What each covers:** a locked tab covers everything in it. Spell Stones = the Stones sub-tab; Spell Combinations =
-  the Editor and Spell Drafts (crafting too); Spell Fine Tuning = the rune row (a locked one keeps the runes where they were); Tarot
+  the Editor and Spell Drafts (crafting too); Spell Fine Tuning = the rune chain (a locked one keeps the chain where it was and shows none); Tarot
   Cards and Manifestations = their sub-sections; Stances have one lock per Zodiac. Created Spells stay visible unless the whole Magic tab is locked.
 - **Who:** one setting for everyone, applied to **player characters only**. The GM (and NPC sheets, which are the GM's)
   sees everything with a small lock on what is locked. A player sees a heavily blurred picture with "You have not
@@ -979,8 +992,8 @@ Implemented:
   `items` (`id, name, description, uses {current, max}, states[], state, weapon`; `weapon` is `null` or
   `{ base, kind, defence, ap, range, statuses, dice, unique }`), `unarmed` (a weapon: 0 Bludgeoning),
   `enhancements` (the character's own, see Arcane tab), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
-  (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes`), `spells`
-  (`id, name, description, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
+  (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes` (rune ids, at most 99, see `shared/runes.js`; Spell Stone runes are `stone_<sign>`)), `spells`
+  (`id, name, description, draftId, runes, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
   tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description }], active }`), `manifestations` (`id, name,
   description, effect` like a spell's), `resistances`
   (per damage type), `statuses` (key to stacks). Every read and write passes through

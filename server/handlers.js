@@ -214,7 +214,10 @@ export function registerHandlers(io, socket, db, shared) {
       if (keepRunes && action === 'update') {
         const before = s.spellDrafts.find((d) => d.id === rest.id);
         const after = next.spellDrafts.find((d) => d.id === rest.id);
-        if (before && after) after.runes = before.runes;
+        if (before && after) {
+          after.runes = before.runes;
+          for (const sp of next.spells) if (sp.draftId === after.id) sp.runes = before.runes;
+        }
       }
       return next;
     });

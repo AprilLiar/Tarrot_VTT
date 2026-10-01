@@ -1,5 +1,6 @@
 import { normalizeWeapon, normalizeEnhancement } from './arcane.js';
 import * as D from './rules-data.js';
+import { normalizeChain } from './runes.js';
 
 // Spell Stones, spell schemes, and the rules for a legal scheme. Shared by the server (which checks a
 // scheme before crafting) and the client (which draws and checks it as the player builds it).
@@ -31,7 +32,6 @@ export const MAX_STONES_IN_SCHEME = 24;
 export const MAX_STONE_COUNT = 99;
 export const MAX_NOTE = 500;
 export const MAX_SPELLS = 200;
-export const RUNES = ['1', '2', '3']; // placeholder Spell Fine Tuning
 export const STABILIZATION_START = 10;
 export const STABILIZATION_STEP = 3;
 export const TATTOO_STATUS = 'blood_oxydization';
@@ -132,13 +132,12 @@ export const usesFor = (scheme) => (scheme.stones.some((s) => s.sign === 'taurus
 
 export function normalizeDraft(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
-  const runes = Array.isArray(r.runes) && r.runes.length === RUNES.length && RUNES.every((x) => r.runes.includes(x)) ? [...r.runes] : [...RUNES];
   return {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX).trim() || 'Spell',
     description: text(r.description, D.TEXT_MAX),
     scheme: normalizeScheme(r.scheme),
-    runes,
+    runes: normalizeChain(r.runes),
   };
 }
 
@@ -162,6 +161,9 @@ export function normalizeSpell(raw, id) {
     icon: D.DAMAGE_TYPES.includes(r.icon) ? r.icon : 'fire',
     effect: normalizeEffect(r.effect, id),
     uses: { current: destroyed ? 0 : Math.min(maxUses, Math.max(0, Number.isInteger(r.uses?.current) ? r.uses.current : maxUses)), max: maxUses },
+    // The Spell Fine Tuning chain, the same as that of the draft the spell was crafted from (kept in step with it).
+    draftId: typeof r.draftId === 'string' && r.draftId ? r.draftId : null,
+    runes: normalizeChain(r.runes),
     stabilization: Math.min(999, Math.max(0, Number.isInteger(r.stabilization) ? r.stabilization : STABILIZATION_START)),
     tattoo,
     destroyed,

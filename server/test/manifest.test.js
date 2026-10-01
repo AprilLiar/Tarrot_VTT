@@ -22,14 +22,14 @@ describe('lock rules', () => {
   });
 
   it('empties what is locked in a sheet, and only that', () => {
-    const sheet = normalizeSheet({ stones: { virgo: 3 }, spellDrafts: [{ name: 'A', runes: ['3', '1', '2'] }], spells: [{ name: 'S' }], tarot: { cards: [{ id: 'c', name: 'Fool' }], active: 'c' }, manifestations: [{ name: 'Gift' }] });
+    const sheet = normalizeSheet({ stones: { virgo: 3 }, spellDrafts: [{ name: 'A', runes: ['life', 'if', 'stone_leo'] }], spells: [{ name: 'S' }], tarot: { cards: [{ id: 'c', name: 'Fool' }], active: 'c' }, manifestations: [{ name: 'Gift' }] });
     expect(redactSheet(sheet, [])).toBe(sheet);
     const a = redactSheet(sheet, ['stones', 'tarot', 'manifestations']);
     expect(a.stones.virgo).toBe(0);
     expect(a.tarot).toEqual({ cards: [], active: null });
     expect(a.manifestations).toEqual([]);
     expect(a.spellDrafts).toHaveLength(1);
-    expect(redactSheet(sheet, ['fine_tuning']).spellDrafts[0].runes).toEqual(['1', '2', '3']);
+    expect(redactSheet(sheet, ['fine_tuning']).spellDrafts[0].runes).toEqual([]);
     const magic = redactSheet(sheet, ['tab:magic']);
     expect(magic).toMatchObject({ spells: [], spellDrafts: [] });
     expect(magic.stones.virgo).toBe(0);
@@ -144,11 +144,11 @@ describe('locks', () => {
 
   it('a locked Fine Tuning keeps the runes where they were', async () => {
     const { g, p, id } = await setup();
-    const draft = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'X', scheme: good(), runes: ['2', '1', '3'] } })).sheet.spellDrafts[0];
+    const draft = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'X', scheme: good(), runes: ['if', 'then', 'or'] } })).sheet.spellDrafts[0];
     await g.call('lock:toggle', { key: 'fine_tuning' });
-    const r = await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Y', scheme: good(), runes: ['3', '2', '1'] } });
+    const r = await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Y', scheme: good(), runes: ['or', 'then', 'if'] } });
     expect(r.ok).toBe(true);
-    expect((await sheetOf(g, id)).spellDrafts[0]).toMatchObject({ name: 'Y', runes: ['2', '1', '3'] });
+    expect((await sheetOf(g, id)).spellDrafts[0]).toMatchObject({ name: 'Y', runes: ['if', 'then', 'or'] });
   });
 
   it('a locked Magic tab stops crafting, and a locked Stance stops attacks that use it', async () => {
