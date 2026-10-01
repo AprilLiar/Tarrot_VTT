@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { useChatSlot } from '../lib/chatSlot.js';
 import { socket } from '../socket.js';
 import { call, useApp } from '../AppContext.jsx';
-import { useT } from '../i18n.jsx';
+import { useT, useParts } from '../i18n.jsx';
 import { formatExpression } from '../../../shared/roll-plan.js';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
+import { T } from '../../../shared/localization.js';
 
 // A die is tinted green on a natural 20 and red on a natural 1.
 const dieTint = (v) => (v === 20 ? 'text-green-400' : v === 1 ? 'text-red-400' : '');
@@ -106,12 +107,103 @@ function RollCard({ m }) {
   );
 }
 
+
+// The colour of a keyword on an effect card, by what it is about (the server tags parameters with a category).
+const KEYWORD = {
+  damage: 'text-red-400',
+  heal: 'text-green-400',
+  temp: 'text-sky-300',
+  hp: 'text-rose-300',
+  status: 'text-amber-300',
+  ap: 'text-violet-300',
+  help: 'text-indigo-300',
+  hit: 'text-green-400',
+  miss: 'text-slate-400',
+  crit: 'text-yellow-300',
+  resist: 'text-teal-300',
+  item: 'text-orange-300',
+  spell: 'text-fuchsia-300',
+  num: 'text-white',
+};
+
+function Rich({ message }) {
+  const parts = useParts();
+  return parts(message).map((p, i) =>
+    p.c ? (
+      <span key={i} className={`font-semibold ${KEYWORD[p.c] ?? ''}`} data-keyword={p.c}>
+        {p.text}
+      </span>
+    ) : (
+      <span key={i}>{p.text}</span>
+    ),
+  );
+}
+
+const KIND_TITLES = { turn: T('Start of turn'), craft: T('Spell crafting'), attack: T('Attack'), spontaneous: T('Spontaneous Action') };
+
+// What a card did to the characters: one block per character with a line per fact. The GM can Revert it (take its
+// effects away again) or, for an attack, Edit it (revert, then change the damage, statuses or roll and apply again).
+function EffectsCard({ m }) {
+  const t = useT();
+  const { identity } = useApp();
+  const [busy, setBusy] = useState(false);
+  const gm = identity?.role === 'gm';
+  const open = m.status === 'applied';
+  async function run(event) {
+    setBusy(true);
+    const r = await call(event, { messageId: m.id });
+    setBusy(false);
+    if (!r.ok) setError(r.error);
+  }
+  const [error, setError] = useState(null);
+  return (
+    <div data-testid="effects-card" data-kind={m.kind} data-status={m.status} className={`rounded-xl border border-white/15 bg-white/5 p-3 ${open ? '' : 'opacity-60'}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1 text-sm font-semibold" data-testid="effects-title">
+          {m.title ? <Rich message={m.title} /> : t(KIND_TITLES[m.kind] ?? m.kind)}
+        </div>
+        {!open && (
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs uppercase tracking-wide" data-testid="effects-status">
+            {m.status === 'replaced' ? t('Replaced') : t('Reverted')}
+          </span>
+        )}
+      </div>
+      <div className="mt-2 flex flex-col gap-2">
+        {m.blocks.map((b, i) => (
+          <div key={i} className="rounded-lg bg-black/25 p-2 text-sm" data-testid="effects-block" data-name={b.name}>
+            <div className="font-semibold">{b.name}</div>
+            {b.rows.map((r, j) => (
+              <div key={j} className="leading-snug" data-testid="effects-row">
+                <Rich message={r} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {gm && open && m.reversible && (
+        <div className="mt-2 flex justify-end gap-2">
+          {m.editable && (
+            <button className={`${btn} min-h-9 px-3`} data-testid="effects-edit" disabled={busy} onClick={() => run('effects:edit')}>
+              {t('Edit')}
+            </button>
+          )}
+          <button className={`${btnDanger} min-h-9 px-3`} data-testid="effects-revert" disabled={busy} onClick={() => run('effects:revert')}>
+            {t('Revert')}
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 // One line for the popup that shows a new message while the chat is closed.
 function popupText(m, t) {
   if (m.type === 'roll') {
     const vs = m.roll.against ? ` ${t('vs')} ${m.roll.against.targets.map((x) => x.value).join(', ')}` : '';
     return `${m.characterName}: ${t(m.roll.title)} ${m.roll.total}${vs}`;
   }
+  if (m.type === 'effects') return m.title ? t(m.title.key, m.title.params) : `${m.blocks[0].name}: ${t(KIND_TITLES[m.kind] ?? m.kind)}`;
   return `${m.author.role === 'gm' ? t(m.author.name) : m.author.name}: ${messageText(m, t)}`;
 }
 
@@ -156,6 +248,7 @@ const messageText = (m, t) => (m.key ? t(m.key, m.params) : m.text);
 function Message({ m }) {
   const t = useT();
   if (m.type === 'roll') return <RollCard m={m} />;
+  if (m.type === 'effects') return <EffectsCard m={m} />;
   return (
     <div data-testid="chat-text" className="rounded-lg bg-white/5 px-3 py-2 text-sm">
       <span className={`font-semibold ${m.author.role === 'gm' ? 'text-violet-300' : ''}`}>{m.author.role === 'gm' ? t(m.author.name) : m.author.name}: </span>

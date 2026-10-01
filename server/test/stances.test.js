@@ -79,7 +79,7 @@ async function player(characterId) {
   await s.call('identity:set', { role: 'player', characterId });
   return s;
 }
-const texts = () => server.shared.chat.history().filter((m) => m.type === 'text').map((m) => m.text);
+const texts = () => server.shared.chat.history().filter((m) => m.type === 'text' || m.type === 'effects').map((m) => m.text);
 const flat = { same: false, effect: { damage: 2, advantage: 0 } };
 // The same effect in every band, so the random Stance roll cannot change what a test sees.
 const sameEverywhere = (effect) => [{ effect }, ...Array.from({ length: 5 }, () => ({ same: true }))];

@@ -4,7 +4,7 @@ import { buildRoll } from './rolls.js';
 import { AppError } from './errors.js';
 import { listLocks, lockedError } from './locks.js';
 import { magicLocked, stonesLocked, combinationsLocked } from '../shared/locks.js';
-import { line as chatLine } from './i18n.js';
+import { createJournal } from './journal.js';
 import { T } from '../shared/localization.js';
 import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, normalizeEffect, MAX_SPELLS, STABILIZATION_START } from '../shared/spells.js';
 
@@ -16,7 +16,7 @@ import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, norma
 //  - spell:grant   (GM) { characterId, spell }   gives a character a finished spell.
 //  - spell:remove  { characterId, id }
 export function registerSpellHandlers(ctx) {
-  const { io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms } = ctx;
+  const { io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms } = ctx;
   const { CHAT_ROOM } = rooms;
 
   const find = (sheet, id) => {
@@ -38,7 +38,8 @@ export function registerSpellHandlers(ctx) {
     if (before.spells.length >= MAX_SPELLS) throw new AppError('limit', 'Too many spells.');
 
     let spell;
-    const sheet = await sheets.updateSheet(db, c.id, (s) => {
+    const journal = createJournal();
+    const sheet = await journal.update(db, c.id, (s) => {
       const next = structuredClone(s);
       for (const [sign, need] of Object.entries(stonesNeeded(draft.scheme))) {
         if (next.stones[sign] < need) {
@@ -60,8 +61,11 @@ export function registerSpellHandlers(ctx) {
     const author = await authorName();
     const card = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll });
     io.to(CHAT_ROOM).emit('chat:message', card);
-    const line = shared.chat.add({ type: 'text', author: { role: 'gm', name: T('Combat') }, ...chatLine({ key: '{name} crafts the spell {spell}.', params: { name: c.name, spell: spell.name } }) });
-    io.to(CHAT_ROOM).emit('chat:message', line);
+    effects.post({
+      kind: 'craft',
+      blocks: [{ name: c.name, rows: [{ key: '{label} {spell}.', params: { label: { t: 'Crafts', c: 'spell' }, spell: { v: spell.name, c: 'spell' } } }] }],
+      journal,
+    });
     return { spell };
   });
 

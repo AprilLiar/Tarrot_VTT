@@ -104,7 +104,7 @@ async function player(characterId) {
   return s;
 }
 const sheetOf = async (g, id) => (await g.call('sheet:get', { characterId: id })).sheet;
-const texts = () => server.shared.chat.history().filter((m) => m.type === 'text').map((m) => m.text);
+const texts = () => server.shared.chat.history().filter((m) => m.type === 'text' || m.type === 'effects').map((m) => m.text);
 
 async function setup() {
   const g = await gm();
@@ -128,7 +128,28 @@ describe('crafting', () => {
     expect(sheet.spellDrafts).toHaveLength(1); // the draft stays
     const card = server.shared.chat.history().find((m) => m.type === 'roll');
     expect(card.roll.title).toBe('Spell crafting (Magic Roll)');
-    expect(texts().some((t) => /Mira crafts the spell Fire Bolt/.test(t))).toBe(true);
+    expect(texts().some((t) => /Mira: Crafts Fire Bolt/.test(t))).toBe(true);
+  });
+
+  it('reverting the crafting card refunds the stones and removes the spell, unless it was used', async () => {
+    const { g, p, id } = await setup();
+    const draft = (await addDraft(p, id)).sheet.spellDrafts[0];
+    for (const [sign, n] of Object.entries({ virgo: 3, libra: 1, taurus: 1, aries: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
+    await p.call('spell:craft', { characterId: id, draftId: draft.id });
+    const card = server.shared.chat.history().find((m) => m.type === 'effects' && m.kind === 'craft');
+    expect(card).toMatchObject({ reversible: true, editable: false });
+    expect((await g.call('effects:revert', { messageId: card.id })).ok).toBe(true);
+    const sheet = await sheetOf(g, id);
+    expect(sheet.spells).toHaveLength(0);
+    expect(sheet.stones).toMatchObject({ virgo: 3, libra: 1, taurus: 1, aries: 1 });
+
+    // A spell that has been used cannot be un-crafted.
+    await p.call('spell:craft', { characterId: id, draftId: draft.id });
+    const second = server.shared.chat.history().filter((m) => m.kind === 'craft').at(-1);
+    const spell = (await sheetOf(g, id)).spells[0];
+    await g.call('spell:update', { characterId: id, id: spell.id, patch: { uses: { current: 4 } } });
+    expect(await g.call('effects:revert', { messageId: second.id })).toMatchObject({ ok: false, code: 'cannot_revert' });
+    expect((await sheetOf(g, id)).spells).toHaveLength(1);
   });
 
   it('refuses an illegal scheme, but an illegal draft can still be saved', async () => {

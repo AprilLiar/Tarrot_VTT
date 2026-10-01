@@ -447,6 +447,36 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await p.getByTestId('view-sheet').click();
   await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '2');
 
+  // The result is one card in the chat, with a block per character and coloured keywords. The GM can Edit it:
+  // it is reverted, the confirm card reopens with what was applied, and Advantage can be given to the final roll.
+  await gm.getByTestId('chat-toggle').click();
+  const result = gm.getByTestId('effects-card').last();
+  await expect(result.getByTestId('effects-block').first()).toContainText(npc);
+  await expect(result.locator('[data-keyword="damage"]').first()).toBeVisible();
+  await expect(result.locator('[data-keyword="hp"]').first()).toBeVisible();
+  await expect(result.locator('[data-keyword="hit"], [data-keyword="crit"]').first()).toBeVisible();
+  await result.getByTestId('effects-edit').click();
+  await expect(result).toHaveAttribute('data-status', 'replaced');
+  const again = gm.getByTestId('attack-card');
+  await expect(again).toBeVisible();
+  await expect(again.getByLabel('Base damage')).toHaveValue('4');
+  await expect(again.getByTestId('attack-kind')).toHaveValue('fire');
+  await again.getByLabel('Advantage levels').fill('2');
+  await again.getByTestId('attack-advantage-set').click();
+  await expect(again.getByTestId('attack-dice')).toBeVisible();
+  await again.getByLabel('Attack total').fill('25');
+  await again.getByTestId('attack-apply').click();
+  await expect(again).toHaveCount(0);
+  const second = gm.getByTestId('effects-card').last();
+  await expect(second).toHaveAttribute('data-status', 'applied');
+  // Revert takes it all back, including the AP.
+  await second.getByTestId('effects-revert').click();
+  await expect(second).toHaveAttribute('data-status', 'reverted');
+  await expect(second.getByTestId('effects-revert')).toHaveCount(0);
+  await p.getByTestId('view-sheet').click();
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
+  await gm.getByTestId('chat-toggle').click(); // closed again
+
   // A second attack can be discarded. The chat, being closed on the GM's screen, pops the roll up briefly.
   await p.getByTestId('attack-open').click();
   await p.getByTestId('arcane-done').click();
@@ -455,7 +485,7 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await gm.getByTestId('attack-discard').click();
   await expect(gm.getByTestId('attack-card')).toHaveCount(0);
   await p.getByTestId('view-sheet').click();
-  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '2');
+  await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
 
   await ctx.close();
   await gmCtx.close();

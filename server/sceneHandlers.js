@@ -4,6 +4,7 @@ import * as sheets from './sheet.js';
 import * as combat from './combat.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { helpDiceFor, spendHelp } from './help.js';
+import { createJournal } from './journal.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
@@ -19,7 +20,7 @@ import { T } from '../shared/localization.js';
 //  - Hidden summons are filtered out on the server for everyone but the GM.
 
 export function registerSceneHandlers(ctx) {
-  const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, shared, rooms } = ctx;
+  const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, shared, rooms } = ctx;
   const targets = shared.targets;
   const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
 
@@ -392,13 +393,15 @@ export function registerSceneHandlers(ctx) {
     say({ key: "Round {round}: {name}'s turn.", params: { round: c.round, name: token.name } }, token);
     if (entry.ownerKind !== 'character') return;
     let lines = [];
-    const sheet = await sheets.updateSheet(db, entry.ownerId, (s) => {
+    const journal = createJournal();
+    const sheet = await journal.update(db, entry.ownerId, (s) => {
       const out = combat.startOfTurn(s, token.name);
       lines = out.lines;
       return out.sheet;
     });
     emitSheet(entry.ownerId, sheet);
-    for (const line of lines) say(line, token);
+    // Bleeding, Burning and AP changes of the turn: one card, with Revert.
+    if (!token.hidden) effects.post({ kind: 'turn', blocks: [{ name: token.name, rows: lines }], journal });
   }
 
   // The active combatant ends a turn: unspent Movement is lost, AP is refilled.

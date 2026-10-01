@@ -67,7 +67,8 @@ export function AttackInbox() {
 function AttackCard({ attack, onClose }) {
   const t = useT();
   const { toast } = useApp();
-  const [total, setTotal] = useState(String(attack.roll.total));
+  const [total, setTotal] = useState(String(attack.total ?? attack.roll.total));
+  const [levels, setLevels] = useState('0');
   const [base, setBase] = useState(String(attack.base));
   const [kind, setKind] = useState(attack.kind);
   const [ap, setAp] = useState(String(attack.ap));
@@ -84,6 +85,12 @@ function AttackCard({ attack, onClose }) {
       alive = false;
     };
   }, [attack.id, attack.targets]);
+
+  // The roll was changed (Advantage or Disadvantage): the Total follows it.
+  useEffect(() => {
+    setTotal(String(attack.total ?? attack.roll.total));
+    setLevels('0');
+  }, [attack.roll.total, attack.roll.natural, attack.roll.dice.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const num = (v) => (isWholeNumber(v) ? Number(v) : null);
   const valid = num(total) != null && num(base) != null && num(ap) != null && info.length > 0;
@@ -109,6 +116,15 @@ function AttackCard({ attack, onClose }) {
   async function apply() {
     setBusy(true);
     const r = await call('attack:apply', { id: attack.id, total: num(total), base: num(base), kind, ap: num(ap), statuses });
+    setBusy(false);
+    if (!r.ok) toast(r.error);
+  }
+
+  // Advantage (more than 0) or Disadvantage (less than 0): the d20 that counted stays, that many d20s join it and the
+  // best (or worst) counts; every other earlier die is forgotten.
+  async function setAdvantage() {
+    setBusy(true);
+    const r = await call('attack:advantage', { id: attack.id, levels: num(levels) });
     setBusy(false);
     if (!r.ok) toast(r.error);
   }
@@ -147,6 +163,21 @@ function AttackCard({ attack, onClose }) {
             <span className="font-medium">{u.name}</span> ({u.source}): {u.text}
           </div>
         ))}
+
+        <div className="flex flex-wrap items-end gap-2" data-testid="attack-advantage">
+          <label className={`${field} w-40`}>
+            {t('Advantage (+) or Disadvantage (-)')}
+            <IntInput label={t('Advantage levels')} value={levels} onChange={setLevels} />
+          </label>
+          <button className={btn} data-testid="attack-advantage-set" disabled={busy || !num(levels) || Math.abs(num(levels)) > 10} onClick={setAdvantage}>
+            {num(levels) < 0 ? t('Roll with Disadvantage') : t('Roll with Advantage')}
+          </button>
+          {attack.roll.dice.length > 1 && (
+            <span className="pb-3 text-xs opacity-70" data-testid="attack-dice">
+              {t('Dice: {list}', { list: attack.roll.dice.join(', ') })}
+            </span>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <label className={field}>

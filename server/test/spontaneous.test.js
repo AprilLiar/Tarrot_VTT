@@ -49,7 +49,7 @@ const player = async (characterId) => {
   return s;
 };
 const sheetOf = async (s, id) => (await s.call('sheet:get', { characterId: id })).sheet;
-const texts = () => server.shared.chat.history().filter((m) => m.type === 'text').map((m) => m.text);
+const texts = () => server.shared.chat.history().filter((m) => m.type === 'text' || m.type === 'effects').map((m) => m.text);
 const seenPending = (g) => new Promise((resolve) => g.once('attack:pending', resolve));
 
 async function fight() {
@@ -101,7 +101,7 @@ describe('Spontaneous Action', () => {
     expect(sheet.hp.temp).toBe(6);
     expect(sheet.ap.current).toBe(2);
     expect(texts().some((t) => /Mira uses a Spontaneous Action \(2 AP\)/.test(t))).toBe(true);
-    expect(texts().some((t) => /Mira gains a Help Die \(d8\)/.test(t))).toBe(true);
+    expect(texts().some((t) => /Help Die: a d8 joins the track/.test(t))).toBe(true);
     expect((await ctx.g.call('attack:list')).attacks).toHaveLength(0);
     // Temp HP does not stack: a smaller shield changes nothing.
     await act(ctx.g, ctx, { effects: { temp: { value: 2 } } });

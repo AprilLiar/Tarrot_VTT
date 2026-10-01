@@ -60,37 +60,43 @@ export function cleanApply(pending, input, targets) {
 
 const capitalise = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
+// Keywords of the chat cards: a parameter carries its category so the card can colour it (see renderParts).
+const kw = (text, c) => ({ t: text, c });
+const num = (v, c) => ({ v, c });
+
 // Gives a character what a Spontaneous Action grants: a Help Die and/or Temp HP (`benefits` = { help: { sides },
 // temp: { value } }). Temp HP does not stack and a full Help Die track keeps only the better dice (shared/help.js).
-// -> chat messages { key, params }
-export async function grantBenefits(db, characterId, name, benefits, emitSheet) {
-  const lines = [];
-  const sheet = await sheets.updateSheet(db, characterId, (s) => {
+// The change is noted in the journal. -> rows (chat messages { key, params })
+export async function grantBenefits(db, journal, characterId, name, benefits, emitSheet) {
+  const rows = [];
+  const sheet = await journal.update(db, characterId, (s) => {
     const next = structuredClone(s);
     if (benefits.help) {
       const r = addHelpDie(next.helpDice, benefits.help.sides);
       next.helpDice = r.dice;
-      const sides = benefits.help.sides;
-      if (r.outcome === 'added') lines.push({ key: '{name} gains a Help Die (d{sides}).', params: { name, sides } });
-      else if (r.outcome === 'replaced') lines.push({ key: '{name} gains a Help Die (d{sides}) in place of a d{old}.', params: { name, sides, old: r.replaced } });
-      else lines.push({ key: '{name} holds too many Help Dice: the new d{sides} is lost.', params: { name, sides } });
+      const sides = num(benefits.help.sides, 'help');
+      if (r.outcome === 'added') rows.push({ key: '{label}: a d{sides} joins the track.', params: { label: { t: 'Help Die', c: 'help' }, sides } });
+      else if (r.outcome === 'replaced') rows.push({ key: '{label}: a d{sides} in place of a d{old}.', params: { label: { t: 'Help Die', c: 'help' }, sides, old: num(r.replaced, 'help') } });
+      else rows.push({ key: '{label}: the track is full, the new d{sides} is lost.', params: { label: { t: 'Help Die', c: 'help' }, sides } });
     }
     if (benefits.temp) {
       const had = next.hp.temp ?? 0;
       next.hp.temp = gainTemp(had, benefits.temp.value);
-      if (next.hp.temp > had) lines.push({ key: '{name} gains {n} Temp HP.', params: { name, n: next.hp.temp } });
-      else lines.push({ key: '{name} already has {have} Temp HP, so the new {n} does not stack.', params: { name, have: had, n: benefits.temp.value } });
+      if (next.hp.temp > had) rows.push({ key: '{label}: {n}.', params: { label: { t: 'Temp HP', c: 'temp' }, n: num(next.hp.temp, 'temp') } });
+      else rows.push({ key: '{label}: already {have}, the new {n} does not stack.', params: { label: { t: 'Temp HP', c: 'temp' }, have: num(had, 'temp'), n: benefits.temp.value } });
     }
     return sheets.normalizeSheet(next);
   });
   emitSheet(characterId, sheet);
-  return lines;
+  return rows;
 }
 
-// Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers.
-// -> { lines: [{ message, hidden }] }  the result lines for the chat, as messages { key, params }
-export async function applyAttack(db, pending, clean, { emitSheet }) {
-  const lines = [];
+// Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers; `journal` notes every change so the
+// card can be reverted. -> { blocks, rolls }: what happened to each character as blocks of rows (the card shows them
+// in the chat), and the durability rolls to post as roll cards.
+export async function applyAttack(db, pending, clean, { emitSheet, journal }) {
+  const blocks = [];
+  const rolls = [];
   const attackerName = pending.characterName;
 
   for (const t of clean.targets) {
@@ -102,7 +108,7 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       computeTarget({ total: clean.total, natural: clean.natural, critThreshold: clean.critThreshold, defence: t.defence, base: clean.base, kind: clean.kind, resistance, override: t.override });
 
     if (isChar) {
-      const sheet = await sheets.updateSheet(db, token.ownerId, (s) => {
+      const sheet = await journal.update(db, token.ownerId, (s) => {
         result = work(s.resistances?.[clean.kind]);
         const next = structuredClone(s);
         if (result.hit) {
@@ -123,40 +129,38 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       result = work(null);
     }
 
-    // One chat line, built from sentences so every reader gets it in their own language.
-    const sentences = [
+    // One row per fact, so each reader gets them in their own language.
+    const rows = [
       {
-        key: '{attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}.',
+        key: '{total} vs {defence} {value}: {result}.',
         params: {
-          attacker: attackerName,
-          target: token.name,
-          weapon: pending.weaponName,
-          total: clean.total,
+          total: num(clean.total, 'num'),
           defence: { t: `${capitalise(t.defenceKind)} Defence` },
-          value: t.defence,
-          result: hitParam(result),
+          value: num(t.defence, 'num'),
+          result: { ...hitParam(result), c: result.critical ? 'crit' : result.hit ? 'hit' : 'miss' },
         },
       },
     ];
     if (result.hit) {
       const formula = result.bonus ? `${clean.base} + ${result.bonus} = ${result.raw}` : `${clean.base} = ${result.raw}`;
-      sentences.push(
-        clean.kind === 'true'
-          ? { key: 'Damage {formula}.', params: { formula } }
-          : { key: 'Damage {formula} {kind}.', params: { formula, kind: { t: capitalise(clean.kind) } } },
+      const kind = clean.kind === 'true' ? { t: 'True', c: 'damage' } : kw(capitalise(clean.kind), 'damage');
+      rows.push({ key: '{label}: {formula} {kind}.', params: { label: { t: 'Damage', c: 'damage' }, formula: num(formula, 'damage'), kind } });
+      if (result.steps.length) rows.push({ key: 'After resistances: {steps}.', params: { steps: { ...joinMsgs(result.steps), c: 'resist' } } });
+      if (result.overridden) rows.push({ key: 'Set by the GM to {n}.', params: { n: num(result.damage, 'num') } });
+      rows.push(
+        result.heal
+          ? { key: '{label} {n}.', params: { label: { t: 'Heals', c: 'heal' }, n: num(result.heal, 'heal') } }
+          : { key: '{n} damage.', params: { n: num(result.damage, 'damage') } },
       );
-      if (result.steps.length) sentences.push({ key: 'After resistances: {steps}.', params: { steps: joinMsgs(result.steps) } });
-      if (result.overridden) sentences.push({ key: 'Set by the GM to {n}.', params: { n: result.damage } });
-      sentences.push(result.heal ? { key: 'Heals {n}.', params: { n: result.heal } } : { key: '{n} damage.', params: { n: result.damage } });
-      if (hp?.absorbed) sentences.push({ key: 'Temp HP absorbs {n}.', params: { n: hp.absorbed } });
-      if (hp) sentences.push({ key: 'HP {from} to {to}.', params: { from: hp.before, to: hp.after } });
-      else if (!isChar) sentences.push({ key: '(temporary NPC: no sheet, apply by hand)' });
+      if (hp?.absorbed) rows.push({ key: '{label} absorbs {n}.', params: { label: { t: 'Temp HP', c: 'temp' }, n: num(hp.absorbed, 'temp') } });
+      if (hp) rows.push({ key: '{label} {from} to {to}.', params: { label: { t: 'HP', c: 'hp' }, from: num(hp.before, 'hp'), to: num(hp.after, 'hp') } });
+      else if (!isChar) rows.push({ key: '(temporary NPC: no sheet, apply by hand)' });
       if (isChar && clean.statuses.length) {
-        const list = clean.statuses.map((s) => ({ t: s.stackable ? `${s.name} ${s.stacks}` : s.name }));
-        sentences.push({ key: 'Adds {list}.', params: { list: joinMsgs(list) } });
+        const list = clean.statuses.map((s) => kw(s.stackable ? `${s.name} ${s.stacks}` : s.name, 'status'));
+        rows.push({ key: '{label} {list}.', params: { label: { t: 'Adds', c: 'status' }, list: joinMsgs(list) } });
       }
     }
-    lines.push({ message: joinSentences(sentences), hidden: token.hidden });
+    blocks.push({ name: token.name, rows, hidden: token.hidden, tokenId: t.tokenId });
   }
 
   // What a Spontaneous Action also grants (a Help Die, Temp HP): to every target, hit or not.
@@ -165,16 +169,17 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
     for (const t of clean.targets) {
       const token = await battle.getToken(db, t.tokenId);
       if (token.ownerKind !== 'character') continue;
-      for (const message of await grantBenefits(db, token.ownerId, token.name, gains, emitSheet)) lines.push({ message, hidden: token.hidden });
+      const block = blocks.find((b) => b.tokenId === t.tokenId);
+      block.rows.push(...(await grantBenefits(db, journal, token.ownerId, token.name, gains, emitSheet)));
     }
   }
 
   // The attacker pays: AP, the Enhancements' costs (damage, statuses, item uses), and on a natural 1 gains Exposed.
+  const own = { name: attackerName, rows: [], hidden: false };
   const costs = pending.costs ?? { damage: [], statuses: [], items: [] };
   const pays = clean.ap > 0 || clean.exposed || costs.damage.length || costs.statuses.length || costs.items.length;
   if (pending.characterId != null && pays) {
-    const notes = [];
-    const sheet = await sheets.updateSheet(db, pending.characterId, (s) => {
+    const sheet = await journal.update(db, pending.characterId, (s) => {
       const next = structuredClone(s);
       next.ap.current = Math.max(0, next.ap.current - clean.ap);
       if (clean.exposed) next.statuses = { ...next.statuses, exposed: (next.statuses?.exposed ?? 0) + 1 };
@@ -184,69 +189,64 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
         const out = takeDamage(next.hp, res.damage, res.heal);
         next.hp.current = out.current;
         next.hp.temp = out.temp;
-        notes.push({ key: '{name} takes {n} {kind} damage as a cost (HP {from} to {to}).', params: { name: attackerName, n: res.damage, kind: { t: d.kind === 'true' ? 'True' : capitalise(d.kind) }, from: before, to: next.hp.current } });
+        own.rows.push({ key: '{label} {n} {kind} damage as a cost (HP {from} to {to}).', params: { label: { t: 'Takes', c: 'damage' }, n: num(res.damage, 'damage'), kind: kw(d.kind === 'true' ? 'True' : capitalise(d.kind), 'damage'), from: before, to: next.hp.current } });
       }
       for (const st of costs.statuses) {
         const info = D.STATUSES.find((x) => x.key === st.key);
         if (!info) continue;
         const have = next.statuses?.[st.key] ?? 0;
         next.statuses = { ...next.statuses, [st.key]: info.stackable ? have + st.stacks : 1 };
-        notes.push({ key: '{name} gains {status} as a cost.', params: { name: attackerName, status: { t: info.stackable ? `${info.name} ${st.stacks}` : info.name } } });
+        own.rows.push({ key: '{label} {status} as a cost.', params: { label: { t: 'Gains', c: 'status' }, status: kw(info.stackable ? `${info.name} ${st.stacks}` : info.name, 'status') } });
       }
       for (const c of costs.items) {
         const item = next.items.find((i) => i.id === c.itemId);
         if (!item) continue;
         item.uses.current = Math.max(0, item.uses.current - c.uses);
-        notes.push({ key: '{name} spends {n} uses of {item}.', params: { name: attackerName, n: c.uses, item: item.name } });
+        own.rows.push({ key: '{label} {n} uses of {item}.', params: { label: { t: 'Spends', c: 'item' }, n: num(c.uses, 'item'), item: item.name } });
       }
       return sheets.normalizeSheet(next);
     });
     emitSheet(pending.characterId, sheet);
-    if (clean.ap > 0) lines.push({ message: { key: '{name} spends {n} AP.', params: { name: attackerName, n: clean.ap } }, hidden: false });
-    for (const m of notes) lines.push({ message: m, hidden: false });
-    if (clean.exposed) lines.push({ message: { key: '{name} gains Exposed 1 (natural 1).', params: { name: attackerName } }, hidden: false });
+    if (clean.ap > 0) own.rows.unshift({ key: '{label} {n}.', params: { label: { t: 'AP spent', c: 'ap' }, n: num(clean.ap, 'ap') } });
+    if (clean.exposed) own.rows.push({ key: '{label} 1 (natural 1).', params: { label: { t: 'Gains Exposed', c: 'status' } } });
   }
   // Every spell used loses a little durability: a Magic roll against its Stabilization (a Spell tattoo
   // uses a Strength Save instead). The spell itself worked either way.
   if (pending.characterId != null && (pending.spells ?? []).length) {
-    const durability = [];
-    const sheet = await sheets.updateSheet(db, pending.characterId, (s) => {
+    const sheet = await journal.update(db, pending.characterId, (s) => {
       const next = structuredClone(s);
       for (const id of pending.spells) {
         const sp = next.spells.find((x) => x.id === id);
         if (!sp || !usable(sp)) continue;
         const roll = sp.tattoo ? buildRoll(next, { kind: 'save', key: 'strength' }) : buildRoll(next, { kind: 'mastery', key: 'magic' });
         roll.against = { label: 'Stabilization', targets: [{ name: sp.name, value: sp.stabilization }] };
-        durability.push({ roll });
+        rolls.push(roll);
         if (roll.total >= sp.stabilization) {
           sp.stabilization += STABILIZATION_STEP;
-          durability.push({ message: { key: '{spell} holds: Stabilization rises to {n}.', params: { spell: sp.name, n: sp.stabilization } } });
+          own.rows.push({ key: '{spell} holds: Stabilization rises to {n}.', params: { spell: kw(sp.name, 'spell'), n: num(sp.stabilization, 'num') } });
         } else if (sp.tattoo) {
           sp.stabilization = STABILIZATION_START;
           next.statuses = { ...next.statuses, [TATTOO_STATUS]: (next.statuses?.[TATTOO_STATUS] ?? 0) + 1 };
-          durability.push({ message: { key: '{spell} bites {name}: Blood Oxydization {n}.', params: { spell: sp.name, name: attackerName, n: next.statuses[TATTOO_STATUS] } } });
+          own.rows.push({ key: '{spell} bites {name}: Blood Oxydization {n}.', params: { spell: kw(sp.name, 'spell'), name: attackerName, n: num(next.statuses[TATTOO_STATUS], 'status') } });
         } else {
           sp.stabilization = STABILIZATION_START;
           sp.uses.current = Math.max(0, sp.uses.current - 1);
           if (sp.uses.current === 0) sp.destroyed = true;
-          durability.push({
-            message: sp.destroyed
-              ? { key: '{spell} falters and is destroyed.', params: { spell: sp.name } }
-              : { key: '{spell} falters: Stabilization resets to {n} and it loses a use ({left} left).', params: { spell: sp.name, n: sp.stabilization, left: sp.uses.current } },
-          });
+          own.rows.push(
+            sp.destroyed
+              ? { key: '{spell} falters and is destroyed.', params: { spell: kw(sp.name, 'spell') } }
+              : { key: '{spell} falters: Stabilization resets to {n} and it loses a use ({left} left).', params: { spell: kw(sp.name, 'spell'), n: sp.stabilization, left: sp.uses.current } },
+          );
         }
       }
       return sheets.normalizeSheet(next);
     });
     emitSheet(pending.characterId, sheet);
-    for (const d of durability) lines.push({ ...d, hidden: false });
   }
   // Unique Effects have no automation: they are only told to the table.
   for (const u of pending.unique ?? []) {
-    lines.push({ message: { key: '{source}: {name}. {text}', params: { source: u.source, name: u.name, text: u.text } }, hidden: false });
+    own.rows.push({ key: '{source}: {name}. {text}', params: { source: u.source, name: u.name, text: u.text } });
   }
-  return { lines };
+  if (own.rows.length) blocks.push(own);
+  return { blocks, rolls };
 }
-
-// Sentences joined into one message: "first. second. third."
-const joinSentences = (list) => joinMsgs(list.map((m) => ({ key: m.key, params: m.params })), ' ');

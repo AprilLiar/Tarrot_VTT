@@ -124,22 +124,22 @@ export function startOfTurn(sheet, name) {
     next.hp.temp = out.temp;
     lines.push({
       key: '{name} takes {amount} damage from {source} ({detail}). HP {from} to {to}.',
-      params: { name, amount, source, detail, from: before, to: next.hp.current },
+      params: { name, amount: { v: amount, c: 'damage' }, source, detail, from: { v: before, c: 'hp' }, to: { v: next.hp.current, c: 'hp' } },
     });
   };
   const bleeding = next.statuses?.bleeding ?? 0;
-  if (bleeding > 0) hurt(bleeding, { t: `Bleeding ${bleeding}` }, { key: 'true damage' });
+  if (bleeding > 0) hurt(bleeding, { t: `Bleeding ${bleeding}`, c: 'status' }, { key: 'true damage' });
   const burning = next.statuses?.burning ?? 0;
   if (burning > 0) {
     const out = applyResistance(next.resistances?.fire, burning);
-    const source = { t: `Burning ${burning}` };
+    const source = { t: `Burning ${burning}`, c: 'status' };
     const detail = joinMsgs([{ t: 'Fire' }, ...out.steps]);
     if (out.heal > 0) {
       const before = next.hp.current;
       next.hp.current = Math.min(next.hp.max, before + out.heal);
       lines.push({
         key: '{name} is healed {n} by {source} ({detail}). HP {from} to {to}.',
-        params: { name, n: out.heal, source, detail, from: before, to: next.hp.current },
+        params: { name, n: { v: out.heal, c: 'heal' }, source, detail, from: { v: before, c: 'hp' }, to: { v: next.hp.current, c: 'hp' } },
       });
     } else if (out.damage > 0) {
       hurt(out.damage, source, detail);
@@ -153,11 +153,11 @@ export function startOfTurn(sheet, name) {
     const max = apMax(next);
     next.ap.current = Math.max(0, max - stunned - surprised);
     const reasons = [];
-    if (stunned) reasons.push({ t: `Stunned ${stunned}` });
-    if (surprised) reasons.push({ t: 'Surprised 2' });
+    if (stunned) reasons.push({ t: `Stunned ${stunned}`, c: 'status' });
+    if (surprised) reasons.push({ t: 'Surprised 2', c: 'status' });
     lines.push({
       key: '{name} starts with {ap} AP instead of {max} ({reasons}).',
-      params: { name, ap: next.ap.current, max, reasons: joinMsgs(reasons) },
+      params: { name, ap: { v: next.ap.current, c: 'ap' }, max, reasons: joinMsgs(reasons) },
     });
   }
   return { sheet: normalizeSheet(next), lines };
