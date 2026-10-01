@@ -11,6 +11,9 @@ import { TokenMenu } from './TokenMenu.jsx';
 import { HeightControl } from './HeightControl.jsx';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
+import { useSetting } from '../../lib/settings.js';
+import { areaName } from '../../lib/areaName.js';
+import { tokensInTemplate } from '../../../../shared/templates.js';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -198,6 +201,7 @@ export default function BattleView() {
   const [width, setWidth] = useState(0.004);
   const [shape, setShape] = useState('cone');
   const [tsize, setTsize] = useState(4);
+  const [deadzone] = useSetting('deadzone'); // times the area's size from where the drag began (setting)
   const [natural, setNatural] = useState({ w: 0, h: 0 }); // the battle picture's own size in pixels
   const [gridOpen, setGridOpen] = useState(false);
   const [draft, setDraft] = useState(null); // in-progress stroke, ruler or template
@@ -301,7 +305,11 @@ export default function BattleView() {
     } else if (draft.kind === 'template') {
       const dx = e.clientX - draft.sx;
       const dy = e.clientY - draft.sy;
-      if (Math.hypot(dx, dy) > 8) setDraft({ ...draft, angle: (Math.atan2(dy, dx) * 180) / Math.PI });
+      // The Deadzone: farther than `deadzone` times the area's size from where it began. Letting go there cancels it.
+      const o = cellToUnits(draft.x, draft.y, battle.grid, aspect);
+      const p = toUnits(f.u, f.v, aspect);
+      const dead = Math.hypot(p.x - o.x, p.y - o.y) > deadzone * tsize * unit;
+      setDraft({ ...draft, dead, ...(Math.hypot(dx, dy) > 8 ? { angle: (Math.atan2(dy, dx) * 180) / Math.PI } : {}) });
     }
   }
   async function surfaceUp() {
@@ -313,6 +321,7 @@ export default function BattleView() {
       const r = await call('mark:add', { kind: 'draw', data: { color, width: Math.round(width * 1000), points: pts } });
       if (!r.ok) toast(r.error);
     } else if (d.kind === 'template') {
+      if (d.dead) return; // released in the Deadzone: the area is not created
       const r = await call('mark:add', { kind: 'template', data: { shape, x: d.x, y: d.y, size: tsize, angle: d.angle, color } });
       if (!r.ok) toast(r.error);
     }
@@ -375,6 +384,11 @@ export default function BattleView() {
 
   const eraseMode = tool === 'erase' && tools;
   const ruler = draft?.kind === 'ruler' ? draft : null;
+  // While an area is being drawn, the characters that would be inside it are lit up (gone again once it is created).
+  const inDraft =
+    draft?.kind === 'template' && !draft.dead && battle
+      ? new Set(tokensInTemplate({ shape, x: draft.x, y: draft.y, size: tsize, angle: draft.angle }, battle.tokens.filter((tk) => tk.kind !== 'prop'), battle.grid, aspect).map((tk) => tk.id))
+      : null;
 
   return (
     <div ref={ref} className="absolute inset-0 touch-none select-none overflow-hidden bg-black" data-testid="battle-view" {...bind}>
@@ -429,6 +443,16 @@ export default function BattleView() {
                   return <path {...common} d={sh.d} />;
                 })}
               {battle.marks
+                .filter((m) => m.kind === 'template')
+                .map((m) => {
+                  const o = cellToUnits(m.x, m.y, battle.grid, aspect);
+                  return (
+                    <text key={`n${m.id}`} data-testid="battle-template-name" x={o.x} y={o.y} textAnchor="middle" dominantBaseline="central" fontSize={unit * 0.4} fill="#ffffff" stroke="#000000" strokeWidth={unit * 0.06} paintOrder="stroke" style={{ pointerEvents: 'none' }}>
+                      {areaName(m, t)}
+                    </text>
+                  );
+                })}
+              {battle.marks
                 .filter((m) => m.kind === 'draw')
                 .map((m) => (
                   <g key={m.id}>
@@ -465,11 +489,31 @@ export default function BattleView() {
               {draft?.kind === 'template' &&
                 (() => {
                   const sh = templateShape({ shape, x: draft.x, y: draft.y, size: tsize, angle: draft.angle }, battle.grid, aspect);
-                  const c = { fill: color, fillOpacity: 0.25, stroke: color, strokeWidth: unit * 0.06, strokeDasharray: `${unit * 0.2}` };
-                  if (sh.type === 'circle') return <circle {...c} cx={sh.cx} cy={sh.cy} r={sh.r} />;
-                  if (sh.type === 'rect') return <rect {...c} x={sh.x} y={sh.y} width={sh.size} height={sh.size} />;
-                  if (sh.type === 'polygon') return <polygon {...c} points={sh.points} />;
-                  return <path {...c} d={sh.d} />;
+                  const c = { fill: color, fillOpacity: draft.dead ? 0.08 : 0.25, stroke: color, strokeOpacity: draft.dead ? 0.4 : 1, strokeWidth: unit * 0.06, strokeDasharray: `${unit * 0.2}` };
+                  const o = cellToUnits(draft.x, draft.y, battle.grid, aspect);
+                  const R = deadzone * tsize * unit;
+                  return (
+                    <g>
+                      {/* The Deadzone: striped and half transparent, everything farther than R from where the drag began. */}
+                      <defs>
+                        <pattern id="deadzone-stripes" patternUnits="userSpaceOnUse" width={unit * 0.4} height={unit * 0.4} patternTransform="rotate(45)">
+                          <rect width={unit * 0.2} height={unit * 0.4} fill="#ef4444" fillOpacity="0.5" />
+                        </pattern>
+                      </defs>
+                      <path
+                        data-testid="deadzone"
+                        data-active={draft.dead ? 'true' : 'false'}
+                        fillRule="evenodd"
+                        fill="url(#deadzone-stripes)"
+                        fillOpacity={draft.dead ? 1 : 0.6}
+                        d={`M0 0H1V${1 / aspect}H0Z M${o.x - R} ${o.y} a${R} ${R} 0 1 0 ${2 * R} 0 a${R} ${R} 0 1 0 ${-2 * R} 0Z`}
+                      />
+                      {sh.type === 'circle' && <circle {...c} cx={sh.cx} cy={sh.cy} r={sh.r} />}
+                      {sh.type === 'rect' && <rect {...c} x={sh.x} y={sh.y} width={sh.size} height={sh.size} />}
+                      {sh.type === 'polygon' && <polygon {...c} points={sh.points} />}
+                      {sh.type === 'path' && <path {...c} d={sh.d} />}
+                    </g>
+                  );
                 })()}
               {ruler &&
                 (() => {
@@ -523,6 +567,7 @@ export default function BattleView() {
                   <img src={imageUrl(tk.imageId)} alt={tk.name} draggable={false} className="h-full w-full object-contain" />
                 </div>
                 {tk.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
+                {inDraft?.has(tk.id) && <div data-testid="token-in-area" className="pointer-events-none absolute -inset-1 rounded-full border-4 border-cyan-300 shadow-[0_0_14px_6px_rgba(103,232,249,0.85)]" />}
                 {tk.height > 0 && (
                   <div
                     data-testid="token-height"

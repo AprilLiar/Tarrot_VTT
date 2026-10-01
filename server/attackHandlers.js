@@ -72,7 +72,7 @@ export function registerAttackHandlers(ctx) {
     const locks = isGm() ? [] : await listLocks(db);
     if ((plan.spellIds.length && magicLocked(locks)) || (plan.manifestationIds.length && manifestationsLocked(locks))) throw lockedError();
     if (sheet.ap.current < plan.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
-    const picked = [...(shared.targets.get(c.id) ?? [])];
+    const picked = await battle.effectiveTargets(db, shared, c.id);
     if (!picked.length) throw new AppError('no_target', 'Select at least one target first.');
     const infos = [];
     for (const id of picked) {
@@ -211,7 +211,7 @@ export function registerAttackHandlers(ctx) {
     if (sheet.ap.current < p.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: p.ap, have: sheet.ap.current });
 
     // Who it is aimed at.
-    const picked = p.targetMode === 'none' ? [] : [...(shared.targets.get(c.id) ?? [])];
+    const picked = p.targetMode === 'none' ? [] : await battle.effectiveTargets(db, shared, c.id);
     if (p.targetMode === 'one' && picked.length !== 1) throw new AppError('no_target', 'Select exactly one target first.');
     if (p.targetMode === 'many' && !picked.length) throw new AppError('no_target', 'Select at least one target first.');
     const sceneId = await scenes.getActiveSceneId(db);

@@ -17,6 +17,7 @@ import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
+import { cleanSetting } from '../shared/settings.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
@@ -323,6 +324,13 @@ export function registerHandlers(io, socket, db, shared) {
     chat.clear();
     effects.store.clear();
     io.to(CHAT_ROOM).emit('chat:cleared');
+  });
+
+  // The GM sends one of his settings to every device (a one-time push; each person can change it again afterwards).
+  on('settings:force', { gmOnly: true }, ({ key, value }) => {
+    const clean = cleanSetting(key, value);
+    if (clean == null) throw new AppError('bad_value', 'That is not a valid value for this setting.');
+    io.emit('setting:forced', { key, value: clean });
   });
 
   // Takes back what an effect card did (an applied attack, the start of a turn, a crafted spell).

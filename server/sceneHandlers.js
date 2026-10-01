@@ -22,6 +22,7 @@ import { T } from '../shared/localization.js';
 export function registerSceneHandlers(ctx) {
   const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, shared, rooms } = ctx;
   const targets = shared.targets;
+  const areaTargets = shared.areaTargets;
   const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
 
   // --- helpers --------------------------------------------------------------
@@ -31,7 +32,7 @@ export function registerSceneHandlers(ctx) {
     const [stage, mode, battleState] = await Promise.all([
       scenes.buildStage(db, { forGm }),
       scenes.getMode(db),
-      battle.buildBattle(db, { forGm, targets, combat: shared.combat ?? null }),
+      battle.buildBattle(db, { forGm, targets, areaTargets, combat: shared.combat ?? null }),
     ]);
     return { ...stage, mode, battle: battleState };
   }
@@ -350,6 +351,7 @@ export function registerSceneHandlers(ctx) {
     await requireControl(characterId);
     if (p.tokenId == null) {
       targets.delete(characterId);
+      areaTargets.delete(characterId);
     } else {
       const token = await battle.getToken(db, p.tokenId);
       if (token.hidden && !isGm()) throw new AppError('not_found', 'That token is not on the map.');
@@ -360,6 +362,25 @@ export function registerSceneHandlers(ctx) {
       if (!set.delete(token.id)) set.add(token.id);
       if (set.size) targets.set(characterId, set);
       else targets.delete(characterId);
+    }
+    await broadcastStage();
+  });
+
+  // Targeting by area: picking an area is the same as picking every character in it (worked out when the attack is made, see
+  // battle.effectiveTargets). One tap selects the area, the next tap on it deselects it.
+  on('battle:target_area', { needsIdentity: true }, async (p) => {
+    const characterId = p.characterId;
+    await requireControl(characterId);
+    if (p.markId == null) {
+      areaTargets.delete(characterId);
+    } else {
+      const sceneId = await scenes.getActiveSceneId(db);
+      const mark = sceneId == null ? null : (await battle.listMarks(db, sceneId)).find((m) => m.id === p.markId && m.kind === 'template');
+      if (!mark) throw new AppError('not_found', 'That area is not on the map.');
+      const set = areaTargets.get(characterId) ?? new Set();
+      if (!set.delete(mark.id)) set.add(mark.id);
+      if (set.size) areaTargets.set(characterId, set);
+      else areaTargets.delete(characterId);
     }
     await broadcastStage();
   });
@@ -559,12 +580,14 @@ export function registerSceneHandlers(ctx) {
   on('mark:remove', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
     await battle.removeMark(db, p.id);
+    for (const set of areaTargets.values()) set.delete(p.id);
     await broadcastStage();
   });
   // "Clean" in the Draw and Area tools: the GM and the Display can wipe every drawing or area.
   on('mark:clear', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can clean the map.');
     await battle.clearMarks(db, p.kind);
+    if (p.kind !== 'draw') areaTargets.clear();
     await broadcastStage();
   });
   // The eraser: rubs out the parts of drawings within a small circle (x, y in picture fractions).

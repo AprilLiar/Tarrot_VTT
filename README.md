@@ -231,7 +231,8 @@ required to take any action in combat. (decided)
 **AP is shown as cubes** (decided after the first playtest): 4 cubes (2 for a Minion), each drawn as a wire-frame
 cube with all its corners; an **empty** cube is an AP the character does not have and a cube **filled with the UI
 colour** is one it has, filled from left to right. On the sheet, small arrow buttons beside the cubes lower and raise
-the amount; the Battle remote shows the cubes without arrows.
+the amount; the Battle remote shows the cubes without arrows. **Tapping a cube fills the AP up to it, including it**
+(an alternative to the arrows, on the sheet and on the Battle remote); it can never set 0, the arrows still do.
 
 ### Resources and defences
 Each character has current and max HP, Physical Defence and Mental Defence. All hand-entered.
@@ -443,11 +444,26 @@ Implemented behaviour (Phase 3):
   nothing. Pending offers are held in server memory and are lost on restart. The GM's Send moves
   an item between any two characters at once, with no confirmation.
 
+### Small interface rules (decided)
+- **Icon:** the web service has an icon (a wooden box of Tarrot cards): `client/public/favicon-32.png`, `icon-192.png`
+  and `apple-touch-icon.png` (on the interface's dark colour), linked from `client/index.html`.
+- **Drop-down menus** are dark with light text, in the interface's colours (`color-scheme: dark` and styled options), not
+  the browser's light list.
+- **Buttons on a PC:** the Spontaneous Action button is compact (full width only on a phone); the target pickers lay the
+  characters or areas out **three per row** on a PC.
+
 ### Settings and languages (implemented)
 Decided:
 - **Settings** are local to the device (browser storage, like the remembered identity) and reached with
   a **Settings** button on the picker (the login screen), before anyone is chosen. On the Display the
-  way there is Switch, then Settings. They hold one setting for now: the **language**.
+  way there is Switch, then Settings. The GM also has a **Settings** button in the top bar (a dialog with the same
+  settings). They hold two settings: the **language** and the **Deadzone** of the Area tool (below).
+- **Apply to everyone (decided):** next to every setting the GM (and only the GM, never on the picker) has an **Apply to
+  everyone** button: a **one-time push** of the GM's current value to every connected device (the server relays it,
+  `settings:force`; it is validated). Each device stores it like a value it had chosen itself and can change it again
+  afterwards; devices that are offline do not get it. Every setting, now and later, is wrapped in the same row component
+  (`SettingRow`), which carries the button; `shared/settings.js` lists the settings the server accepts.
+- **Deadzone of the Area tool:** 1.1x to 3x in steps of 0.1, default 1.5x (`tarrot.deadzone`).
 - **Languages:** English and Russian. A first visit uses the browser's language (Russian if it starts
   with "ru", otherwise English); the choice is then remembered (`tarrot.lang`). Everything a person
   reads is translated: the interface, the game terms (stats, skills, statuses and their rule text,
@@ -586,6 +602,18 @@ Decided:
   - **Area:** circle, cone (90 degrees), **arc** (a 180 degree cone), line and square templates sized
     in squares (with up and down arrows to the right of the number field, usable on a touch
     screen) and rotated by dragging; **Clean** removes all areas.
+  - **Deadzone (decided):** while an area is dragged, everything farther than the **Deadzone factor** (setting, default
+    1.5, 1.1 to 3) times the area's size in squares from where the drag began is drawn **striped and half transparent**
+    (the same circle for every shape, measured from the area's origin: the centre of a circle or square, the tip of a
+    cone, arc or line). **Letting go inside the Deadzone cancels** the area; the area is drawn faded while the pointer
+    is in it.
+  - **Names (decided):** every area gets a static name when it is created, **Type (Number)**, for example `Arc (3)`: the
+    shape (Circle, Cone, Arc, Line, Square) and a number per shape on that Battle map. The first of a shape is (1); a
+    new one is the **largest number of that shape still on the map plus 1**. A name never changes: with every other Arc
+    deleted, Arc (7) stays Arc (7). Clean (all areas deleted) starts again at 1. The name is written on the map at the
+    area's origin, for everyone. (Areas drawn before names existed were numbered once, in the order they were drawn.)
+  - **Highlight while drawing (decided):** while an area is being dragged, the characters that would be inside it get a
+    noticeable cyan glow; it disappears when the area is created (or cancelled).
   - **Erase:** click any drawing or area to remove it whole.
   - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
     Display alike (a decision of mine: they share the same tools).
@@ -648,8 +676,17 @@ Decided:
   as it will be applied (read only).
 - **Targets:** the player chooses them. On the Battle remote a tap on a character selects it and a
   second tap deselects it, so any number of characters can be selected (each shows a pulsing ring on
-  the map); "Clear targets" deselects all. The GM cannot change the targets on the card. An area spell
-  hits whoever the player selected (no automatic pick from drawn areas). A temp NPC has no sheet, so
+  the map); "Clear targets" deselects all. The GM cannot change the targets on the card. Wherever a
+  character picker is shown (the Battle remote, the Targets of the Arcane tab) it has a **two-halved switch,
+  Individual | Area**: pressing anywhere on it switches; the chosen half is in the interface colour, the other half is
+  white. **Individual** works as described above. **Area** lists the areas drawn on the map by name, each with the names
+  of the characters inside it (for information); tapping an area selects it, tapping again deselects it. **Picking an
+  area is, in the backend, exactly picking every character in it, worked out live when the attack is made** (so whoever
+  is inside at that moment is hit); several areas and individual picks can be mixed and a character counts once. A
+  character is in an area when the **centre of its token** is inside it, with a small bias towards including more:
+  the centre may be up to **0.25 of a square outside the edge** (`shared/templates.js`). Hidden tokens are never listed
+  for players but the server includes them. Props are not characters. The rings on the map show the characters of
+  picked areas as targeted. A temp NPC has no sheet, so
   its Defence is a fixed **10** (my default, open to change).
 - **The roll card in the chat** shows a roll made against something as two large numbers: the
   **Attack Value** and the **Target Value** (the Defence being rolled against; with several
@@ -800,7 +837,9 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   player cannot change the chain and sees none (drafts and spells).
 - **Compendium drawer:** all saved spells (drafts) with name, description and a visual snapshot of the
   scheme; filters: any number of stones of chosen Zodiacs used, and a search over names and
-  descriptions. From it a spell can be **edited** (loaded into the editor) or **crafted**.
+  descriptions. From it a spell can be **edited** (loaded into the editor) or **crafted**. The snapshot of the scheme on
+  a draft's card shows the **blue note badge on the stones that have a note, and tapping such a stone shows its note
+  right there** (any click closes it), without opening the editor. (decided)
 - **Craft:** shows the needed stones and counts and the notes; only possible with enough stones. It
   spends the stones, adds a Created Spell, and makes a **Magic roll** (d20 + Magic Mastery +
   Experience Modifier) posted to the chat, against nothing, only for the GM to judge the crafter's skill.
@@ -1028,7 +1067,7 @@ Battle (Phase 5a):
 - `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank, height)`:
   one token per owner per scene; `height` is the Spaces in the air; `bank` is the leftover Movement squares. Tokens keep whole-square
   positions and are clamped back onto the map when the grid changes.
-- `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)`.
+- `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)` (a template's data has `shape`, `x`, `y`, `size`, `angle`, `color` and its number `n`).
 - Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
 - Targets and the combat state are server memory only (`shared.targets`, `shared.combat`; see the Combat tracker).
 
@@ -1174,7 +1213,10 @@ Battle (Phase 5a):
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
   needs AP. `battle:target` `{ characterId, tokenId | null }`: toggles a token in the selected targets of a PC
-  (the GM or that PC's player), or clears them all with `null`.
+  (the GM or that PC's player), or clears all targets (tokens and areas) with `null`; `battle:target_area` `{ characterId,
+  markId | null }` toggles an area the same way (`null` clears the area picks). Area marks in `stage.battle.marks` carry
+  `n` (their number) and `targetedBy` (the characters that picked them). `settings:force` `{ key, value }` (GM only) is
+  relayed to every socket as `setting:forced` `{ key, value }`.
 
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.

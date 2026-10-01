@@ -463,7 +463,9 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await expect(again.getByTestId('attack-kind')).toHaveValue('fire');
   await again.getByLabel('Advantage levels').fill('2');
   await again.getByTestId('attack-advantage-set').click();
-  await expect(again.getByTestId('attack-dice')).toBeVisible();
+  // The card takes the new roll (3 dice now, and the levels field is reset) before it is applied.
+  await expect(again.getByTestId('attack-dice')).toContainText(/^Dice: \d+, \d+, \d+$/);
+  await expect(again.getByLabel('Advantage levels')).toHaveValue('0');
   await again.getByLabel('Attack total').fill('25');
   await again.getByTestId('attack-apply').click();
   await expect(again).toHaveCount(0);
@@ -681,6 +683,97 @@ test('a desktop player drags their own token and can set its height; the sheet h
   await ph.getByTestId('sheet-height').getByTestId('height-reset').click();
   await expect(token(gm, pc).getByTestId('token-height')).toHaveCount(0);
   await phoneCtx.close();
+  await gmCtx.close();
+});
+
+test('areas: named, lit up while drawn, cancelled in the Deadzone, and picked as targets for everyone inside', async ({ browser }) => {
+  const pc = `Mage-${uid()}`;
+  const npc = `Imp-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Zones-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+
+  const map = await gm.getByTestId('battle-map').boundingBox();
+  const centre = async (name) => {
+    const b = await token(gm, name).boundingBox();
+    return [b.x + b.width / 2, b.y + b.height / 2];
+  };
+  const [ix, iy] = await centre(npc);
+  await gm.getByTestId('tool-template').click();
+  await gm.getByTestId('template-shape').selectOption('circle');
+  await gm.getByTestId('template-size').fill('1');
+
+  // While the area is only being dragged, the characters that would be inside it are lit up; the Deadzone is striped.
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 10, iy, { steps: 3 });
+  await expect(token(gm, npc).getByTestId('token-in-area')).toHaveCount(1);
+  await expect(gm.getByTestId('deadzone')).toHaveAttribute('data-active', 'false');
+  // Far away (more than 1.5 x the size of the area): the Deadzone is active and nobody is lit.
+  await gm.mouse.move(ix + map.width * 0.3, iy, { steps: 6 });
+  await expect(gm.getByTestId('deadzone')).toHaveAttribute('data-active', 'true');
+  await expect(gm.getByTestId('token-in-area')).toHaveCount(0);
+  await gm.mouse.up();
+  await expect(gm.getByTestId('battle-template')).toHaveCount(0); // released in the Deadzone: cancelled
+
+  // Released outside it, the area is created with its name, and the highlight is gone.
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 10, iy, { steps: 3 });
+  await gm.mouse.up();
+  await expect(gm.getByTestId('battle-template')).toHaveCount(1);
+  await expect(gm.getByTestId('battle-template-name')).toHaveText('Circle (1)');
+  await expect(gm.getByTestId('token-in-area')).toHaveCount(0);
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 10, iy, { steps: 3 });
+  await gm.mouse.up();
+  await expect(gm.getByTestId('battle-template-name').last()).toHaveText('Circle (2)');
+
+  // The player switches the picker to Area and picks it: everyone inside is targeted.
+  await expect(p.getByTestId('target-mode')).toHaveAttribute('data-mode', 'individual');
+  await p.getByTestId('target-mode').click();
+  await expect(p.getByTestId('target-mode')).toHaveAttribute('data-mode', 'area');
+  const option = p.getByTestId('area-option').filter({ hasText: 'Circle (1)' });
+  await expect(option.getByTestId('area-members')).toContainText(npc);
+  await option.click();
+  await expect(option).toHaveAttribute('aria-pressed', 'true');
+  await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'true');
+  await option.click();
+  await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'false');
+
+  await ctx.close();
+  await gmCtx.close();
+});
+
+test('the GM can push a setting to every device', async ({ browser }) => {
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  const otherCtx = await phone(browser);
+  const other = await otherCtx.newPage();
+  await other.goto('/');
+  await expect(other.getByTestId('open-settings')).toBeVisible();
+  await gm.getByTestId('open-settings-gm').click();
+  await expect(gm.getByTestId('deadzone-value')).toHaveText('1.5x');
+  await gm.getByTestId('deadzone-range').fill('2.5');
+  await expect(gm.getByTestId('deadzone-value')).toHaveText('2.5x');
+  // Nothing changed elsewhere until the GM pushes it.
+  expect(await other.evaluate(() => localStorage.getItem('tarrot.deadzone'))).toBeNull();
+  await gm.getByTestId('force-deadzone').click();
+  await expect.poll(() => other.evaluate(() => localStorage.getItem('tarrot.deadzone'))).toBe('2.5');
+  // Only the GM has the buttons: the other device's Settings page has none.
+  await other.getByTestId('open-settings').click();
+  await expect(other.getByTestId('deadzone-value')).toHaveText('2.5x');
+  await expect(other.getByTestId('force-deadzone')).toHaveCount(0);
+  await otherCtx.close();
   await gmCtx.close();
 });
 
