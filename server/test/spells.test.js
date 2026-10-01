@@ -161,10 +161,37 @@ describe('crafting', () => {
   it('keeps the rune order and cleans up a scheme', async () => {
     const { p, id } = await setup();
     const scheme = { stones: [st('a', 'virgo'), st('a', 'leo'), { id: 'x', sign: 'nope' }], arrows: [ar('a', 'ghost')] };
-    const d = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'X', scheme, runes: ['3', '1', '2'] } })).sheet.spellDrafts[0];
+    const d = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'X', scheme, runes: ['fire', 'if', 'stone_aries'] } })).sheet.spellDrafts[0];
     expect(d.scheme).toEqual({ stones: [{ id: 'a', sign: 'virgo', note: '' }], arrows: [] });
-    expect(d.runes).toEqual(['3', '1', '2']);
+    expect(d.runes).toEqual(['fire', 'if', 'stone_aries']);
     expect((await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: ' ' } })).ok).toBe(false);
+  });
+});
+
+describe('rune chains', () => {
+  it('keeps only known runes, in the order typed, at most 99, and the same rune can repeat', async () => {
+    const { p, id } = await setup();
+    const many = Array.from({ length: 120 }, (_, i) => (i % 2 ? 'fire' : 'stone_taurus'));
+    const d = (await addDraft(p, id, good(), 'Long')).sheet.spellDrafts[0];
+    const r = await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: d.id, draft: { name: 'Long', scheme: good(), runes: ['if', 'nope', 'if', 7, 'stone_leo', ...many] } });
+    const runes = r.sheet.spellDrafts[0].runes;
+    expect(runes).toHaveLength(99);
+    expect(runes.slice(0, 3)).toEqual(['if', 'if', 'stone_leo']);
+    expect(runes.every((x) => typeof x === 'string' && x !== 'nope')).toBe(true);
+    expect(r.sheet.spellDrafts[0].runes).not.toContain('1');
+  });
+
+  it('a crafted spell shows the chain of its draft and follows later edits of the draft', async () => {
+    const { g, p, id } = await setup();
+    const draft = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'Fire Bolt', description: '', scheme: good(), runes: ['fire', 'then', 'stone_aries'] } })).sheet.spellDrafts[0];
+    for (const [sign, n] of Object.entries({ virgo: 3, libra: 1, taurus: 1, aries: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
+    await p.call('spell:craft', { characterId: id, draftId: draft.id });
+    expect((await sheetOf(g, id)).spells[0]).toMatchObject({ draftId: draft.id, runes: ['fire', 'then', 'stone_aries'] });
+    await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Fire Bolt', scheme: good(), runes: ['water'] } });
+    expect((await sheetOf(g, id)).spells[0].runes).toEqual(['water']);
+    // The spell keeps the last chain when its draft is deleted.
+    await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'remove', id: draft.id });
+    expect((await sheetOf(g, id)).spells[0].runes).toEqual(['water']);
   });
 });
 

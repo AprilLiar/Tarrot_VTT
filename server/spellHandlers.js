@@ -49,7 +49,7 @@ export function registerSpellHandlers(ctx) {
       }
       const uses = usesFor(draft.scheme);
       const id = randomUUID();
-      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START }, id), id };
+      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, draftId: draft.id, runes: draft.runes }, id), id };
       next.spells.push(spell);
       return sheets.normalizeSheet(next);
     });

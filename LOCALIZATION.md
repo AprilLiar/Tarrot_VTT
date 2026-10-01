@@ -26,6 +26,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Advantage | Преимущество |
 | Spontaneous Action | Спонтанное действие |
 | Edit | Изменить |
+| Clear | Очистить |
 | Close | Закрыть |
 | Cancel | Отмена |
 | Use Help Dice? | Использовать кубики помощи? |
@@ -137,9 +138,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove stone | Убрать камень |
 | Legal scheme | Схема допустима |
 | Illegal | Недопустимо |
-| Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
-| Move left | Сдвинуть влево |
-| Move right | Сдвинуть вправо |
+| Type the runes of the spell one after another, left to right. | Набирайте руны заклинания одну за другой, слева направо. |
 | Save changes | Сохранить изменения |
 | Save to Spell Drafts | Сохранить в черновики |
 | An illegal scheme is still saved as a draft, marked Illegal, but it cannot be crafted. | Недопустимая схема всё равно сохраняется как черновик с пометкой «Недопустимо», но создать по ней заклинание нельзя. |
@@ -195,6 +194,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add Manifestation | Добавить Проявление |
 | Delete Manifestation | Удалить Проявление |
 | Edit Manifestation | Изменить Проявление |
+| No runes yet. Open a category and tap a rune to add it. | Рун пока нет. Откройте категорию и нажмите на руну, чтобы добавить её. |
+| Backspace | Стереть последнюю |
+| Remove selected | Убрать выбранную |
+| Clear the runes | Очистить руны |
+| Remove every rune from the chain? | Убрать все руны из цепочки? |
 | Bases | Сборы |
 | Modifiers and Links | Модификаторы и связи |
 | Release | Форма |
@@ -458,7 +462,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Revert | Отменить |
 | vs | против |
 | Chat | Чат |
-| Clear | Очистить |
 | No messages yet. Rolls show up here. | Сообщений пока нет. Здесь появляются броски. |
 | Message | Сообщение |
 | Clear chat | Очистить чат |
@@ -870,6 +873,61 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Base | Сбор |
 | Modifier | Модификатор |
 | Link | Связь |
+| Logic | Логика |
+| If | Если |
+| Then | То |
+| Or | Или |
+| And | И |
+| Else | Иначе |
+| Equal to | Равно |
+| Greater than | Больше |
+| Less than | Меньше |
+| Not | Не |
+| Where | Где |
+| Properties | Свойства |
+| Force / Strength | Сила / Мощь |
+| Counteraction | Противодействие |
+| Weight | Вес |
+| Time | Время |
+| Space | Пространство |
+| Form / Shape | Форма / Облик |
+| Hardness | Твёрдость |
+| Pressure | Давление |
+| Consciousness | Сознание |
+| Temperature | Температура |
+| Emotion | Эмоция |
+| Control | Контроль |
+| Modifiers | Модификаторы |
+| Separation | Разделение |
+| Positive | Положительное |
+| Negative | Отрицательное |
+| Increase | Увеличение |
+| Decrease | Уменьшение |
+| Ignoring | Игнорирование |
+| Recognition | Распознавание |
+| Unification | Объединение |
+| Duration | Длительность |
+| Filling | Наполнение |
+| Targeting & Geometry | Цели и геометрия |
+| Avoidance | Уклонение |
+| Chance | Шанс |
+| Radius | Радиус |
+| Surround | Окружение |
+| Actions | Действия |
+| Transform | Преобразовать |
+| Find | Найти |
+| Enchant | Зачаровать |
+| Elements & Essences | Стихии и сущности |
+| Earth | Земля |
+| Energy | Энергия |
+| Life | Жизнь |
+| Light | Свет |
+| Metal | Металл |
+| Water | Вода |
+| Air | Воздух |
+| Wood / Tree | Дерево |
+| Darkness / Void | Тьма / Пустота |
+| Death | Смерть |
 | Bold and headlong: strike first and think later. | Смелость и напор: бей первым, думай потом. |
 | Patient and unshakable: hold the ground and outlast. | Терпение и непоколебимость: стой на месте и переживи всех. |
 | Quick and doubled: two moves where others make one. | Быстрота и двойственность: два движения там, где другие делают одно. |
@@ -1144,6 +1202,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
+| Move left | Сдвинуть влево |
+| Move right | Сдвинуть вправо |
 | {name} gains a Help Die (d{sides}). | {name} получает кубик помощи (d{sides}). |
 | {name} gains a Help Die (d{sides}) in place of a d{old}. | {name} получает кубик помощи (d{sides}) вместо d{old}. |
 | {name} holds too many Help Dice: the new d{sides} is lost. | У {name} слишком много кубиков помощи: новый d{sides} пропадает. |

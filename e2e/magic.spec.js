@@ -97,9 +97,38 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await p.getByTestId('spell-description').click();
   await expect(p.getByTestId('stone-note')).toHaveCount(0);
 
-  // The runes can be rearranged.
-  await p.getByTestId('rune').first().getByRole('button', { name: 'Move right' }).click();
-  await expect(p.getByTestId('rune').first()).toContainText('2');
+  // Spell Fine Tuning is typed: open a category, tap runes to append them to the chain.
+  await expect(p.getByTestId('rune')).toHaveCount(0);
+  await p.getByTestId('rune-category-logic').click();
+  await expect(p.getByTestId('rune-list').getByTestId(/rune-pick-/)).toHaveCount(10);
+  await p.getByTestId('rune-pick-if').click();
+  await p.getByTestId('rune-pick-then').click();
+  await p.getByTestId('rune-pick-if').click();
+  await p.getByTestId('rune-category-elements_essences').click();
+  await expect(p.getByTestId('rune-list').getByTestId(/rune-pick-/)).toHaveCount(11);
+  await p.getByTestId('rune-pick-fire').click();
+  await p.getByTestId('rune-category-spell_stones').click();
+  await p.getByTestId('rune-pick-stone_aries').click();
+  const chain = p.getByTestId('runes').getByTestId('rune');
+  await expect(chain).toHaveCount(5);
+  expect(await chain.evaluateAll((els) => els.map((e) => e.dataset.rune))).toEqual(['if', 'then', 'if', 'fire', 'stone_aries']);
+  await expect(p.getByTestId('rune-count')).toHaveText('5 / 99');
+  // Backspace removes the last rune; a tapped rune can be removed; Clear asks first.
+  await p.getByTestId('rune-backspace').click();
+  await expect(chain).toHaveCount(4);
+  await chain.nth(1).click();
+  await p.getByTestId('rune-remove').click();
+  expect(await chain.evaluateAll((els) => els.map((e) => e.dataset.rune))).toEqual(['if', 'if', 'fire']);
+  await p.getByTestId('rune-clear').click();
+  await p.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(chain).toHaveCount(3);
+  await p.getByTestId('rune-clear').click();
+  await p.getByRole('dialog').getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(chain).toHaveCount(0);
+  await p.getByTestId('rune-category-logic').click();
+  await p.getByTestId('rune-pick-if').click();
+  await p.getByTestId('rune-pick-and').click();
+  await p.getByTestId('rune-pick-or').click();
 
   await p.getByTestId('spell-save').click();
 
@@ -112,6 +141,7 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await expect(p.getByTestId('draft')).toHaveCount(2);
   await expect(p.getByTestId('draft').filter({ hasText: 'Broken' }).getByTestId('draft-illegal')).toBeVisible();
   await expect(p.getByTestId('draft').filter({ hasText: 'Fire Bolt' }).getByTestId('draft-illegal')).toHaveCount(0);
+  await expect(p.getByTestId('draft').filter({ hasText: 'Fire Bolt' }).getByTestId('draft-runes').getByTestId('rune')).toHaveCount(3);
 
   // Filters: by name, and by the stones used.
   await p.getByTestId('draft-search').fill('fire');
@@ -134,6 +164,8 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   const spell = p.getByTestId('spell').filter({ hasText: 'Fire Bolt' });
   await expect(spell).toContainText('Uses 5/5');
   await expect(spell).toContainText('Stabilization 10');
+  // The chain is featured under the description of the finished spell.
+  await expect(spell.getByTestId('spell-runes').getByTestId('rune')).toHaveCount(3);
   await p.getByTestId('magic-stones').click();
   await expect(p.getByTestId('stone-count-virgo')).toHaveValue('0');
 

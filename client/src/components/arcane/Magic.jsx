@@ -7,9 +7,10 @@ import { SchemeView } from './SchemeView.jsx';
 import { DamageIcon, ICON_KEYS } from './DamageIcon.jsx';
 import { EffectEditor, enhancementToForm, enhancementValid, formToEnhancement, formToWeapon, isNum, weaponToForm, weaponValid } from './editors.jsx';
 import { weaponSummary, enhancementSummary } from './summaries.js';
-import { KINDS, KIND_COLORS, MAX_NOTE, MAX_STONE_COUNT, RUNES, STONES, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
+import { KINDS, KIND_COLORS, MAX_NOTE, MAX_STONE_COUNT, STONES, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
 import * as D from '../../../../shared/rules-data.js';
 import { Lockable } from './Locks.jsx';
+import { RuneChain, RuneEditor } from './Runes.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The Magic tab: Spell Stones, the scheme editor, the compendium of saved drafts, and finished spells.
@@ -18,7 +19,7 @@ const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
 const label = 'flex flex-col gap-1 text-sm';
 const newId = () => crypto.randomUUID().slice(0, 8);
-export const emptyWork = () => ({ id: null, name: '', description: '', scheme: { stones: [], arrows: [] }, runes: [...RUNES] });
+export const emptyWork = () => ({ id: null, name: '', description: '', scheme: { stones: [], arrows: [] }, runes: [] });
 
 // A stone as a small round button with its ring, used in the palette and the filters.
 function StoneChip({ sign, size = 44, ...rest }) {
@@ -144,12 +145,6 @@ function Editor({ s, work, setWork }) {
     setShown(null);
   }
 
-  const moveRune = (i, d) => {
-    const runes = [...work.runes];
-    [runes[i], runes[i + d]] = [runes[i + d], runes[i]];
-    setWork({ ...work, runes });
-  };
-
   async function save() {
     setBusy(true);
     const payload = { name: work.name.trim(), description: work.description, scheme, runes: work.runes };
@@ -242,20 +237,8 @@ function Editor({ s, work, setWork }) {
       <Lockable id="fine_tuning">
       <section aria-label={t('Spell Fine Tuning')} className={card}>
         <h3 className={heading}>{t('Spell Fine Tuning')}</h3>
-        <p className="mb-2 text-xs opacity-50">{t('Runes are a placeholder for now: put them in the order you want.')}</p>
-        <div className="flex gap-2" data-testid="runes">
-          {work.runes.map((r, i) => (
-            <div key={r} className="flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1" data-testid="rune">
-              <button className="h-8 w-8 rounded bg-white/10 disabled:opacity-30" disabled={i === 0} aria-label={t('Move left')} onClick={() => moveRune(i, -1)}>
-                &lt;
-              </button>
-              <span className="w-6 text-center text-lg">{r}</span>
-              <button className="h-8 w-8 rounded bg-white/10 disabled:opacity-30" disabled={i === work.runes.length - 1} aria-label={t('Move right')} onClick={() => moveRune(i, 1)}>
-                &gt;
-              </button>
-            </div>
-          ))}
-        </div>
+        <p className="mb-2 text-xs opacity-50">{t('Type the runes of the spell one after another, left to right.')}</p>
+        <RuneEditor runes={work.runes} onChange={(runes) => setWork({ ...work, runes })} />
       </section>
       </Lockable>
 
@@ -328,6 +311,7 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
             </div>
             {d.description && <p className="whitespace-pre-wrap text-sm opacity-70">{d.description}</p>}
             <SchemeView scheme={d.scheme} mini />
+            <RuneChain runes={d.runes} size={28} testId="draft-runes" />
             <div className="mt-2 flex flex-wrap gap-2">
               <button className={btn} data-testid="draft-edit" onClick={() => { setWork({ id: d.id, name: d.name, description: d.description, scheme: d.scheme, runes: d.runes }); goEditor(); }}>
                 {t('Edit')}
@@ -412,6 +396,11 @@ function Spells({ s, draft, setDraft }) {
               </div>
             </div>
             {sp.description && <p className="mt-1 whitespace-pre-wrap text-sm opacity-70">{sp.description}</p>}
+            {sp.runes.length > 0 && (
+              <div className="mt-2 rounded-xl bg-black/30 px-2" data-testid="spell-runes">
+                <RuneChain runes={sp.runes} size={44} />
+              </div>
+            )}
             <p className="mt-1 text-xs opacity-70">{isWeapon ? `${t('Weapon')}: ${weaponSummary(sp.effect.weapon, t)}` : `${t('Enhancement')}: ${enhancementSummary(sp.effect.enhancement, s.sheet.items, t)}`}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {!sp.destroyed &&

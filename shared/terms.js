@@ -1,6 +1,7 @@
 import * as D from './rules-data.js';
 import { spellTermKeys } from './spells.js';
 import { stanceTermKeys } from './stances.js';
+import { runeTermKeys } from './runes.js';
 
 // Every piece of text that comes from data instead of a t("...") call in the code: game terms and the
 // roll titles built from them. LOCALIZATION.md needs a row for each; server/test/localization.test.js
@@ -41,6 +42,7 @@ export function termKeys() {
   }
   add('Weapon Attack Roll');
   for (const k of spellTermKeys()) add(k);
+  for (const k of runeTermKeys()) add(k);
   for (const k of stanceTermKeys()) add(k);
   add('Initiative (Speed)');
   // The compass points on the D-pad of the phone remote.
