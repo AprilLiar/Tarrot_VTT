@@ -4,6 +4,7 @@ import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
 import { stepCost, planMove, cleanMark } from '../battle.js';
 import { gridSize } from '../scenes.js';
+import * as battleLib from '../battle.js';
 
 describe('movement maths', () => {
   it('straight steps cost 1 and diagonals alternate 1 and 2', () => {
@@ -93,6 +94,7 @@ beforeEach(async () => {
     'write',
   );
   server.shared.targets.clear();
+  server.shared.areaTargets.clear();
   server.shared.combat = null;
 });
 
@@ -532,6 +534,69 @@ describe('the eraser', () => {
     const r = await g.call('mark:add', { kind: 'template', data: { shape: 'arc', x: 3, y: 2, size: 3, angle: 0, color: '#00aaff' } });
     expect(r.ok).toBe(true);
     expect((await stageOf(g)).battle.marks[0].shape).toBe('arc');
+  });
+});
+
+describe('named areas and area targeting', () => {
+  const area = (shape, x, y, size = 2) => ({ kind: 'template', data: { shape, x, y, size, angle: 0, color: '#00aaff' } });
+  const names = async (g) => (await stageOf(g)).battle.marks.filter((m) => m.kind === 'template').map((m) => `${m.shape} ${m.n}`);
+
+  it('numbers each shape from 1, one above the largest still there, and never renumbers', async () => {
+    const g = await gm();
+    await battleScene(g);
+    for (const a of [area('arc', 3, 2), area('cone', 3, 2), area('arc', 5, 2), area('arc', 7, 2)]) await g.call('mark:add', a);
+    expect(await names(g)).toEqual(['arc 1', 'cone 1', 'arc 2', 'arc 3']);
+    const marks = (await stageOf(g)).battle.marks;
+    await g.call('mark:remove', { id: marks[0].id }); // Arc 1
+    await g.call('mark:remove', { id: marks[2].id }); // Arc 2
+    expect(await names(g)).toEqual(['cone 1', 'arc 3']); // Arc 3 stays Arc 3
+    await g.call('mark:add', area('arc', 2, 2));
+    expect(await names(g)).toEqual(['cone 1', 'arc 3', 'arc 4']);
+    await g.call('mark:clear', { kind: 'template' });
+    await g.call('mark:add', area('arc', 2, 2));
+    expect(await names(g)).toEqual(['arc 1']); // nothing left: the first again
+  });
+
+  it('picking an area picks everyone inside it, live, and the tokens show as targeted', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const make = async (name, type) => {
+      const id = (await g.call('character:create', { name, type })).id;
+      await g.call('picture:add', { characterId: id, data: png() });
+      return { id, token: (await g.call('battle:add', { characterId: id })).id };
+    };
+    const aria = await make('Aria', 'pc');
+    const orc = await make('Orc', 'npc');
+    const imp = await make('Imp', 'npc');
+    const p = await player(aria.id);
+    const place = (who, col, row) => g.call('battle:place', { id: who.token, col, row });
+    await place(aria, 0, 0);
+    await place(orc, 4, 2);
+    await place(imp, 9, 4);
+    await g.call('mark:add', area('circle', 4.5, 2.5, 2)); // centred on the Orc's square, two squares around
+    const mark = (await stageOf(g)).battle.marks[0];
+    expect(await p.call('battle:target_area', { characterId: aria.id, markId: 9999 })).toMatchObject({ ok: false, code: 'not_found' });
+    expect((await p.call('battle:target_area', { characterId: aria.id, markId: mark.id })).ok).toBe(true);
+    const stage = (await stageOf(p)).battle;
+    expect(stage.marks[0].targetedBy).toEqual([aria.id]);
+    expect(stage.tokens.filter((t) => t.targetedBy.includes(aria.id)).map((t) => t.name)).toEqual(['Orc']);
+    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([orc.token]);
+    // Someone walks in: the area is live, no new pick is needed.
+    await place(imp, 5, 3);
+    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, imp.token].sort());
+    // Picking the Orc by hand as well changes nothing (each target counts once); a second tap on the area drops it.
+    await p.call('battle:target', { characterId: aria.id, tokenId: orc.token });
+    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, imp.token].sort());
+    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
+    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([orc.token]);
+    // Clear targets clears both kinds; erasing an area drops it from every pick.
+    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
+    await p.call('battle:target', { characterId: aria.id, tokenId: null });
+    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([]);
+    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
+    await g.call('mark:remove', { id: mark.id });
+    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([]);
+    expect(await p.call('battle:target_area', { characterId: aria.id, markId: null })).toMatchObject({ ok: true });
   });
 });
 

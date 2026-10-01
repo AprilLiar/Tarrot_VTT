@@ -51,9 +51,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | PC | Игрок |
 | NPC | НПС |
 | Delete | Удалить |
-| Back | Назад |
-| These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
+| Sent to everyone. | Отправлено всем. |
+| Set this for everyone, to the value you have now | Установить это всем на текущее значение |
+| Apply to everyone | Применить ко всем |
 | Language | Язык |
+| Deadzone of the Area tool | Мёртвая зона инструмента «Область» |
+| While dragging a new area, the striped Deadzone starts this many times the size of the area away from where you pressed. Letting go inside it cancels the area. | При создании области полосатая мёртвая зона начинается на столько размеров области от места нажатия. Отпустите кнопку внутри неё, чтобы отменить создание. |
+| These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
+| Back | Назад |
 | Characters | Персонажи |
 | Scene | Сцена |
 | Arcane | Аркана |
@@ -282,6 +287,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Cost: {list} | Цена: {list} |
 | Effect: {list} | Эффект: {list} |
 | Roll {n} | Бросок {n} |
+| Circle | Круг |
+| Cone | Конус |
+| Arc | Дуга |
+| Line | Линия |
+| Square | Квадрат |
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
@@ -324,11 +334,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Attack | Атака |
 | Send | Отправить |
 | Picture | Картинка |
+| Area | Область |
 | Pictures | Картинки |
 | Battle | Бой |
 | Less AP | Меньше ОД |
 | More AP | Больше ОД |
 | AP: {current} of {max} | ОД: {current} из {max} |
+| Set AP to {n} | Установить ОД: {n} |
 | You cannot move there. | Туда нельзя переместиться. |
 | Battle controls | Управление в бою |
 | Roll Initiative | Бросить инициативу |
@@ -436,8 +448,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add a picture below first. | Сначала добавьте картинку ниже. |
 | Join the stage | Выйти на сцену |
 | Choose a picture | Выберите картинку |
+| Targeting: Individual or Area | Выбор целей: по одному или областью |
+| Individual | По одному |
 | Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
 | Nobody else is on the map. | На карте больше никого нет. |
+| Areas (picking one targets everyone inside it) | Области (выбор области выбирает всех внутри неё) |
+| There are no areas on the map. Draw one with the Area tool. | На карте нет областей. Нарисуйте её инструментом «Область». |
+| Nobody inside | Внутри никого |
 | Clear targets | Снять все цели |
 | Normal | Обычный |
 | Roll: {title} | Бросок: {title} |
@@ -523,7 +540,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Draw | Рисовать |
 | Ping | Метка |
 | Ruler | Линейка |
-| Area | Область |
 | Erase | Стереть |
 | Grid on | Сетка: вкл. |
 | Grid off | Сетка: выкл. |
@@ -538,11 +554,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Press and drag to draw. | Нажмите и ведите, чтобы рисовать. |
 | Clean | Очистить всё |
 | Shape | Форма |
-| Circle | Круг |
-| Cone | Конус |
-| Arc | Дуга |
-| Line | Линия |
-| Square | Квадрат |
 | Squares | Клеток |
 | Template size | Размер области |
 | More squares | Больше клеток |
@@ -1084,6 +1095,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That item no longer exists. | Этого предмета больше нет. |
 | That offer is no longer available. | Это предложение больше недоступно. |
 | Only the receiving player can answer. | Ответить может только получающий игрок. |
+| That is not a valid value for this setting. | Недопустимое значение для этой настройки. |
 | Those Help Dice are not available. | Эти кубики помощи недоступны. |
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
@@ -1113,6 +1125,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That token is not on the active map. | Этой фишки нет на активной карте. |
 | You cannot move that. | Вы не можете это двигать. |
 | That token is not on the map. | Этой фишки нет на карте. |
+| That area is not on the map. | Этой области нет на карте. |
 | There is no combat. | Боя нет. |
 | A combat is already running. | Бой уже идёт. |
 | You cannot roll for that. | Вы не можете бросать за него. |

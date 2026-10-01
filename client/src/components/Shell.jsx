@@ -7,6 +7,8 @@ import { AttackInbox } from './AttackCard.jsx';
 import MusicBar from '../music/MusicBar.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
 import { useT } from '../i18n.jsx';
+import { SettingsBody } from './Settings.jsx';
+import { useState } from 'react';
 
 // Top bar shown once an identity is chosen: who you are, connection state,
 // and the way back to the picker. Also hosts the chat, toasts and incoming
@@ -19,6 +21,7 @@ export default function Shell({ children }) {
   const label = isGm ? t('Game Master') : (pc?.name ?? '...');
   const offer = offers[0];
   const desktop = useIsDesktop();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // The GM can view the scene on any device; players only on a desktop (phones stay on the controls).
   const links = isGm
     ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')], ['/arcane', 'Arcane', t('Arcane')]]
@@ -62,6 +65,18 @@ export default function Shell({ children }) {
             {t('Reconnecting...')}
           </span>
         )}
+        {isGm && (
+          <button data-testid="open-settings-gm" aria-label={t('Settings')} title={t('Settings')} className="flex min-h-11 shrink-0 items-center rounded-lg bg-white/10 px-3 text-sm active:bg-white/20" onClick={() => setSettingsOpen(true)}>
+            {/* On a narrow screen only the sliders icon, so the top bar still fits. */}
+            <svg className="sm:hidden" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M2 4h14M2 9h14M2 14h14" />
+              <circle cx="6" cy="4" r="1.8" fill="currentColor" />
+              <circle cx="12" cy="9" r="1.8" fill="currentColor" />
+              <circle cx="7" cy="14" r="1.8" fill="currentColor" />
+            </svg>
+            <span className="hidden sm:inline">{t('Settings')}</span>
+          </button>
+        )}
         <button
           data-testid="switch-identity"
           className="min-h-11 rounded-lg bg-white/10 px-3 text-sm active:bg-white/20"
@@ -71,6 +86,12 @@ export default function Shell({ children }) {
         </button>
       </header>
       <div className="flex-1">{children}</div>
+
+      {settingsOpen && (
+        <Dialog title={t('Settings')} onClose={() => setSettingsOpen(false)}>
+          <SettingsBody />
+        </Dialog>
+      )}
 
       <ChatPanel />
       {isGm && <AttackInbox />}

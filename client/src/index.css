@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 html, body, #root { height: 100%; }
+/* Native controls (the lists of drop-downs, number spinners) come out dark, like the interface. */
+:root { color-scheme: dark; }
+select option, select optgroup { background-color: #1a1626; color: #e8e4f0; }
 body { margin: 0; background: #0f0d14; color: #e8e4f0; }
 
 /* Scroll bars in the colours of the interface, everywhere. */

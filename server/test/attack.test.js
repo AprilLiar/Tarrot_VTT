@@ -59,39 +59,54 @@ describe('areas', () => {
 
   it('a circle takes the tokens within its radius', () => {
     const t = { shape: 'circle', ...centre(4, 2), size: 2, angle: 0 };
-    expect(tokenInTemplate(t, tok(4, 2), grid, aspect)).toBe(true);
-    expect(tokenInTemplate(t, tok(6, 2), grid, aspect)).toBe(true); // exactly 2 squares away
-    expect(tokenInTemplate(t, tok(7, 2), grid, aspect)).toBe(false);
-    expect(tokenInTemplate(t, tok(4, 0), grid, aspect)).toBe(true);
+    expect(tokenInTemplate(t, tok(4, 2), grid, aspect, 0)).toBe(true);
+    expect(tokenInTemplate(t, tok(6, 2), grid, aspect, 0)).toBe(true); // exactly 2 squares away
+    expect(tokenInTemplate(t, tok(7, 2), grid, aspect, 0)).toBe(false);
+    expect(tokenInTemplate(t, tok(4, 0), grid, aspect, 0)).toBe(true);
   });
 
   it('a square is centred on its point', () => {
     const t = { shape: 'square', ...centre(4, 2), size: 2, angle: 0 };
-    expect(tokenInTemplate(t, tok(5, 3), grid, aspect)).toBe(true);
-    expect(tokenInTemplate(t, tok(6, 2), grid, aspect)).toBe(false);
+    expect(tokenInTemplate(t, tok(5, 3), grid, aspect, 0)).toBe(true);
+    expect(tokenInTemplate(t, tok(6, 2), grid, aspect, 0)).toBe(false);
   });
 
   it('an arc is a 180 degree half circle', () => {
     const t = { shape: 'arc', ...centre(4, 2), size: 3, angle: 0 };
-    expect(tokenInTemplate(t, tok(6, 2), grid, aspect)).toBe(true);
-    expect(tokenInTemplate(t, tok(5, 4), grid, aspect)).toBe(true); // 45 degrees down
-    expect(tokenInTemplate(t, tok(4, 4), grid, aspect)).toBe(true); // straight down: the edge of the half circle
-    expect(tokenInTemplate(t, tok(3, 2), grid, aspect)).toBe(false); // behind
-    expect(tokenInTemplate(t, tok(8, 2), grid, aspect)).toBe(false); // too far
+    expect(tokenInTemplate(t, tok(6, 2), grid, aspect, 0)).toBe(true);
+    expect(tokenInTemplate(t, tok(5, 4), grid, aspect, 0)).toBe(true); // 45 degrees down
+    expect(tokenInTemplate(t, tok(4, 4), grid, aspect, 0)).toBe(true); // straight down: the edge of the half circle
+    expect(tokenInTemplate(t, tok(3, 2), grid, aspect, 0)).toBe(false); // behind
+    expect(tokenInTemplate(t, tok(8, 2), grid, aspect, 0)).toBe(false); // too far
   });
 
   it('a line runs one square wide in its direction', () => {
     const t = { shape: 'line', ...centre(1, 2), size: 4, angle: 0 };
-    expect(tokensInTemplate(t, [tok(2, 2), tok(5, 2), tok(6, 2), tok(3, 3)], grid, aspect).map((x) => x.col)).toEqual([2, 5]);
+    expect(tokensInTemplate(t, [tok(2, 2), tok(5, 2), tok(6, 2), tok(3, 3)], grid, aspect, 0).map((x) => x.col)).toEqual([2, 5]);
   });
 
   it('a cone is a 90 degree wedge', () => {
     const t = { shape: 'cone', ...centre(1, 2), size: 4, angle: 0 };
-    expect(tokenInTemplate(t, tok(4, 2), grid, aspect)).toBe(true);
-    expect(tokenInTemplate(t, tok(3, 4), grid, aspect)).toBe(true); // 45 degrees down
-    expect(tokenInTemplate(t, tok(2, 4), grid, aspect)).toBe(false); // steeper than 45
-    expect(tokenInTemplate(t, tok(0, 2), grid, aspect)).toBe(false); // behind
-    expect(tokenInTemplate({ ...t, angle: 90 }, tok(1, 4), grid, aspect)).toBe(true);
+    expect(tokenInTemplate(t, tok(4, 2), grid, aspect, 0)).toBe(true);
+    expect(tokenInTemplate(t, tok(3, 4), grid, aspect, 0)).toBe(true); // 45 degrees down
+    expect(tokenInTemplate(t, tok(2, 4), grid, aspect, 0)).toBe(false); // steeper than 45
+    expect(tokenInTemplate(t, tok(0, 2), grid, aspect, 0)).toBe(false); // behind
+    expect(tokenInTemplate({ ...t, angle: 90 }, tok(1, 4), grid, aspect, 0)).toBe(true);
+  });
+
+  it('is slightly biased towards counting more tokens: a centre up to a quarter square outside still counts', () => {
+    const circle = { shape: 'circle', ...centre(4, 2), size: 2, angle: 0 };
+    // A token centred 2.2 squares away: out with no margin, in with the default.
+    const near = { col: 6.2, row: 2, size: 1 };
+    expect(tokenInTemplate(circle, near, grid, aspect, 0)).toBe(false);
+    expect(tokenInTemplate(circle, near, grid, aspect)).toBe(true);
+    expect(tokenInTemplate(circle, { col: 6.6, row: 2, size: 1 }, grid, aspect)).toBe(false); // 2.6: too far
+    const cone = { shape: 'cone', ...centre(2, 2), size: 4, angle: 0 };
+    expect(tokenInTemplate(cone, { col: 4, row: 4.2, size: 1 }, grid, aspect)).toBe(true); // just outside the wedge edge
+    expect(tokenInTemplate(cone, { col: 3, row: 4, size: 1 }, grid, aspect)).toBe(false); // clearly outside
+    const line = { shape: 'line', ...centre(1, 2), size: 4, angle: 0 };
+    expect(tokenInTemplate(line, { col: 3, row: 2.7, size: 1 }, grid, aspect)).toBe(true); // 0.7 square beside a 1 wide line
+    expect(tokenInTemplate(line, { col: 3, row: 3.2, size: 1 }, grid, aspect)).toBe(false);
   });
 });
 

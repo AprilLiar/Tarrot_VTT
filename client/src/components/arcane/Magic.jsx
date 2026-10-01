@@ -273,6 +273,21 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
   const [signs, setSigns] = useState([]);
   const [craft, setCraft] = useState(null);
   const [remove, setRemove] = useState(null);
+  // A stone with a note can be tapped right on the draft's card to read the note; any click closes it again.
+  const [shown, setShown] = useState(null); // { draft, stone }
+  const justClosed = useRef(false);
+  useEffect(() => {
+    if (shown == null) return undefined;
+    const close = () => {
+      justClosed.current = true;
+      setShown(null);
+      setTimeout(() => {
+        justClosed.current = false;
+      }, 0);
+    };
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
+  }, [shown]);
   const q = query.trim().toLowerCase();
   const list = s.sheet.spellDrafts.filter((d) => {
     if (signs.some((sign) => !d.scheme.stones.some((x) => x.sign === sign))) return false;
@@ -310,7 +325,7 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
               )}
             </div>
             {d.description && <p className="whitespace-pre-wrap text-sm opacity-70">{d.description}</p>}
-            <SchemeView scheme={d.scheme} mini />
+            <SchemeView scheme={d.scheme} mini noteOpen={shown?.draft === d.id ? shown.stone : null} onStone={(id) => setShown(justClosed.current ? null : { draft: d.id, stone: id })} />
             <RuneChain runes={d.runes} size={28} testId="draft-runes" />
             <div className="mt-2 flex flex-wrap gap-2">
               <button className={btn} data-testid="draft-edit" onClick={() => { setWork({ id: d.id, name: d.name, description: d.description, scheme: d.scheme, runes: d.runes }); goEditor(); }}>

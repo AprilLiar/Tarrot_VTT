@@ -9,7 +9,7 @@ const R = 27; // radius of a stone
 // arrows between the stones. It is only a drawing: the parent decides what a tap means.
 //   selected / source: highlighted stones; noteOpen: the stone whose note is shown
 //   onStone(id), onStoneTwice(id): a tap and a quick second tap on a stone
-//   mini: the small snapshot shown in the compendium (no labels, not clickable)
+//   mini: the small snapshot shown in the compendium (no labels); only the stones with a note can be tapped, to show it
 export function SchemeView({ scheme, selected = null, source = null, noteOpen = null, onStone, onStoneTwice, mini = false }) {
   const t = useT();
   const uid = useId().replace(/:/g, '');
@@ -76,8 +76,8 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
             data-sign={s.sign}
             data-note={hasNote ? 'true' : 'false'}
             data-selected={selected === s.id || source === s.id ? 'true' : 'false'}
-            style={mini ? { pointerEvents: 'none' } : { cursor: 'pointer' }}
-            onClick={mini ? undefined : () => tap(s.id)}
+            style={mini && !(hasNote && onStone) ? { pointerEvents: 'none' } : { cursor: 'pointer' }}
+            onClick={mini ? (hasNote && onStone ? () => onStone(s.id) : undefined) : () => tap(s.id)}
           >
             {hasNote && <circle r={R + 2} fill="#3b82f6" filter={`url(#${uid}-g)`} opacity="0.95" />}
             <circle r={R} fill="#14111d" stroke={color} strokeWidth="4" />
@@ -85,7 +85,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
             <text textAnchor="middle" dominantBaseline="central" fontSize="30" fill="#f8fafc">
               {info.glyph}
             </text>
-            {hasNote && !mini && (
+            {hasNote && (
               <g transform={`translate(${R - 4} ${-R + 4})`} data-testid="stone-note-badge">
                 <circle r="10" fill="#3b82f6" />
                 <text textAnchor="middle" dominantBaseline="central" fontSize="13" fill="#fff">
@@ -96,7 +96,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
           </g>
         );
       })}
-      {noteOpen && byId.get(noteOpen)?.note.trim() && !mini && (
+      {noteOpen && byId.get(noteOpen)?.note.trim() && (
         <foreignObject x={Math.min(pos.get(noteOpen).x * C + R - 4, width * C - 176)} y={Math.max(0, pos.get(noteOpen).y * C - R - 6)} width="170" height="120" style={{ overflow: 'visible' }}>
           <div className="rounded-lg border border-blue-400 bg-[#1e293b] p-2 text-xs text-white shadow-lg" data-testid="stone-note" xmlns="http://www.w3.org/1999/xhtml">
             {byId.get(noteOpen).note}

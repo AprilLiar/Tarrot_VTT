@@ -46,6 +46,12 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await expect(p.locator('[data-testid="ap-current"] [data-testid="ap-cube"][data-filled="true"]')).toHaveCount(2);
   await expect(p.locator('[data-testid="ap-current"] [data-testid="ap-cube"][data-filled="false"]')).toHaveCount(2);
   await p.getByTestId('ap-up').click();
+  // Tapping a cube fills the AP up to it, including it (the arrows are the way to 0).
+  await p.getByTestId('ap-current').getByTestId('ap-cube-set').nth(0).click();
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '1');
+  await p.getByTestId('ap-current').getByTestId('ap-cube-set').nth(3).click();
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '4');
+  await p.getByTestId('ap-down').click();
   await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '3');
 
   // The Defences have faint drawings behind them, and the stats and skills are tinted by their stats.
@@ -142,6 +148,13 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await expect(p.getByTestId('draft').filter({ hasText: 'Broken' }).getByTestId('draft-illegal')).toBeVisible();
   await expect(p.getByTestId('draft').filter({ hasText: 'Fire Bolt' }).getByTestId('draft-illegal')).toHaveCount(0);
   await expect(p.getByTestId('draft').filter({ hasText: 'Fire Bolt' }).getByTestId('draft-runes').getByTestId('rune')).toHaveCount(3);
+  // The stones that have a note show it on the draft's card too, without opening the editor.
+  const fireDraft = p.getByTestId('draft').filter({ hasText: 'Fire Bolt' });
+  await expect(fireDraft.getByTestId('stone-note-badge')).toHaveCount(1);
+  await fireDraft.locator('[data-testid="scheme-stone"][data-note="true"]').click();
+  await expect(fireDraft.getByTestId('stone-note')).toContainText('Physical fire');
+  await p.getByTestId('draft-search').click();
+  await expect(p.getByTestId('stone-note')).toHaveCount(0);
 
   // Filters: by name, and by the stones used.
   await p.getByTestId('draft-search').fill('fire');

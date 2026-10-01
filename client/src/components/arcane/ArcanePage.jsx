@@ -199,7 +199,7 @@ function General({ s, draft, setDraft }) {
     <>
       {identity.role === 'gm' && (
         <section aria-label={t('Spontaneous Action')}>
-          <button className={`${btnPrimary} w-full`} data-testid="spontaneous-open" onClick={() => setDialog({ type: 'spontaneous' })}>
+          <button className={`${btnPrimary} w-full sm:w-auto`} data-testid="spontaneous-open" onClick={() => setDialog({ type: 'spontaneous' })}>
             {t('Spontaneous Action')}
           </button>
         </section>

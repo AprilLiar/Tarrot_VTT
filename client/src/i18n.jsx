@@ -37,6 +37,13 @@ export function LangProvider({ children }) {
     setLangState(next);
   }, []);
 
+  // The GM pushed a language to everybody.
+  useEffect(() => {
+    const onForced = ({ key, value }) => key === 'lang' && setLang(value);
+    socket.on('setting:forced', onForced);
+    return () => socket.off('setting:forced', onForced);
+  }, [setLang]);
+
   // The server writes its own messages (errors, combat lines) in this socket's language.
   useEffect(() => {
     document.documentElement.lang = lang;

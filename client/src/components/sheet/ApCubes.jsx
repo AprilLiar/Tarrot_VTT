@@ -48,9 +48,16 @@ export default function ApCubes({ current, max, onChange, testId = 'ap-cubes' })
     <div className="flex items-center gap-1" role="group" aria-label={t('AP: {current} of {max}', { current, max })} data-testid={testId} data-current={current} data-max={max}>
       {onChange && arrow(-1, current <= 0, 'ap-down')}
       <div className="flex gap-0.5">
-        {Array.from({ length: max }, (_, i) => (
-          <Cube key={i} filled={i < current} />
-        ))}
+        {Array.from({ length: max }, (_, i) =>
+          onChange ? (
+            // Tapping a cube fills the AP up to it (including it); this never sets 0, the arrows do that.
+            <button key={i} type="button" data-testid="ap-cube-set" aria-label={t('Set AP to {n}', { n: i + 1 })} className="rounded-md p-0.5 active:bg-white/15" onClick={() => onChange(i + 1)}>
+              <Cube filled={i < current} />
+            </button>
+          ) : (
+            <Cube key={i} filled={i < current} />
+          ),
+        )}
       </div>
       {onChange && arrow(1, current >= max, 'ap-up')}
     </div>

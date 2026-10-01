@@ -1,4 +1,5 @@
 import { AppError } from './errors.js';
+import { tokensInTemplate } from '../shared/templates.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
@@ -285,14 +286,28 @@ export function cleanMark(kind, data) {
   throw bad('Unknown kind of mark.');
 }
 
+// Every area has a number among the areas of its shape on the map: the name "Arc (3)" is the shape and this number.
+// A new area gets one more than the largest number of its shape ever still on the map (1 for the first), and the number
+// never changes afterwards, even when the others are deleted.
+const nextNumber = (marks, shape) => 1 + Math.max(0, ...marks.filter((m) => m.kind === 'template' && m.shape === shape).map((m) => m.n ?? 0));
+
 export async function listMarks(db, sceneId) {
   const r = await db.execute({ sql: 'SELECT id, kind, data FROM battle_marks WHERE scene_id = ? ORDER BY id', args: [sceneId] });
-  return r.rows.map((row) => ({ id: Number(row.id), kind: row.kind, ...JSON.parse(row.data) }));
+  const marks = r.rows.map((row) => ({ id: Number(row.id), kind: row.kind, ...JSON.parse(row.data) }));
+  // Areas drawn before names existed are numbered once, in the order they were drawn.
+  for (const m of marks) {
+    if (m.kind !== 'template' || m.n != null) continue;
+    m.n = nextNumber(marks, m.shape);
+    const { id, kind, ...data } = m;
+    await db.execute({ sql: 'UPDATE battle_marks SET data = ? WHERE id = ?', args: [JSON.stringify(data), id] });
+  }
+  return marks;
 }
 
 export async function addMark(db, kind, data) {
   const scene = await activeBattleScene(db);
   const clean = cleanMark(kind, data);
+  if (kind === 'template') clean.n = nextNumber(await listMarks(db, scene.id), clean.shape);
   const count = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM battle_marks WHERE scene_id = ?', args: [scene.id] })).rows[0].n);
   if (count >= MAX_MARKS) throw new AppError('limit', 'At most {max} drawings and templates. Clear some first.', { max: MAX_MARKS });
   const r = await db.execute({ sql: 'INSERT INTO battle_marks (scene_id, kind, data) VALUES (?, ?, ?)', args: [scene.id, kind, JSON.stringify(clean)] });
@@ -367,14 +382,44 @@ export async function clearMarks(db, kind) {
 
 // ---- What clients see ----------------------------------------------------------------
 
+// The characters (not props) standing in an area, by the rule of shared/templates.js.
+export const tokensInArea = (mark, tokens, grid, aspect) => tokensInTemplate(mark, tokens.filter((t) => t.kind !== 'prop'), grid, aspect);
+
+// Everything a character has selected as targets: the tokens picked one by one plus whoever stands in the areas picked,
+// worked out now (so the area is live: it hits whoever is inside when the attack is made). Hidden tokens are included.
+export async function effectiveTargets(db, shared, characterId) {
+  const ids = new Set(shared.targets.get(characterId) ?? []);
+  const areas = shared.areaTargets?.get(characterId);
+  if (areas?.size) {
+    const sceneId = await scenes.getActiveSceneId(db);
+    const scene = sceneId == null ? null : await scenes.getScene(db, sceneId).catch(() => null);
+    if (scene) {
+      const [marks, tokens] = await Promise.all([listMarks(db, sceneId), listTokens(db, sceneId, { forGm: true })]);
+      for (const m of marks) {
+        if (m.kind === 'template' && areas.has(m.id)) for (const tk of tokensInArea(m, tokens, scene.grid, scene.battleAspect)) ids.add(tk.id);
+      }
+    }
+  }
+  return [...ids];
+}
+
 // The battle part of the stage. Hidden tokens are left out for everyone but the GM.
-export async function buildBattle(db, { forGm, targets, combat = null }) {
+export async function buildBattle(db, { forGm, targets, areaTargets = null, combat = null }) {
   const sceneId = await scenes.getActiveSceneId(db);
   if (sceneId == null) return null;
   const scene = await scenes.getScene(db, sceneId).catch(() => null);
   if (!scene) return null;
   const { cols, rows } = scenes.gridSize(scene);
-  const [tokens, marks] = await Promise.all([listTokens(db, sceneId, { forGm, targets }), listMarks(db, sceneId)]);
+  const [tokens, rawMarks] = await Promise.all([listTokens(db, sceneId, { forGm, targets }), listMarks(db, sceneId)]);
+  // An area a character has picked: who picked it, and its characters count as targeted too (the rings on the map).
+  const marks = rawMarks.map((m) => {
+    if (m.kind !== 'template') return m;
+    const by = areaTargets ? [...areaTargets.entries()].filter(([, set]) => set.has(m.id)).map(([who]) => who) : [];
+    for (const who of by) {
+      for (const tk of tokensInArea(m, tokens, scene.grid, scene.battleAspect)) if (!tk.targetedBy.includes(who)) tk.targetedBy.push(who);
+    }
+    return { ...m, targetedBy: by };
+  });
   return {
     imageId: scene.battleImageId,
     aspect: scene.battleAspect,
