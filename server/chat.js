@@ -17,6 +17,13 @@ export function createChat({ max = 300, now = Date.now } = {}) {
       if (messages.length > max) messages = messages.slice(-max);
       return stored;
     },
+    // Changes fields of a stored message (a card marked Reverted). -> the message, or null when it is gone.
+    update(id, patch) {
+      const m = messages.find((x) => x.id === id);
+      if (!m) return null;
+      Object.assign(m, patch);
+      return m;
+    },
     clear() {
       messages = [];
     },

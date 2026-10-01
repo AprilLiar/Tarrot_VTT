@@ -8,7 +8,8 @@ import * as stances from './stances.js';
 import { listLocks, lockedError } from './locks.js';
 import { magicLocked, stancesLocked, manifestationsLocked } from '../shared/locks.js';
 import * as D from '../shared/rules-data.js';
-import { buildRoll } from './rolls.js';
+import { buildRoll, adjustLevels } from './rolls.js';
+import { createJournal } from './journal.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
 import { HELP_SIDES } from '../shared/help.js';
 import { DAMAGE_KINDS } from '../shared/damage.js';
@@ -23,7 +24,7 @@ import { T } from '../shared/localization.js';
 //                  the Arcane tab, posts it in the chat and sends a pending attack to the GM's confirm card.
 //  - attack:list / attack:targets / attack:apply / attack:cancel   (GM only)
 export function registerAttackHandlers(ctx) {
-  const { io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms } = ctx;
+  const { io, db, on, requireControl, emitSheet, effects: cards, authorName, shared, isGm, rooms } = ctx;
   const { GM_ROOM, CHAT_ROOM } = rooms;
   const pending = shared.attacks;
 
@@ -232,26 +233,25 @@ export function registerAttackHandlers(ctx) {
     const title = T('Spontaneous Action');
     if (!needsRoll) {
       // Instant: a Help Die and/or Temp HP, no roll.
-      const lines = [];
-      const names = [];
+      const journal = createJournal();
+      const blocks = [];
       if (infos.length) {
         for (const t of infos) {
           const token = await battle.getToken(db, t.tokenId);
           if (token.ownerKind !== 'character') continue;
-          lines.push(...(await attack.grantBenefits(db, token.ownerId, token.name, effects, emitSheet)));
-          names.push(token.name);
+          blocks.push({ name: token.name, hidden: token.hidden, rows: await attack.grantBenefits(db, journal, token.ownerId, token.name, effects, emitSheet) });
         }
       } else {
-        lines.push(...(await attack.grantBenefits(db, c.id, c.name, effects, emitSheet)));
+        blocks.push({ name: c.name, rows: await attack.grantBenefits(db, journal, c.id, c.name, effects, emitSheet) });
       }
-      const spent = await sheets.updateSheet(db, c.id, (s) => {
+      const spent = await journal.update(db, c.id, (s) => {
         const next = structuredClone(s);
         next.ap.current = Math.max(0, next.ap.current - p.ap);
         return sheets.normalizeSheet(next);
       });
       emitSheet(c.id, spent);
-      say({ key: '{name} uses a Spontaneous Action ({ap} AP).', params: { name: c.name, ap: p.ap } });
-      for (const m of lines) say(m);
+      blocks.push({ name: c.name, rows: [{ key: '{label} {n}.', params: { label: { t: 'AP spent', c: 'ap' }, n: { v: p.ap, c: 'ap' } } }] });
+      cards.post({ kind: 'spontaneous', title: { key: '{name} uses a Spontaneous Action ({ap} AP).', params: { name: c.name, ap: p.ap } }, blocks, journal });
       return { instant: true };
     }
 
@@ -316,6 +316,44 @@ export function registerAttackHandlers(ctx) {
     io.to(GM_ROOM).emit('attack:resolved', { id: p.id });
   });
 
+  // The GM gives the roll Advantage (levels > 0) or Disadvantage (levels < 0): the d20 that counted stays, more d20s join it
+  // and the best or worst counts. Everything that had changed the dice before is forgotten. The adjusted roll is posted as a
+  // new roll card and the confirm card shows the new numbers.
+  on('attack:advantage', { gmOnly: true }, async (p) => {
+    const entry = get(p.id);
+    const roll = adjustLevels(entry.roll, p.levels);
+    roll.title = T('Attack roll (set by the GM)');
+    entry.roll = roll;
+    delete entry.total;
+    const message = shared.chat.add({ type: 'roll', author: { role: 'gm', name: 'GM' }, characterId: entry.characterId, characterName: entry.characterName, roll });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+    io.to(GM_ROOM).emit('attack:pending', entry);
+  });
+
+  // Edit on an applied attack card: take its effects back and reopen the confirm card with what was applied, so the
+  // GM can change the damage, the statuses or the roll and apply again. The old card shows as replaced.
+  on('effects:edit', { gmOnly: true }, async ({ messageId }) => {
+    const fx = cards.store.get(messageId);
+    if (!fx?.entry || !fx.clean) throw new AppError('not_found', 'That card cannot be edited.');
+    await cards.revert(messageId, 'replaced');
+    const { entry: old, clean } = fx;
+    const id = (shared.nextAttackId = (shared.nextAttackId ?? 0) + 1);
+    const entry = {
+      ...structuredClone(old),
+      id,
+      ts: Date.now(),
+      base: clean.base,
+      kind: clean.kind,
+      ap: clean.ap,
+      statuses: clean.statuses.map((x) => ({ key: x.key, stacks: x.stacks })),
+      total: clean.total,
+    };
+    pending.set(id, entry);
+    while (pending.size > attack.MAX_PENDING) pending.delete(pending.keys().next().value);
+    io.to(GM_ROOM).emit('attack:pending', entry);
+    return { attackId: id };
+  });
+
   on('attack:apply', { gmOnly: true }, async (p) => {
     const entry = get(p.id);
     const infos = [];
@@ -330,12 +368,17 @@ export function registerAttackHandlers(ctx) {
     // Claim it first, so a double tap cannot apply it twice.
     pending.delete(p.id);
     try {
-      const { lines } = await attack.applyAttack(db, entry, clean, { emitSheet });
-      for (const l of lines) {
-        if (l.hidden) continue;
-        if (l.roll) postRoll(entry, l.roll);
-        else say(l.message);
-      }
+      const journal = createJournal();
+      const { blocks, rolls } = await attack.applyAttack(db, entry, clean, { emitSheet, journal });
+      for (const roll of rolls) postRoll(entry, roll);
+      cards.post({
+        kind: 'attack',
+        title: { key: '{name} attacks with {weapon}', params: { name: entry.characterName, weapon: entry.weaponName } },
+        blocks,
+        journal,
+        entry,
+        clean,
+      });
     } catch (err) {
       pending.set(p.id, entry);
       throw err;

@@ -199,7 +199,7 @@ async function fighter(g, name, type = 'pc') {
   const token = (await g.call('battle:add', { characterId: id })).id;
   return { id, token };
 }
-const texts = () => server.shared.chat.history().filter((m) => m.type === 'text').map((m) => m.text);
+const texts = () => server.shared.chat.history().filter((m) => m.type === 'text' || m.type === 'effects').map((m) => m.text);
 
 describe('starting and rolling initiative', () => {
   it('is GM only, needs a scene, and ignores props', async () => {
@@ -319,6 +319,20 @@ describe('turns', () => {
     expect(texts().some((t) => /Bob takes 3 damage from Bleeding 3/.test(t))).toBe(true);
     await g.call('combat:next'); // Bob ends: Surprised wears off
     expect((await g.call('sheet:get', { characterId: b.id })).sheet.statuses.surprised).toBeUndefined();
+  });
+
+  it('the start of a turn is one card the GM can revert', async () => {
+    const { g, b, pa } = await fight();
+    await g.call('sheet:set', { characterId: b.id, path: 'hp.max', value: 20 });
+    await g.call('sheet:set', { characterId: b.id, path: 'hp.current', value: 20 });
+    await g.call('sheet:set', { characterId: b.id, path: 'statuses.bleeding', value: 3 });
+    await pa.call('combat:next'); // Bob starts
+    const card = server.shared.chat.history().find((m) => m.type === 'effects');
+    expect(card).toMatchObject({ kind: 'turn', status: 'applied', reversible: true, editable: false });
+    expect(card.blocks[0].name).toBe('Bob');
+    expect((await g.call('sheet:get', { characterId: b.id })).sheet.hp.current).toBe(17);
+    expect((await g.call('effects:revert', { messageId: card.id })).ok).toBe(true);
+    expect((await g.call('sheet:get', { characterId: b.id })).sheet.hp.current).toBe(20);
   });
 
   it('removing the active combatant hands the turn on; the GM can reorder', async () => {

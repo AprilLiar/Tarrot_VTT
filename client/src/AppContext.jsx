@@ -144,6 +144,8 @@ export function AppProvider({ children }) {
       setMessages((list) => [...list, m]);
       if (!chatOpenRef.current) setUnread((n) => n + 1);
     };
+    // A card was marked Reverted or Replaced.
+    const onUpdated = (m) => setMessages((list) => list.map((x) => (x.id === m.id ? m : x)));
     const onCleared = () => {
       setMessages([]);
       setUnread(0);
@@ -170,6 +172,7 @@ export function AppProvider({ children }) {
     socket.on('library:updated', onLibrary);
     socket.on('identity:revoked', onRevoked);
     socket.on('chat:message', onMessage);
+    socket.on('chat:updated', onUpdated);
     socket.on('chat:cleared', onCleared);
     socket.on('trade:offered', onOffered);
     socket.on('trade:resolved', onResolved);
@@ -183,6 +186,7 @@ export function AppProvider({ children }) {
       socket.off('library:updated', onLibrary);
       socket.off('identity:revoked', onRevoked);
       socket.off('chat:message', onMessage);
+      socket.off('chat:updated', onUpdated);
       socket.off('chat:cleared', onCleared);
       socket.off('trade:offered', onOffered);
       socket.off('trade:resolved', onResolved);

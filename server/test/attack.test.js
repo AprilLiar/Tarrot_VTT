@@ -157,7 +157,7 @@ async function fighter(g, name, type = 'pc') {
   return { id, token };
 }
 const sheetOf = async (g, id) => (await g.call('sheet:get', { characterId: id })).sheet;
-const texts = () => server.shared.chat.history().filter((m) => m.type === 'text').map((m) => m.text);
+const texts = () => server.shared.chat.history().filter((m) => m.type === 'text' || m.type === 'effects').map((m) => m.text);
 const nextPending = (g) => new Promise((resolve) => g.once('attack:pending', resolve));
 
 async function setup() {
@@ -250,8 +250,8 @@ describe('the confirm card', () => {
     expect(ogre.hp.current).toBe(27);
     expect(ogre.statuses.burning).toBe(2);
     expect((await sheetOf(ctx.g, ctx.a.id)).ap.current).toBe(3);
-    const line = texts().find((t) => /Aria attacks Ogre/.test(t));
-    expect(line).toMatch(/20 vs Physical Defence 12, Heavy Hit/);
+    const line = texts().find((t) => /Aria attacks with/.test(t));
+    expect(line).toMatch(/Ogre: 20 vs Physical Defence 12: Heavy Hit/);
     expect(line).toMatch(/HP 30 to 27/);
     expect((await ctx.g.call('attack:list')).attacks).toHaveLength(0);
   });
@@ -280,7 +280,7 @@ describe('the confirm card', () => {
     const r = await ctx.g.call('attack:apply', card(pending, { total: 25 }));
     expect(r.ok).toBe(true);
     expect((await sheetOf(ctx.g, ctx.o.id)).hp.current).toBe(24); // Brutal Hit: 4 + 2 = 6
-    expect(texts().some((t) => /Dummy .*Physical Defence 10.*temporary NPC/.test(t))).toBe(true);
+    expect(texts().some((t) => /Dummy: .*Physical Defence 10.*temporary NPC/.test(t))).toBe(true);
     expect((await sheetOf(ctx.g, ctx.a.id)).statuses.exposed).toBe(1);
   });
 
@@ -370,8 +370,8 @@ describe('attacking with weapons and Enhancements', () => {
     const after = await sheetOf(g, a.id);
     expect(after.ap.current).toBe(1);
     expect(after.items.find((i) => i.id === ammo.id).uses.current).toBe(1);
-    expect(texts().some((t) => /Bow: Pin\. It cannot move\./.test(t))).toBe(true);
-    expect(texts().some((t) => /spends 4 uses of Arrows/.test(t))).toBe(true);
+    expect(texts().some((t) => /Pin\. It cannot move\./.test(t))).toBe(true);
+    expect(texts().some((t) => /Spends 4 uses of Arrows/.test(t))).toBe(true);
   });
 
   it('asks before shooting a target out of range, and shoots anyway when told', async () => {

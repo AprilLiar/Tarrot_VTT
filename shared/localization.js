@@ -82,10 +82,42 @@ function fill(template, params, tr) {
     const v = params[name];
     if (v && typeof v === 'object') {
       if ('t' in v) return tr(String(v.t));
+      if ('v' in v) return String(v.v);
       if ('key' in v) return render(v, tr);
     }
     return String(v);
   });
+}
+
+// The same, as pieces for a screen that colours keywords: [{ text, c? }]. A parameter can carry a category `c`
+// ('damage', 'status', ...) next to its value: { t: 'Fire', c: 'damage' } (a game term), { v: 7, c: 'damage' } (a plain
+// value) or { key, params, c } (a nested message). The pieces of a categorised parameter all get its category.
+export function renderParts(message, tr = (x) => x, c) {
+  if (typeof message === 'string') return [{ text: tr(message), ...(c ? { c } : {}) }];
+  const template = tr(message.key);
+  const params = message.params ?? {};
+  const parts = [];
+  let last = 0;
+  const plain = (text) => text && parts.push(c ? { text, c } : { text });
+  for (const m of template.matchAll(PLACEHOLDER)) {
+    plain(template.slice(last, m.index));
+    last = m.index + m[0].length;
+    const name = m[1];
+    if (!(name in params)) {
+      plain(m[0]);
+      continue;
+    }
+    const v = params[name];
+    if (v && typeof v === 'object') {
+      const cat = v.c ?? c;
+      if ('t' in v) parts.push({ text: tr(String(v.t)), ...(cat ? { c: cat } : {}) });
+      else if ('v' in v) parts.push({ text: String(v.v), ...(cat ? { c: cat } : {}) });
+      else if ('key' in v) parts.push(...renderParts(v, tr, cat));
+      else plain(String(v));
+    } else parts.push({ text: String(v), ...(c ? { c } : {}) });
+  }
+  plain(template.slice(last));
+  return parts;
 }
 
 // Joins parameter values into one: joinMsgs([a, b, c], ', ') shows "a, b, c" in the reader's language.

@@ -16,6 +16,7 @@ import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
+import { createEffects } from './effects.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
 // Identity model (no login): a socket declares itself GM or a specific PC.
@@ -64,6 +65,8 @@ export function registerHandlers(io, socket, db, shared) {
     io.to(GM_ROOM).emit('sheet:updated', { characterId, sheet });
     io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
   };
+
+  const effects = createEffects({ io, db, shared, emitSheet, chatRoom: CHAT_ROOM });
 
   // The GM controls every character; a player controls only their own PC.
   async function requireControl(characterId) {
@@ -315,7 +318,13 @@ export function registerHandlers(io, socket, db, shared) {
 
   on('chat:clear', { gmOnly: true }, () => {
     chat.clear();
+    effects.store.clear();
     io.to(CHAT_ROOM).emit('chat:cleared');
+  });
+
+  // Takes back what an effect card did (an applied attack, the start of a turn, a crafted spell).
+  on('effects:revert', { gmOnly: true }, async ({ messageId }) => {
+    await effects.revert(messageId);
   });
 
   // ---- Scenes, stage, pictures ---------------------------------------------
@@ -331,15 +340,16 @@ export function registerHandlers(io, socket, db, shared) {
     isDisplay,
     requireControl,
     emitSheet,
+    effects,
     shared,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
   });
 
   // ---- Attacks ---------------------------------------------------------------
 
-  registerAttackHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
 
-  registerSpellHandlers({ io, db, on, requireControl, emitSheet, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerSpellHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
   registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm });
   registerLockHandlers({ io, db, on, emitSheet });
 

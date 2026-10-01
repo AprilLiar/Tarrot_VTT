@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { socket } from './socket.js';
-import { LANGS, LANG_NAMES, parseTable, translate } from '../../shared/localization.js';
+import { LANGS, LANG_NAMES, parseTable, translate, makeTr, renderParts } from '../../shared/localization.js';
 // The Russian texts: the Markdown table people fix by hand on GitHub, bundled into the page at build time.
 import localizationMd from '../../LOCALIZATION.md?raw';
 
@@ -16,11 +16,13 @@ function initialLang() {
   return navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
 }
 
-const LangContext = createContext({ lang: 'en', setLang: () => {}, t: (text) => text });
+const LangContext = createContext({ lang: 'en', setLang: () => {}, t: (text) => text, parts: (m) => renderParts(m) });
 
 // Everything the interface says goes through t("English text", { params }); see LOCALIZATION.md.
 export const useT = () => useContext(LangContext).t;
 export const useLang = () => useContext(LangContext);
+// A message from the server as coloured pieces: [{ text, c? }] (see renderParts in shared/localization.js).
+export const useParts = () => useContext(LangContext).parts;
 export { LANGS, LANG_NAMES };
 
 export function LangProvider({ children }) {
@@ -44,6 +46,10 @@ export function LangProvider({ children }) {
     return () => socket.off('connect', tell);
   }, [lang]);
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
+  const parts = useMemo(() => {
+    const tr = makeTr(lang, TABLE);
+    return (message) => renderParts(message, tr);
+  }, [lang]);
+  const value = useMemo(() => ({ lang, setLang, t, parts }), [lang, setLang, t, parts]);
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
 }

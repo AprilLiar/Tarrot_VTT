@@ -489,6 +489,24 @@ Decided:
   (decided)
 - Author names come from the server-side identity: a player's messages carry the PC's name, the
   GM's carry "GM". A GM rolling for an NPC posts as the GM with the NPC's name on the card.
+- **Effect cards (decided):** everything that changes sheets is one card, not a pile of lines: an applied attack
+  or Spontaneous Action, the start of a turn (Bleeding, Burning, Stunned, Surprised) and a crafted spell. The card
+  has a title and one **block per character** (hidden tokens are left out) with one row per fact: the roll against
+  the Defence and its result, Damage with its type, After resistances, HP before and after, Temp HP absorbing,
+  statuses added, the attacker's AP and costs, Help Dice, spell durability. **Keywords are bold and coloured by
+  category:** damage red, healing green, Temp HP light blue, HP rose, statuses amber, AP violet, Help Dice indigo,
+  Hit green, Miss grey, Critical gold, resistance steps teal, item uses orange, spells fuchsia; numbers white.
+  (The server tags each value with its category; the words stay translatable.)
+- **Revert and Edit (decided):** the GM sees two buttons on every effect card that changed something (nobody else does).
+  **Revert** takes away exactly what the card did: it subtracts the card's own changes (HP, Temp HP, AP, statuses, item
+  uses, spell durability, Help Dice, and for crafting the stones and the spell), so anything that happened to the
+  characters afterwards stays and several cards can be reverted in any order. The card stays in the chat, dimmed, with
+  a **Reverted** tag and no buttons. Crafting cannot be reverted once the spell has been used (the GM is told).
+  **Edit** exists on attack cards only (not on turn starts, crafting, or a Spontaneous Action without a roll): it
+  reverts, tags the old card **Replaced**, and reopens the confirm card with what was applied (Total, Base damage,
+  damage type, AP, statuses), so the GM can change them or give Advantage or Disadvantage to the final roll and apply
+  again, which posts a fresh card. Durability rolls of spells are rolled again on the new apply. There is no extra
+  Combat line about a revert or an edit; the tag is the record. Cards live in server memory with the chat.
 
 ### Scene mode (implemented in Phase 4a)
 Light-novel style: a fullscreen background with character art standing along the bottom. Decided:
@@ -642,9 +660,15 @@ Decided:
   half). HP never goes below 0 or above max.
 - **Apply:** subtracts the damage from each target's HP, adds the chosen statuses to targets that were
   hit, spends the attacker's AP (my default: at Apply, not at the roll, so a discarded card costs
-  nothing), gives the attacker Exposed 1 on a natural 1, and posts one result line per target in the chat (lines about hidden tokens are not
-  posted). A temp NPC has no sheet: the line says so and the GM applies it by hand. A miss changes
-  nothing but the AP.
+  nothing), gives the attacker Exposed 1 on a natural 1, and posts **one effect card** in the chat (see Effect
+  cards in the Chat log section; blocks about hidden tokens are not posted). A temp NPC has no sheet: its block
+  says so and the GM applies it by hand. A miss changes nothing but the AP.
+- **Advantage or Disadvantage on the card (decided):** the confirm card has a field for levels (positive =
+  Advantage, negative = Disadvantage) and a button. The d20 that counted stays, that many extra d20s are rolled and join
+  it, and the highest (Advantage) or lowest (Disadvantage) counts. Every other earlier die and every earlier
+  Advantage or Disadvantage (statuses, manual levels) is forgotten; the modifiers and Dice Roll Bonuses stay as rolled.
+  The Total follows the new natural roll, and the adjusted roll is posted as a new roll card ("Attack roll (set by
+  the GM)"). Used again, it starts from the d20 that counts now.
 - **Not yet:** automatic Exposed from a natural 1 on other rolls, statuses that change attack rolls
   (Blinded, Prone and so on), reactions, and stored attacks and abilities.
 
@@ -1034,7 +1058,7 @@ Implemented:
 - Server to clients: `pcs:updated` `[{ id, name }]` to everyone; `roster:updated`
   `{ folders, characters }` to the GM room only; `identity:revoked` `{ characterId, name }` to the
   sockets playing a deleted character; `sheet:updated` `{ characterId, sheet }` to the GM and the
-  PC's own devices; `chat:message` and `chat:cleared` to everyone identified; `trade:offered`
+  PC's own devices; `chat:message`, `chat:updated` and `chat:cleared` to everyone identified; `trade:offered`
   `{ offerId, fromName, itemName, toId }` to the recipient's devices and `trade:resolved` `{
   offerId, accepted, itemName, fromName, toName }` to both sides.
 
@@ -1094,7 +1118,7 @@ Battle (Phase 5a):
   `combat:add` and `combat:remove` `{ tokenId }` (GM), `combat:end` (GM). The state arrives in
   `stage.battle.combat` = `{ phase: 'rolling' | 'active', round, activeTokenId, order: [{ tokenId,
   ownerKind, ownerId, name, imageId, kind, initiative }] }` (`null` when there is no combat).
-  Turn announcements and effects are chat lines from "Combat". New error codes: `no_combat`,
+  Turn announcements are chat lines from "Combat"; the effects at the start of a turn are an effect card (see Chat log). New error codes: `no_combat`,
   `no_combatants`, `combat_running`, `bad_phase`, `bad_order`, `already_rolled`,
   `already_in_combat`, `stale`.
 - Locks: `lock:list` returns `{ locks: [key] }` (anyone); GM only: `lock:toggle` `{ key }` flips one and everyone gets
@@ -1124,7 +1148,13 @@ Battle (Phase 5a):
   `{ enhancements }` (the global ones; `arcane:enhancements` is also broadcast on every change); GM only:
   `arcane:enhancement:save` `{ id?, enhancement }` and `arcane:enhancement:delete` `{ id }`. GM only: `attack:list` `{ attacks }`, `attack:targets` `{ tokenIds }` (name, Defences,
   resistances and HP of each), `attack:apply` `{ id, total, base, kind, ap, statuses: [{ key, stacks }] }` and
-  `attack:cancel` `{ id }`; both send `attack:resolved` `{ id }` to the GM room. Pending attacks live in
+  `attack:cancel` `{ id }`; both send `attack:resolved` `{ id }` to the GM room; GM only: `attack:advantage` `{ id, levels }`
+  (levels -10..10, not 0: re-rolls the final d20 as described above, posts a roll card and sends the updated `attack:pending`),
+  `effects:revert` `{ messageId }` and `effects:edit` `{ messageId }` (the latter reopens the attack as a new pending card and
+  answers `{ attackId }`). An effect card is the chat message `{ type: 'effects', kind: 'attack' | 'spontaneous' | 'turn' | 'craft',
+  title?, blocks: [{ name, rows: [{ key, params }] }], text, status: 'applied' | 'reverted' | 'replaced', reversible, editable }`;
+  parameters of its rows can carry a category: `{ t, c }`, `{ v, c }` or `{ key, params, c }`. A change to a card is sent as
+  `chat:updated` (the whole message) to everyone in the chat. New error codes: `already_reverted`, `cannot_revert`. Pending attacks live in
   server memory (at most 30). The roll posted in the chat carries `roll.against` = `{ label, targets: [{ name,
   value }] }` (the numbers to beat). New error codes: `no_ap`, `no_target`. The rules code is in `shared/damage.js` (used by the server and by the
   card's live preview) and `shared/templates.js` (which tokens are inside an area).
@@ -1197,7 +1227,6 @@ Answered after the second playtest (all recorded above): no extra magic automati
 hand), statuses affect Stance and Manifest rolls but never Magic rolls, everything is measured in Spaces, no sound
 effects and the music bar is always shown, the Phase 4a image limits stay, there is no phone app (the phone web
 client is enough), no backups or export of characters, and animation and the final look come at the end, when
-every feature is done. "Undo of applied results" was a question about a button that reverses an applied attack
-card (HP, statuses, AP) after a mistake; it is not planned.
+every feature is done. "Undo of applied results" became **Revert and Edit on effect cards** (see Chat log).
 
 Nothing is open at the moment.

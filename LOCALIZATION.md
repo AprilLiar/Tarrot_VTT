@@ -24,6 +24,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add a status | Добавить состояние |
 | Add status... | Добавить состояние... |
 | Advantage | Преимущество |
+| Spontaneous Action | Спонтанное действие |
+| Edit | Изменить |
 | Close | Закрыть |
 | Cancel | Отмена |
 | Use Help Dice? | Использовать кубики помощи? |
@@ -80,8 +82,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | More | Больше |
 | Chosen | Выбрано |
 | Choose | Выбрать |
-| Edit | Изменить |
-| Spontaneous Action | Спонтанное действие |
 | Weapons | Оружие |
 | Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet). | Выберите одно оружие. Оружие — это предметы с включённым переключателем «Оружие» (см. Инвентарь на листе). |
 | Enhancements | Усиления |
@@ -317,6 +317,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Disadvantage | Помеха |
+| Attack | Атака |
 | Send | Отправить |
 | Picture | Картинка |
 | Pictures | Картинки |
@@ -340,7 +341,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Banked | Накоплено |
 | Move {dir} | Шаг: {dir} |
 | Free Movement (does not spend Movement or AP) | Свободное перемещение (не тратит движение и ОД) |
-| Attack | Атака |
 | No AP left to attack. | Не осталось ОД для атаки. |
 | Select a target below first. | Сначала выберите цель ниже. |
 | Spend AP to move? | Потратить ОД на движение? |
@@ -451,6 +451,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Target Value | Значение цели |
 | Critical | Критический |
 | Critical Failure | Критический провал |
+| Start of turn | Начало хода |
+| Spell crafting | Создание заклинания |
+| Replaced | Заменено |
+| Reverted | Отменено |
+| Revert | Отменить |
 | vs | против |
 | Chat | Чат |
 | Clear | Очистить |
@@ -471,6 +476,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | a d{sides} Help Die | кубик помощи d{sides} |
 | {n} Temp HP | {n} врем. ОЗ |
 | Stance {name}: rolled {total}, band {band} | Стойка «{name}»: выпало {total}, диапазон {band} |
+| Advantage (+) or Disadvantage (-) | Преимущество (+) или помеха (-) |
+| Advantage levels | Уровни преимущества |
+| Roll with Disadvantage | Бросить с помехой |
+| Roll with Advantage | Бросить с преимуществом |
+| Dice: {list} | Кубики: {list} |
 | Total | Итог |
 | Attack total | Итог атаки |
 | no sheet | нет листа |
@@ -900,32 +910,41 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {what} must be a whole number from {min} to {max}. | Значение «{what}» должно быть целым числом от {min} до {max}. |
 | Choose a damage type. | Выберите тип урона. |
 | Unknown status. | Неизвестное состояние. |
-| {name} gains a Help Die (d{sides}). | {name} получает кубик помощи (d{sides}). |
-| {name} gains a Help Die (d{sides}) in place of a d{old}. | {name} получает кубик помощи (d{sides}) вместо d{old}. |
-| {name} holds too many Help Dice: the new d{sides} is lost. | У {name} слишком много кубиков помощи: новый d{sides} пропадает. |
-| {name} gains {n} Temp HP. | {name} получает {n} врем. ОЗ. |
-| {name} already has {have} Temp HP, so the new {n} does not stack. | У {name} уже {have} врем. ОЗ, поэтому новые {n} не суммируются. |
-| {attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}. | {attacker} атакует {target} ({weapon}): {total} против {defence} {value}, {result}. |
-| Damage {formula}. | Урон {formula}. |
-| Damage {formula} {kind}. | Урон {formula} ({kind}). |
+| True | Чистый |
+| Heals | Лечит |
+| HP | ОЗ |
+| Adds | Добавляет |
+| Takes | Получает |
+| Gains | Получает |
+| Spends | Тратит |
+| AP spent | Потрачено ОД |
+| Gains Exposed | Получает «Открыт» |
+| {label}: a d{sides} joins the track. | {label}: d{sides} добавляется на шкалу. |
+| {label}: a d{sides} in place of a d{old}. | {label}: d{sides} вместо d{old}. |
+| {label}: the track is full, the new d{sides} is lost. | {label}: шкала полна, новый d{sides} потерян. |
+| {label}: {n}. | {label}: {n}. |
+| {label}: already {have}, the new {n} does not stack. | {label}: уже {have}, новые {n} не суммируются. |
+| {total} vs {defence} {value}: {result}. | {total} против {defence} {value}: {result}. |
+| {label}: {formula} {kind}. | {label}: {formula} {kind}. |
 | After resistances: {steps}. | С учётом сопротивлений: {steps}. |
 | Set by the GM to {n}. | Мастер установил: {n}. |
-| Heals {n}. | Лечит на {n}. |
+| {label} {n}. | {label} {n}. |
 | {n} damage. | Урон: {n}. |
-| HP {from} to {to}. | ОЗ {from} → {to}. |
+| {label} absorbs {n}. | {label} поглощает {n}. |
+| {label} {from} to {to}. | {label} {from} → {to}. |
 | (temporary NPC: no sheet, apply by hand) | (временный НПС: листа нет, примените вручную) |
-| Adds {list}. | Накладывает: {list}. |
-| {name} takes {n} {kind} damage as a cost (HP {from} to {to}). | {name} получает {n} урона ({kind}) в качестве цены (ОЗ {from} → {to}). |
-| {name} gains {status} as a cost. | {name} получает {status} в качестве цены. |
-| {name} spends {n} uses of {item}. | {name} тратит {n} исп. предмета {item}. |
-| {name} spends {n} AP. | {name} тратит ОД: {n}. |
-| {name} gains Exposed 1 (natural 1). | {name} получает состояние «Раскрыт» 1 (натуральная 1). |
+| {label} {list}. | {label} {list}. |
+| {label} {n} {kind} damage as a cost (HP {from} to {to}). | {label} {n} урона ({kind}) как плату (ОЗ {from} → {to}). |
+| {label} {status} as a cost. | {label} {status} как плату. |
+| {label} {n} uses of {item}. | {label} {n} исп. предмета {item}. |
+| {label} 1 (natural 1). | {label} 1 (натуральная 1). |
 | {spell} holds: Stabilization rises to {n}. | {spell} держится: Стабилизация растёт до {n}. |
 | {spell} bites {name}: Blood Oxydization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
 | {spell} falters and is destroyed. | {spell} даёт сбой и уничтожается. |
 | {spell} falters: Stabilization resets to {n} and it loses a use ({left} left). | {spell} даёт сбой: Стабилизация сбрасывается до {n}, теряется одно использование (осталось {left}). |
 | {source}: {name}. {text} | {source}: {name}. {text} |
 | Combat | Бой |
+| Attack roll (set by the GM) | Бросок атаки (задан ГМ) |
 | That attack is no longer waiting. | Эта атака больше не ожидает. |
 | Select at least one target first. | Сначала выберите хотя бы одну цель. |
 | That Stance is not learned by this character. | Эта Стойка не изучена этим персонажем. |
@@ -936,6 +955,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
 | Choose the roll to make. | Выберите бросок. |
 | Select exactly one target first. | Сначала выберите ровно одну цель. |
+| That card cannot be edited. | Эту карточку нельзя изменить. |
 | {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
 | {name} uses a Spontaneous Action ({ap} AP). | {name} использует спонтанное действие ({ap} ОД). |
 | Invalid track. | Неверный трек. |
@@ -989,6 +1009,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} is healed {n} by {source} ({detail}). HP {from} to {to}. | {name} исцеляется на {n} от источника: {source} ({detail}). ОЗ {from} → {to}. |
 | {name} takes no damage from {source} ({detail}). | {name} не получает урона от источника: {source} ({detail}). |
 | {name} starts with {ap} AP instead of {max} ({reasons}). | {name} начинает ход с {ap} ОД вместо {max} ({reasons}). |
+| That card can no longer be reverted. | Эту карточку больше нельзя отменить. |
+| That card has already been reverted. | Эта карточка уже отменена. |
 | Invalid folder. | Неверная папка. |
 | That folder no longer exists. | Этой папки больше нет. |
 | A folder cannot be moved inside itself. | Папку нельзя переместить внутрь самой себя. |
@@ -1008,11 +1030,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
 | Only PNG, JPEG and WebP images are accepted. | Принимаются только изображения PNG, JPEG и WebP. |
+| The spell {name} has been used since it was crafted, so crafting cannot be reverted. | Заклинание {name} уже применялось после создания, поэтому создание нельзя отменить. |
 | Unknown lock. | Неизвестная блокировка. |
 | That part of the Arcane tab is locked. | Эта часть вкладки Аркана заблокирована. |
 | A name is required. | Нужно указать имя. |
 | Too many cards. | Слишком много карт. |
 | Too many Manifestations. | Слишком много Проявлений. |
+| Advantage levels must be a whole number from -{max} to {max}. | Уровни преимущества должны быть целым числом от -{max} до {max}. |
 | Names can be at most {max} characters. | Имя может содержать не более {max} символов. |
 | Invalid id. | Неверный идентификатор. |
 | Type must be PC or NPC. | Тип должен быть «Игрок» или «НПС». |
@@ -1064,7 +1088,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Already on stage. | Уже на сцене. |
 | That spot is too far from the scene. | Это место слишком далеко от сцены. |
 | Size must be between {min} and {max}. | Размер должен быть от {min} до {max}. |
-| HP | ОЗ |
 | Stat | Характеристика |
 | Combat Mastery | Боевое мастерство |
 | Mastery tier | Уровень мастерства |
@@ -1090,7 +1113,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | You need {need} {stone} stones and have {have}. | Нужно камней ({stone}): {need}, у вас {have}. |
 | Only the GM can change that. | Это может менять только ГМ. |
 | A destroyed spell cannot be changed. | Уничтоженное заклинание изменить нельзя. |
-| {name} crafts the spell {spell}. | {name} создаёт заклинание {spell}. |
+| Crafts | Создаёт |
+| {label} {spell}. | {label} {spell}. |
 | That Stance no longer exists. | Этой Стойки больше нет. |
 | Unknown sign. | Неизвестный знак. |
 | Too many Stances. | Слишком много Стоек. |
@@ -1110,7 +1134,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Double: {v} | Двойной: {v} |
 | Custom | Свой |
 | Manual | Вручную |
-| Advantage levels must be a whole number from -{max} to {max}. | Уровни преимущества должны быть целым числом от -{max} до {max}. |
 | Unknown stat. | Неизвестная характеристика. |
 | That stat has no Save. | У этой характеристики нет спасброска. |
 | Unknown skill. | Неизвестный навык. |
@@ -1121,6 +1144,23 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| {name} gains a Help Die (d{sides}). | {name} получает кубик помощи (d{sides}). |
+| {name} gains a Help Die (d{sides}) in place of a d{old}. | {name} получает кубик помощи (d{sides}) вместо d{old}. |
+| {name} holds too many Help Dice: the new d{sides} is lost. | У {name} слишком много кубиков помощи: новый d{sides} пропадает. |
+| {name} gains {n} Temp HP. | {name} получает {n} врем. ОЗ. |
+| {name} already has {have} Temp HP, so the new {n} does not stack. | У {name} уже {have} врем. ОЗ, поэтому новые {n} не суммируются. |
+| {attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}. | {attacker} атакует {target} ({weapon}): {total} против {defence} {value}, {result}. |
+| Damage {formula}. | Урон {formula}. |
+| Damage {formula} {kind}. | Урон {formula} ({kind}). |
+| Heals {n}. | Лечит на {n}. |
+| HP {from} to {to}. | ОЗ {from} → {to}. |
+| Adds {list}. | Накладывает: {list}. |
+| {name} takes {n} {kind} damage as a cost (HP {from} to {to}). | {name} получает {n} урона ({kind}) в качестве цены (ОЗ {from} → {to}). |
+| {name} gains {status} as a cost. | {name} получает {status} в качестве цены. |
+| {name} spends {n} uses of {item}. | {name} тратит {n} исп. предмета {item}. |
+| {name} spends {n} AP. | {name} тратит ОД: {n}. |
+| {name} gains Exposed 1 (natural 1). | {name} получает состояние «Раскрыт» 1 (натуральная 1). |
+| {name} crafts the spell {spell}. | {name} создаёт заклинание {spell}. |
 | Current AP | Текущие ОД |
 | {cols} x {rows} squares. Line the grid up with the map; sizes are a share of the picture's width. | {cols} x {rows} клеток. Совместите сетку с картой; размеры заданы долей от ширины картинки. |
 | Square size | Размер клетки |
