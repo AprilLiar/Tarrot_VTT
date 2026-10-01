@@ -76,14 +76,13 @@ async function fight() {
   await g.call('sheet:set', { characterId: foe, path: 'defence.physical', value: 5 });
   return { g, p, a, aToken, foe, foeToken, ally, allyToken };
 }
-const act = (g, ctx, extra = {}) => g.call('spontaneous:do', { characterId: ctx.a, ap: 1, targetMode: 'none', roll: 'magic', defence: 'physical', effects: { help: { sides: 6 } }, ...extra });
+const act = (g, ctx, extra = {}) => g.call('spontaneous:do', { characterId: ctx.a, ap: 1, roll: 'magic', defence: 'physical', effects: { help: { sides: 6 } }, ...extra });
 
 describe('Spontaneous Action', () => {
   it('is GM only and checks what it is given', async () => {
     const ctx = await fight();
     expect(await act(ctx.p, ctx)).toMatchObject({ ok: false, code: 'forbidden' });
     expect(await act(ctx.g, ctx, { ap: 3 })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await act(ctx.g, ctx, { targetMode: 'some' })).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await act(ctx.g, ctx, { effects: {} })).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await act(ctx.g, ctx, { effects: { help: { sides: 20 } } })).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await act(ctx.g, ctx, { effects: { damage: { amount: 3, kind: 'love' } } })).toMatchObject({ ok: false, code: 'bad_value' });
@@ -110,17 +109,16 @@ describe('Spontaneous Action', () => {
     expect((await sheetOf(ctx.g, ctx.a)).hp.temp).toBe(9);
   });
 
-  it('goes to the selected targets instead, and the target count is enforced', async () => {
+  it('goes to every selected target, and to the actor when nobody is selected', async () => {
     const ctx = await fight();
-    expect(await act(ctx.g, ctx, { targetMode: 'one' })).toMatchObject({ ok: false, code: 'no_target' });
     await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.allyToken });
     await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
-    expect(await act(ctx.g, ctx, { targetMode: 'one' })).toMatchObject({ ok: false, code: 'no_target' }); // two are selected
-    expect((await act(ctx.g, ctx, { targetMode: 'many', effects: { temp: { value: 4 } } })).ok).toBe(true);
+    expect((await act(ctx.g, ctx, { effects: { temp: { value: 4 } } })).ok).toBe(true);
     expect((await sheetOf(ctx.g, ctx.ally)).hp.temp).toBe(4);
     expect((await sheetOf(ctx.g, ctx.foe)).hp.temp).toBe(4);
     expect((await sheetOf(ctx.g, ctx.a)).hp.temp).toBe(0); // the actor is not a target
-    expect((await act(ctx.g, ctx, { targetMode: 'none', effects: { temp: { value: 3 } } })).ok).toBe(true); // 'none' ignores the selection
+    await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: null });
+    expect((await act(ctx.g, ctx, { effects: { temp: { value: 3 } } })).ok).toBe(true);
     expect((await sheetOf(ctx.g, ctx.a)).hp.temp).toBe(3);
   });
 
@@ -129,7 +127,7 @@ describe('Spontaneous Action', () => {
     await ctx.g.call('sheet:set', { characterId: ctx.foe, path: 'hp.temp', value: 3 });
     await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
     const seen = seenPending(ctx.g);
-    const r = await act(ctx.g, ctx, { ap: 2, targetMode: 'one', roll: 'stances', defence: 'physical', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, help: { sides: 6 }, temp: { value: 9 } } });
+    const r = await act(ctx.g, ctx, { ap: 2, roll: 'stances', defence: 'physical', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, help: { sides: 6 }, temp: { value: 9 } } });
     expect(r.ok).toBe(true);
     const pending = await seen;
     expect(pending).toMatchObject({ weaponName: 'Spontaneous Action', ap: 2, base: 5, kind: 'fire', defenceKind: 'physical', statuses: [{ key: 'burning', stacks: 2 }] });

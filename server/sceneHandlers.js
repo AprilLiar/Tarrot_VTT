@@ -577,6 +577,14 @@ export function registerSceneHandlers(ctx) {
     await broadcastStage();
     return { id };
   });
+  // "Move" in the Area tool: an area is dragged to another place and/or turned (x, y in squares, angle in degrees).
+  on('mark:update', { needsIdentity: true }, async (p) => {
+    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can move areas.');
+    const patch = {};
+    for (const key of ['x', 'y', 'angle']) if (p[key] !== undefined) patch[key] = p[key];
+    await battle.updateTemplate(db, p.id, patch);
+    await broadcastStage();
+  });
   on('mark:remove', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
     await battle.removeMark(db, p.id);

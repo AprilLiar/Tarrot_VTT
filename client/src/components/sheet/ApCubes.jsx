@@ -27,8 +27,9 @@ function Cube({ filled }) {
   );
 }
 
-// `onChange(n)` makes the arrows appear; without it the cubes are only shown.
-export default function ApCubes({ current, max, onChange, testId = 'ap-cubes' }) {
+// `onChange(n)` makes the cubes tappable (a tap fills the AP up to that cube) and, unless `arrows` is false, adds the arrows;
+// without it the cubes are only shown.
+export default function ApCubes({ current, max, onChange, arrows = true, testId = 'ap-cubes' }) {
   const t = useT();
   const arrow = (dir, disabled, id) => (
     <button
@@ -46,7 +47,7 @@ export default function ApCubes({ current, max, onChange, testId = 'ap-cubes' })
   );
   return (
     <div className="flex items-center gap-1" role="group" aria-label={t('AP: {current} of {max}', { current, max })} data-testid={testId} data-current={current} data-max={max}>
-      {onChange && arrow(-1, current <= 0, 'ap-down')}
+      {onChange && arrows && arrow(-1, current <= 0, 'ap-down')}
       <div className="flex gap-0.5">
         {Array.from({ length: max }, (_, i) =>
           onChange ? (
@@ -59,7 +60,7 @@ export default function ApCubes({ current, max, onChange, testId = 'ap-cubes' })
           ),
         )}
       </div>
-      {onChange && arrow(1, current >= max, 'ap-up')}
+      {onChange && arrows && arrow(1, current >= max, 'ap-up')}
     </div>
   );
 }

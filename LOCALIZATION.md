@@ -212,10 +212,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Cancelled. | Отменено. |
 | Roll | Бросок |
 | Give | Передать |
-| One | Одна |
-| Several | Несколько |
-| Nobody is targeted: it is for the acting character. | Целей нет: действие для самого персонажа. |
-| Selected targets: {n}. Select them in the Targets list of the General tab first. | Выбрано целей: {n}. Сначала выберите их в списке целей во вкладке «Общее». |
+| Goes to the {n} selected targets. | Достаётся всем выбранным целям: {n}. |
+| Nobody is selected: it is for the acting character. | Никто не выбран: действие для самого персонажа. |
 | Damage | Урон |
 | Damage value | Значение урона |
 | Help Die | Кубик помощи |
@@ -558,6 +556,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Template size | Размер области |
 | More squares | Больше клеток |
 | Fewer squares | Меньше клеток |
+| Drag an area to move it. With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15. | Перетащите область, чтобы переместить её. Для выбранной области Ctrl + колесо мыши поворачивает её на 1 градус, Shift + колесо на 15. |
 | Press for the start, drag for the direction. | Нажмите для начала, потяните для направления. |
 | Click a drawing or an area to remove it. | Щёлкните по рисунку или области, чтобы убрать их. |
 | Token Settings | Настройки фишки |
@@ -1018,12 +1017,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Select at least one target first. | Сначала выберите хотя бы одну цель. |
 | That Stance is not learned by this character. | Эта Стойка не изучена этим персонажем. |
 | A Spontaneous Action costs 1 or 2 AP. | Спонтанное действие стоит 1 или 2 ОД. |
-| Choose how many targets it has. | Выберите, сколько у него целей. |
 | Choose a die from d4 to d12. | Выберите кубик от d4 до d12. |
 | Choose at least one effect. | Выберите хотя бы один эффект. |
 | Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
 | Choose the roll to make. | Выберите бросок. |
-| Select exactly one target first. | Сначала выберите ровно одну цель. |
 | That card cannot be edited. | Эту карточку нельзя изменить. |
 | {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
 | {name} uses a Spontaneous Action ({ap} AP). | {name} использует спонтанное действие ({ap} ОД). |
@@ -1053,6 +1050,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | A step is one square in one of eight directions. | Шаг — одна клетка в одном из восьми направлений. |
 | At most {max} drawings and templates. Clear some first. | Не более {max} рисунков и областей. Сначала очистите часть. |
 | Invalid mark. | Неверная отметка. |
+| That area is not on the map. | Этой области нет на карте. |
 | Erase on the map. | Стирайте в пределах карты. |
 | Invalid colour. | Неверный цвет. |
 | Invalid line width. | Неверная толщина линии. |
@@ -1125,7 +1123,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That token is not on the active map. | Этой фишки нет на активной карте. |
 | You cannot move that. | Вы не можете это двигать. |
 | That token is not on the map. | Этой фишки нет на карте. |
-| That area is not on the map. | Этой области нет на карте. |
 | There is no combat. | Боя нет. |
 | A combat is already running. | Бой уже идёт. |
 | You cannot roll for that. | Вы не можете бросать за него. |
@@ -1133,6 +1130,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Only the GM or the player whose turn it is can end it. | Закончить ход могут только мастер или игрок, чей сейчас ход. |
 | That turn is already over. | Этот ход уже закончился. |
 | Only the GM or the Display can draw. | Рисовать могут только мастер и экран стола. |
+| Only the GM or the Display can move areas. | Перемещать области могут только ГМ или Экран. |
 | Only the GM or the Display can erase. | Стирать могут только мастер и экран стола. |
 | Only the GM or the Display can clean the map. | Очищать карту могут только мастер и экран стола. |
 | Only the GM or the Display can ping. | Ставить метки могут только мастер и экран стола. |
@@ -1215,6 +1213,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| One | Одна |
+| Several | Несколько |
+| Nobody is targeted: it is for the acting character. | Целей нет: действие для самого персонажа. |
+| Selected targets: {n}. Select them in the Targets list of the General tab first. | Выбрано целей: {n}. Сначала выберите их в списке целей во вкладке «Общее». |
+| Choose how many targets it has. | Выберите, сколько у него целей. |
+| Select exactly one target first. | Сначала выберите ровно одну цель. |
 | Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
 | Move left | Сдвинуть влево |
 | Move right | Сдвинуть вправо |

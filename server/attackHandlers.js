@@ -172,7 +172,7 @@ export function registerAttackHandlers(ctx) {
   });
 
   // ---- Spontaneous Action (GM only, one time, stored nowhere) ----------------------------------------------
-  // p: { characterId, ap: 1|2, targetMode: 'none'|'one'|'many', roll: 'weapon'|'magic'|'stances'|'manifestation',
+  // p: { characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation',
   //      defence: 'physical'|'mental', help?: [indices], effects: { damage?: { amount, kind }, help?: { sides },
   //      status?: { key, stacks }, temp?: { value } } }
   // Any combination of the four effects. Damage and Status need a roll (the picked Combat roll against the Defence,
@@ -185,7 +185,6 @@ export function registerAttackHandlers(ctx) {
   on('spontaneous:do', { gmOnly: true }, async (p) => {
     const c = await requireControl(p.characterId);
     if (p.ap !== 1 && p.ap !== 2) throw new AppError('bad_value', 'A Spontaneous Action costs 1 or 2 AP.');
-    if (!['none', 'one', 'many'].includes(p.targetMode)) throw new AppError('bad_value', 'Choose how many targets it has.');
     const fx = p.effects && typeof p.effects === 'object' ? p.effects : {};
     const effects = {};
     if (fx.damage) {
@@ -211,9 +210,7 @@ export function registerAttackHandlers(ctx) {
     if (sheet.ap.current < p.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: p.ap, have: sheet.ap.current });
 
     // Who it is aimed at.
-    const picked = p.targetMode === 'none' ? [] : await battle.effectiveTargets(db, shared, c.id);
-    if (p.targetMode === 'one' && picked.length !== 1) throw new AppError('no_target', 'Select exactly one target first.');
-    if (p.targetMode === 'many' && !picked.length) throw new AppError('no_target', 'Select at least one target first.');
+    const picked = await battle.effectiveTargets(db, shared, c.id);
     const sceneId = await scenes.getActiveSceneId(db);
     const ownToken = sceneId == null ? null : await battle.tokenForCharacter(db, sceneId, c.id);
     const infos = [];

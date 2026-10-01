@@ -314,6 +314,17 @@ export async function addMark(db, kind, data) {
   return Number(r.lastInsertRowid);
 }
 
+// Moves or turns an area (the GM and the Display, "Move" in the Area tool). Only the position and the direction change; the
+// name (shape and number) never does.
+export async function updateTemplate(db, id, patch) {
+  if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid mark.');
+  const r = await db.execute({ sql: 'SELECT id, kind, data FROM battle_marks WHERE id = ?', args: [id] });
+  if (!r.rows.length || r.rows[0].kind !== 'template') throw new AppError('not_found', 'That area is not on the map.');
+  const data = JSON.parse(r.rows[0].data);
+  const next = cleanMark('template', { ...data, ...patch });
+  await db.execute({ sql: 'UPDATE battle_marks SET data = ? WHERE id = ?', args: [JSON.stringify({ ...next, n: data.n }), id] });
+}
+
 export async function removeMark(db, id) {
   if (!Number.isInteger(id)) throw new AppError('bad_id', 'Invalid mark.');
   await db.execute({ sql: 'DELETE FROM battle_marks WHERE id = ?', args: [id] });

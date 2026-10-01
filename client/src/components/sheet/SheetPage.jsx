@@ -9,6 +9,7 @@ import { Resistances, Statuses } from './SheetDefences.jsx';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
+import { ExperienceIcon, MovementIcon, SizeIcon } from './ParamIcons.jsx';
 import { ShieldIcon, BrainIcon } from './DefenceIcons.jsx';
 import { tint, skillTint } from './tints.js';
 import { HelpTrack, useHelpPrompt } from '../HelpDice.jsx';
@@ -185,13 +186,19 @@ export default function SheetPage({ characterId }) {
               </div>
             </div>
             <div className={tile}>
-              <div className="text-xs opacity-60">{t('Movement (squares per AP)')}</div>
+              <div className="text-xs opacity-60">
+                <MovementIcon />
+                {t('Movement (squares per AP)')}
+              </div>
               <div className="w-16 text-xl">
                 <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
               </div>
             </div>
             <div className={tile}>
-              <div className="text-xs opacity-60">{t('Size (token)')}</div>
+              <div className="text-xs opacity-60">
+                <SizeIcon />
+                {t('Size (token)')}
+              </div>
               <select
                 aria-label={t('Size')}
                 data-testid="size-select"
@@ -207,7 +214,10 @@ export default function SheetPage({ characterId }) {
               </select>
             </div>
             <div className={tile}>
-              <div className="text-xs opacity-60">{t('Experience Modifier')}</div>
+              <div className="text-xs opacity-60">
+                <ExperienceIcon />
+                {t('Experience Modifier')}
+              </div>
               <div className="w-16 text-xl">
                 <NumField label={t('Experience Modifier')} testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
               </div>

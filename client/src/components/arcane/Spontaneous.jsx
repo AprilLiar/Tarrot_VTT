@@ -30,7 +30,6 @@ export default function Spontaneous({ s, onClose }) {
   const info = useTargets(s.characterId);
   const selected = info?.targets.length ?? 0;
   const [ap, setAp] = useState(1);
-  const [mode, setMode] = useState('none');
   const [on, setOn] = useState({ damage: false, help: false, status: false, temp: false });
   const [damage, setDamage] = useState('1');
   const [kind, setKind] = useState('true');
@@ -44,8 +43,7 @@ export default function Spontaneous({ s, onClose }) {
   const status = D.STATUSES.find((x) => x.key === statusKey);
   const rolled = on.damage || on.status;
   const any = Object.values(on).some(Boolean);
-  const targetsOk = mode === 'none' || (mode === 'one' ? selected === 1 : selected >= 1);
-  const valid = any && (!on.damage || isNum(damage, 0, 999)) && (!on.temp || isNum(temp, 1, 9999)) && targetsOk && s.sheet.ap.current >= ap;
+  const valid = any && (!on.damage || isNum(damage, 0, 999)) && (!on.temp || isNum(temp, 1, 9999)) && s.sheet.ap.current >= ap;
   const flag = (k) => (e) => setOn({ ...on, [k]: e.target.checked });
 
   async function run() {
@@ -59,7 +57,7 @@ export default function Spontaneous({ s, onClose }) {
     if (on.help) effects.help = { sides };
     if (on.status) effects.status = { key: statusKey, stacks: status?.stackable ? stacks : 1 };
     if (on.temp) effects.temp = { value: Number(temp) };
-    return call('spontaneous:do', { characterId: s.characterId, ap, targetMode: mode, effects, roll, defence, help });
+    return call('spontaneous:do', { characterId: s.characterId, ap, effects, roll, defence, help });
   }
 
   return (
@@ -73,19 +71,9 @@ export default function Spontaneous({ s, onClose }) {
           ))}
         </div>
 
-        <div className="flex flex-col gap-1 text-sm">
-          {t('Targets')}
-          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('Targets')}>
-            {[['none', t('None')], ['one', t('One')], ['many', t('Several')]].map(([id, text]) => (
-              <button type="button" key={id} role="radio" aria-checked={mode === id} data-testid={`spont-mode-${id}`} className={`${btn} ${mode === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setMode(id)}>
-                {text}
-              </button>
-            ))}
-          </div>
-          <p className={`text-xs ${targetsOk ? 'opacity-60' : 'text-amber-300'}`} data-testid="spont-targets-note">
-            {mode === 'none' ? t('Nobody is targeted: it is for the acting character.') : t('Selected targets: {n}. Select them in the Targets list of the General tab first.', { n: selected })}
-          </p>
-        </div>
+        <p className="text-xs opacity-60" data-testid="spont-targets-note">
+          {selected > 0 ? t('Goes to the {n} selected targets.', { n: selected }) : t('Nobody is selected: it is for the acting character.')}
+        </p>
 
         <div className={box}>
           <label className="flex min-h-9 items-center gap-2 text-sm">

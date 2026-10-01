@@ -54,6 +54,11 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await p.getByTestId('ap-down').click();
   await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '3');
 
+  // Movement, Size and Experience Modifier have small icons before their labels.
+  await expect(p.getByTestId('icon-movement')).toHaveCount(1);
+  await expect(p.getByTestId('icon-size')).toHaveCount(1);
+  await expect(p.getByTestId('icon-experience')).toHaveCount(1);
+
   // The Defences have faint drawings behind them, and the stats and skills are tinted by their stats.
   await expect(p.getByTestId('icon-shield')).toHaveCount(1);
   await expect(p.getByTestId('icon-brain')).toHaveCount(1);
