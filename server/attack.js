@@ -1,4 +1,6 @@
 import * as D from '../shared/rules-data.js';
+import { takeDamage, gainTemp } from '../shared/hp.js';
+import { addHelpDie } from '../shared/help.js';
 import { computeTarget, applyResistance, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
 import { joinMsgs } from '../shared/localization.js';
 import * as battle from './battle.js';
@@ -58,6 +60,33 @@ export function cleanApply(pending, input, targets) {
 
 const capitalise = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
+// Gives a character what a Spontaneous Action grants: a Help Die and/or Temp HP (`benefits` = { help: { sides },
+// temp: { value } }). Temp HP does not stack and a full Help Die track keeps only the better dice (shared/help.js).
+// -> chat messages { key, params }
+export async function grantBenefits(db, characterId, name, benefits, emitSheet) {
+  const lines = [];
+  const sheet = await sheets.updateSheet(db, characterId, (s) => {
+    const next = structuredClone(s);
+    if (benefits.help) {
+      const r = addHelpDie(next.helpDice, benefits.help.sides);
+      next.helpDice = r.dice;
+      const sides = benefits.help.sides;
+      if (r.outcome === 'added') lines.push({ key: '{name} gains a Help Die (d{sides}).', params: { name, sides } });
+      else if (r.outcome === 'replaced') lines.push({ key: '{name} gains a Help Die (d{sides}) in place of a d{old}.', params: { name, sides, old: r.replaced } });
+      else lines.push({ key: '{name} holds too many Help Dice: the new d{sides} is lost.', params: { name, sides } });
+    }
+    if (benefits.temp) {
+      const had = next.hp.temp ?? 0;
+      next.hp.temp = gainTemp(had, benefits.temp.value);
+      if (next.hp.temp > had) lines.push({ key: '{name} gains {n} Temp HP.', params: { name, n: next.hp.temp } });
+      else lines.push({ key: '{name} already has {have} Temp HP, so the new {n} does not stack.', params: { name, have: had, n: benefits.temp.value } });
+    }
+    return sheets.normalizeSheet(next);
+  });
+  emitSheet(characterId, sheet);
+  return lines;
+}
+
 // Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers.
 // -> { lines: [{ message, hidden }] }  the result lines for the chat, as messages { key, params }
 export async function applyAttack(db, pending, clean, { emitSheet }) {
@@ -78,8 +107,10 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
         const next = structuredClone(s);
         if (result.hit) {
           const before = next.hp.current;
-          next.hp.current = Math.min(next.hp.max, Math.max(0, before - result.damage + result.heal));
-          hp = { before, after: next.hp.current };
+          const out = takeDamage(next.hp, result.damage, result.heal);
+          next.hp.current = out.current;
+          next.hp.temp = out.temp;
+          hp = { before, after: next.hp.current, absorbed: out.absorbed };
           for (const st of clean.statuses) {
             const have = next.statuses?.[st.key] ?? 0;
             next.statuses = { ...next.statuses, [st.key]: st.stackable ? have + st.stacks : 1 };
@@ -117,6 +148,7 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       if (result.steps.length) sentences.push({ key: 'After resistances: {steps}.', params: { steps: joinMsgs(result.steps) } });
       if (result.overridden) sentences.push({ key: 'Set by the GM to {n}.', params: { n: result.damage } });
       sentences.push(result.heal ? { key: 'Heals {n}.', params: { n: result.heal } } : { key: '{n} damage.', params: { n: result.damage } });
+      if (hp?.absorbed) sentences.push({ key: 'Temp HP absorbs {n}.', params: { n: hp.absorbed } });
       if (hp) sentences.push({ key: 'HP {from} to {to}.', params: { from: hp.before, to: hp.after } });
       else if (!isChar) sentences.push({ key: '(temporary NPC: no sheet, apply by hand)' });
       if (isChar && clean.statuses.length) {
@@ -125,6 +157,16 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       }
     }
     lines.push({ message: joinSentences(sentences), hidden: token.hidden });
+  }
+
+  // What a Spontaneous Action also grants (a Help Die, Temp HP): to every target, hit or not.
+  const gains = pending.spontaneous;
+  if (gains && (gains.help || gains.temp)) {
+    for (const t of clean.targets) {
+      const token = await battle.getToken(db, t.tokenId);
+      if (token.ownerKind !== 'character') continue;
+      for (const message of await grantBenefits(db, token.ownerId, token.name, gains, emitSheet)) lines.push({ message, hidden: token.hidden });
+    }
   }
 
   // The attacker pays: AP, the Enhancements' costs (damage, statuses, item uses), and on a natural 1 gains Exposed.
@@ -139,7 +181,9 @@ export async function applyAttack(db, pending, clean, { emitSheet }) {
       for (const d of costs.damage) {
         const res = d.kind === 'true' ? { damage: d.amount, heal: 0 } : applyResistance(next.resistances?.[d.kind], d.amount);
         const before = next.hp.current;
-        next.hp.current = Math.min(next.hp.max, Math.max(0, before - res.damage + res.heal));
+        const out = takeDamage(next.hp, res.damage, res.heal);
+        next.hp.current = out.current;
+        next.hp.temp = out.temp;
         notes.push({ key: '{name} takes {n} {kind} damage as a cost (HP {from} to {to}).', params: { name: attackerName, n: res.damage, kind: { t: d.kind === 'true' ? 'True' : capitalise(d.kind) }, from: before, to: next.hp.current } });
       }
       for (const st of costs.statuses) {

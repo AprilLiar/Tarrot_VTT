@@ -23,7 +23,12 @@ const EFFECTS = [
   { status: 'grappled', kinds: ['save'], stats: ['dexterity'], levels: -1 },
   { status: 'immobilized', kinds: ['save'], stats: ['dexterity'], levels: -1 },
   { status: 'restrained', kinds: ['save'], stats: ['dexterity'], levels: -1 },
-  { status: 'exhaustion', kinds: ['attribute', 'save', 'skill'], modifier: -1, scales: true },
+  { status: 'exhaustion', kinds: ['attribute', 'save', 'skill'], masteries: ['stances', 'manifestation'], modifier: -1, scales: true },
+  // Combat Mastery rolls: Impaired and Hindered weigh on Stance rolls (the physical ones), Dazed on Manifest rolls
+  // (the mental ones). Nothing changes a Magic roll, and Exhaustion reaches the Stance and Manifest rolls but not Magic.
+  { status: 'impaired', kinds: [], masteries: ['stances'], levels: -1, scales: true },
+  { status: 'hindered', kinds: [], masteries: ['stances'], levels: -1, scales: true },
+  { status: 'dazed', kinds: [], masteries: ['manifestation'], levels: -1, scales: true },
 ];
 
 // The stat a roll ends up using (after "higher of" and Prime rules), or null.
@@ -44,13 +49,19 @@ export function resolveStat(sheet, kind, key) {
   return null;
 }
 
+// `key` is the Combat Mastery of a 'mastery' roll ('magic', 'stances', 'manifestation').
 // -> { levels: [{ label, levels }], modifiers: [{ label, value }] }
-export function statusEffects(statuses, kind, stat) {
+export function statusEffects(statuses, kind, stat, key) {
   const out = { levels: [], modifiers: [] };
   for (const e of EFFECTS) {
     const stacks = statuses?.[e.status];
-    if (!stacks || !e.kinds.includes(kind)) continue;
-    if (e.stats && !e.stats.includes(stat)) continue;
+    if (!stacks) continue;
+    if (kind === 'mastery') {
+      if (!e.masteries?.includes(key)) continue;
+    } else {
+      if (!e.kinds.includes(kind)) continue;
+      if (e.stats && !e.stats.includes(stat)) continue;
+    }
     const info = D.STATUSES.find((s) => s.key === e.status);
     const n = e.scales ? stacks : 1;
     const label = info.stackable ? `${info.name} ${stacks}` : info.name;

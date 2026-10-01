@@ -11,6 +11,7 @@ import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
 import { ShieldIcon, BrainIcon } from './DefenceIcons.jsx';
 import { tint, skillTint } from './tints.js';
+import { HelpTrack, useHelpPrompt } from '../HelpDice.jsx';
 import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
 import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
@@ -76,13 +77,18 @@ export default function SheetPage({ characterId }) {
     [characterId, toast, t],
   );
 
+  // Before any roll the player may spend Help Dice.
+  const helpPrompt = useHelpPrompt(data?.sheet.helpDice);
+  const askHelp = helpPrompt.ask;
   const roll = useCallback(
     async (kind, key, opts = {}) => {
-      const r = await call('roll:make', { characterId, kind, key, ...opts });
+      const help = await askHelp();
+      if (help === null) return; // cancelled: no roll
+      const r = await call('roll:make', { characterId, kind, key, ...opts, help });
       if (r.ok) setChatOpen(true);
       else toast(r.error ?? t('The roll failed.'));
     },
-    [characterId, toast, setChatOpen, t],
+    [characterId, toast, setChatOpen, t, askHelp],
   );
 
   if (error) return <p className="p-4 text-red-400">{error}</p>;
@@ -91,6 +97,7 @@ export default function SheetPage({ characterId }) {
   const { character, sheet } = data;
   const s = { sheet, character, set, list, roll, characterId };
   const apMax = sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX;
+  const hpFill = sheet.hp.max > 0 ? Math.max(0, Math.min(1, sheet.hp.current / sheet.hp.max)) : 0;
 
   return (
     <main className="mx-auto flex w-full max-w-[2000px] flex-col gap-3 p-3 pb-24" data-testid="sheet">
@@ -135,17 +142,33 @@ export default function SheetPage({ characterId }) {
                 )}
               </div>
             </div>
-            <div className={`${tile} col-span-2`}>
+            <div className={`${tile} col-span-2`} data-testid="hp-block">
               <div className="text-xs opacity-60">{t('Hit Points')}</div>
-              <div className="flex items-center gap-1 text-2xl">
-                <div className="w-16">
-                  <NumField label={t('Current HP')} testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-2xl" />
+              {/* The red HP bar with the numbers over it, and the faint blue Temp HP bar beside it, half as wide. */}
+              <div className="mt-1 grid grid-cols-[2fr_1fr] gap-2">
+                <div className="relative h-11 overflow-hidden rounded-lg bg-red-950/70" data-testid="hp-bar" data-fill={Math.round(hpFill * 100)}>
+                  <div className="absolute inset-y-0 left-0 bg-red-600 transition-[width] duration-300" style={{ width: `${hpFill * 100}%` }} />
+                  <div className="relative flex h-full items-center justify-center gap-1 text-xl font-semibold">
+                    <div className="w-14">
+                      <NumField label={t('Current HP')} testId="hp-current" value={sheet.hp.current} min={-99} max={9999} onCommit={(n) => set('hp.current', n)} className="text-xl" />
+                    </div>
+                    <span className="opacity-70">/</span>
+                    <div className="w-14">
+                      <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-xl" />
+                    </div>
+                  </div>
                 </div>
-                <span className="opacity-60">/</span>
-                <div className="w-16">
-                  <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-2xl" />
+                <div className="relative h-11 overflow-hidden rounded-lg bg-sky-950/40" data-testid="temp-bar" data-active={sheet.hp.temp > 0 ? 'true' : 'false'} title={t('Temp HP: takes damage before HP. It does not stack.')}>
+                  {sheet.hp.temp > 0 && <div className="absolute inset-0 bg-sky-400/30" />}
+                  <div className="relative flex h-full flex-col items-center justify-center leading-none">
+                    <span className="text-[10px] uppercase tracking-wide opacity-60">{t('Temp HP')}</span>
+                    <div className="w-14 text-lg font-semibold">
+                      <NumField label={t('Temp HP')} testId="temp-hp" value={sheet.hp.temp} min={0} max={9999} onCommit={(n) => set('hp.temp', n)} className="text-lg" />
+                    </div>
+                  </div>
                 </div>
               </div>
+              <HelpTrack dice={sheet.helpDice} onAdd={(sides) => list('helpDice', 'add', { sides })} onRemove={(index) => list('helpDice', 'remove', { index })} />
             </div>
             <div className={`${tile} relative overflow-hidden`}>
               <ShieldIcon />
@@ -211,6 +234,7 @@ export default function SheetPage({ characterId }) {
       </div>
         </>
       )}
+      {helpPrompt.dialog}
     </main>
   );
 }

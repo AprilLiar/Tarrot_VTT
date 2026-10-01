@@ -200,3 +200,39 @@ describe('statuses apply automatically', () => {
     expect(r.advantage.sources.map((x) => x.label)).toEqual(['Dazed 1', 'Manual']);
   });
 });
+
+describe('statuses on Combat Mastery rolls', () => {
+  const rolled = (sets, key) => {
+    const sheet = sheetWith(sets);
+    return buildRoll(sheet, { kind: 'mastery', key }, fixed(10, 15, 3));
+  };
+
+  it('Impaired and Hindered weigh on Stance rolls, as Disadvantage levels', () => {
+    const r = rolled({ 'statuses.impaired': 1, 'statuses.hindered': 1 }, 'stances');
+    expect(r.advantage.net).toBe(-2);
+    expect(r.mode).toBe('disadvantage');
+    expect(r.dice).toHaveLength(3);
+  });
+
+  it('Dazed weighs on Manifest rolls but not on Stance rolls', () => {
+    expect(rolled({ 'statuses.dazed': 2 }, 'manifestation').advantage.net).toBe(-2);
+    expect(rolled({ 'statuses.dazed': 2 }, 'stances').advantage.net).toBe(0);
+  });
+
+  it('nothing changes a Magic roll', () => {
+    const r = rolled({ 'statuses.impaired': 2, 'statuses.hindered': 2, 'statuses.dazed': 2, 'statuses.exhaustion': 3 }, 'magic');
+    expect(r.advantage.net).toBe(0);
+    expect(r.terms.map((t) => t.label)).toEqual(['Mastery: Magic', 'Experience Modifier']);
+  });
+
+  it('Exhaustion is a penalty on Stance and Manifest rolls too', () => {
+    const r = rolled({ 'statuses.exhaustion': 2 }, 'stances');
+    expect(r.terms.find((t) => t.label === 'Exhaustion')).toMatchObject({ value: -2 });
+    expect(rolled({ 'statuses.exhaustion': 2 }, 'manifestation').terms.some((t) => t.label === 'Exhaustion')).toBe(true);
+  });
+
+  it('weapon attack rolls are not touched by these statuses', () => {
+    const r = buildRoll(sheetWith({ 'statuses.impaired': 2, 'statuses.hindered': 2 }), { kind: 'weapon', key: 'prime' }, fixed(10));
+    expect(r.advantage.net).toBe(0);
+  });
+});

@@ -4,6 +4,7 @@ import { call, useApp } from '../AppContext.jsx';
 import Dialog, { btn, btnPrimary, btnDanger } from './Dialog.jsx';
 import { IntInput, isWholeNumber } from './sheet/fields.jsx';
 import { computeTarget, hitLabel, DAMAGE_KINDS, DEFAULT_CRIT } from '../../../shared/damage.js';
+import { takeDamage } from '../../../shared/hp.js';
 import { useT } from '../i18n.jsx';
 import { STATUSES } from '../../../shared/rules-data.js';
 
@@ -129,6 +130,13 @@ function AttackCard({ attack, onClose }) {
             {t('Enhancements: {list}', { list: attack.enhancements.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name)).join(', ') })}
           </div>
         )}
+        {attack.spontaneous && (attack.spontaneous.help || attack.spontaneous.temp) && (
+          <div className="text-sm opacity-80" data-testid="attack-spontaneous">
+            {t('Also gives every target: {list}', {
+              list: [attack.spontaneous.help ? t('a d{sides} Help Die', { sides: attack.spontaneous.help.sides }) : null, attack.spontaneous.temp ? t('{n} Temp HP', { n: attack.spontaneous.temp.value }) : null].filter(Boolean).join(', '),
+            })}
+          </div>
+        )}
         {attack.stance && (
           <div className="text-sm opacity-80" data-testid="attack-stance">
             {t('Stance {name}: rolled {total}, band {band}', { name: attack.stance.name, total: attack.stance.total, band: t(attack.stance.band) })}
@@ -218,9 +226,10 @@ function AttackCard({ attack, onClose }) {
                       <>
                         {': '}
                         {res.heal ? t('heals {n}', { n: res.heal }) : t('{n} damage', { n: res.damage })}
-                        {tg.hp
-                          ? `. ${t('HP {from} to {to}', { from: tg.hp.current, to: Math.max(0, Math.min(tg.hp.max, tg.hp.current - res.damage + res.heal)) })}`
-                          : ''}
+                        {tg.hp ? (() => {
+                          const out = takeDamage(tg.hp, res.damage, res.heal);
+                          return `. ${out.absorbed ? `${t('Temp HP absorbs {n}.', { n: out.absorbed })} ` : ''}${t('HP {from} to {to}', { from: tg.hp.current, to: out.current })}`;
+                        })() : ''}
                       </>
                     )}
                   </div>

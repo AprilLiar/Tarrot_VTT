@@ -26,6 +26,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Advantage | Преимущество |
 | Close | Закрыть |
 | Cancel | Отмена |
+| Use Help Dice? | Использовать кубики помощи? |
+| Tap a die to add it to this roll, tap it again to put it back. A die you use is gone afterwards. | Коснитесь кубика, чтобы добавить его к этому броску, и коснитесь ещё раз, чтобы вернуть. Использованный кубик исчезает. |
+| Proceed with {n} | Продолжить ({n}) |
+| Proceed | Продолжить |
+| Help Dice | Кубики помощи |
+| Remove this die | Убрать этот кубик |
+| Remove the d{sides} Help Die | Убрать кубик помощи d{sides} |
+| None | Нет |
+| Add a Help Die | Добавить кубик помощи |
+| Add a d{sides} | Добавить d{sides} |
 | Settings | Настройки |
 | Who are you? | Кто вы? |
 | Dismiss | Закрыть |
@@ -71,6 +81,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Chosen | Выбрано |
 | Choose | Выбрать |
 | Edit | Изменить |
+| Spontaneous Action | Спонтанное действие |
 | Weapons | Оружие |
 | Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet). | Выберите одно оружие. Оружие — это предметы с включённым переключателем «Оружие» (см. Инвентарь на листе). |
 | Enhancements | Усиления |
@@ -188,6 +199,24 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Modifiers and Links | Модификаторы и связи |
 | Release | Форма |
 | Spell scheme | Схема заклинания |
+| Weapon attack (Prime + Experience) | Атака оружием (Главная + Опыт) |
+| Cancelled. | Отменено. |
+| Roll | Бросок |
+| Give | Передать |
+| One | Одна |
+| Several | Несколько |
+| Nobody is targeted: it is for the acting character. | Целей нет: действие для самого персонажа. |
+| Selected targets: {n}. Select them in the Targets list of the General tab first. | Выбрано целей: {n}. Сначала выберите их в списке целей во вкладке «Общее». |
+| Damage | Урон |
+| Damage value | Значение урона |
+| Help Die | Кубик помощи |
+| Status | Статус |
+| Stacks | Накопления |
+| Temp HP | Врем. ОЗ |
+| Temp HP value | Значение врем. ОЗ |
+| Defence it is rolled against | Защита, против которой бросок |
+| vs Physical Defence | против физической защиты |
+| vs Mental Defence | против ментальной защиты |
 | Loading... | Загрузка... |
 | Variations: {n} | Вариаций: {n} |
 | Edit vibe | Изменить описание знака |
@@ -217,7 +246,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Same as the band above (-) | Как в диапазоне выше (-) |
 | Roll bonus | Бонус к броску |
 | Range | Дальность |
-| Damage | Урон |
 | Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
 | Dice Roll Bonuses | Бонусы кубиков |
 | Unique Effects | Уникальные эффекты |
@@ -230,9 +258,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove effect | Убрать эффект |
 | Add Unique Effect | Добавить уникальный эффект |
 | Attacks | Атакует |
-| Defence it is rolled against | Защита, против которой бросок |
-| vs Physical Defence | против физической защиты |
-| vs Mental Defence | против ментальной защиты |
 | Range in Spaces (empty for no range check) | Дальность в клетках (пусто — без проверки дальности) |
 | Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Cost | Цена |
@@ -359,7 +384,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | New state | Новое состояние |
 | Give {name} | Передать: {name} |
 | Offer {name} | Предложить: {name} |
-| Give | Передать |
 | Send offer | Отправить предложение |
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
 | (empty) | (пусто) |
@@ -384,6 +408,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Hit Points | Очки здоровья |
 | Current HP | Текущие ОЗ |
 | Max HP | Макс. ОЗ |
+| Temp HP: takes damage before HP. It does not stack. | Врем. ОЗ принимают урон раньше ОЗ и не суммируются. |
 | Physical Defence | Физическая защита |
 | Mental Defence | Ментальная защита |
 | Movement (squares per AP) | Движение (клеток за ОД) |
@@ -394,7 +419,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stats | Характеристики |
 | On a phone, tapping opens the roll options. With a mouse, click rolls at once and right-click opens the options. Statuses apply automatically. | На телефоне нажатие открывает параметры броска. С мышью щелчок бросает сразу, а правый щелчок открывает параметры. Состояния применяются автоматически. |
 | {name} value | Значение: {name} |
-| Roll | Бросок |
 | Defence | Защита |
 | Combat Masteries | Боевые мастерства |
 | Tap a name to roll: d20 + the Mastery + your Experience Modifier. | Нажмите на название, чтобы бросить: d20 + мастерство + ваш модификатор опыта. |
@@ -443,12 +467,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} attacks with {weapon} | {name} атакует: {weapon} |
 | Rolled {total} (natural {natural}) against {label} | Выпало {total} (на кубике {natural}) против: {label} |
 | Enhancements: {list} | Усиления: {list} |
+| Also gives every target: {list} | Также даёт каждой цели: {list} |
+| a d{sides} Help Die | кубик помощи d{sides} |
+| {n} Temp HP | {n} врем. ОЗ |
 | Stance {name}: rolled {total}, band {band} | Стойка «{name}»: выпало {total}, диапазон {band} |
 | Total | Итог |
 | Attack total | Итог атаки |
 | no sheet | нет листа |
 | heals {n} | лечит на {n} |
 | {n} damage | урон {n} |
+| Temp HP absorbs {n}. | Врем. ОЗ поглощают {n}. |
 | HP {from} to {to} | ОЗ {from} → {to} |
 | None of the targets is on the map any more. | Ни одной из целей больше нет на карте. |
 | Discard | Отклонить |
@@ -638,6 +666,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Weapon Attack Roll | Бросок атаки оружием |
 | Fire | Огонь |
 | Strength | Сила |
 | Strength Attribute Roll | Проверка атрибута: Сила |
@@ -804,7 +833,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Advantage on your attacks; attackers have Disadvantage. | Преимущество на ваши атаки; у атакующих помеха. |
 | Weakened | Ослаблен |
 | Disadvantage X on physical saves (Strength, Dexterity). | Помеха X на физические спасброски (Сила, Ловкость). |
-| Weapon Attack Roll | Бросок атаки оружием |
 | Cancer | Рак |
 | Records an emotional phenomenon and feelings. | Записывает эмоциональное явление и чувства. |
 | Virgo | Дева |
@@ -872,6 +900,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {what} must be a whole number from {min} to {max}. | Значение «{what}» должно быть целым числом от {min} до {max}. |
 | Choose a damage type. | Выберите тип урона. |
 | Unknown status. | Неизвестное состояние. |
+| {name} gains a Help Die (d{sides}). | {name} получает кубик помощи (d{sides}). |
+| {name} gains a Help Die (d{sides}) in place of a d{old}. | {name} получает кубик помощи (d{sides}) вместо d{old}. |
+| {name} holds too many Help Dice: the new d{sides} is lost. | У {name} слишком много кубиков помощи: новый d{sides} пропадает. |
+| {name} gains {n} Temp HP. | {name} получает {n} врем. ОЗ. |
+| {name} already has {have} Temp HP, so the new {n} does not stack. | У {name} уже {have} врем. ОЗ, поэтому новые {n} не суммируются. |
 | {attacker} attacks {target} with {weapon}: {total} vs {defence} {value}, {result}. | {attacker} атакует {target} ({weapon}): {total} против {defence} {value}, {result}. |
 | Damage {formula}. | Урон {formula}. |
 | Damage {formula} {kind}. | Урон {formula} ({kind}). |
@@ -896,7 +929,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That attack is no longer waiting. | Эта атака больше не ожидает. |
 | Select at least one target first. | Сначала выберите хотя бы одну цель. |
 | That Stance is not learned by this character. | Эта Стойка не изучена этим персонажем. |
+| A Spontaneous Action costs 1 or 2 AP. | Спонтанное действие стоит 1 или 2 ОД. |
+| Choose how many targets it has. | Выберите, сколько у него целей. |
+| Choose a die from d4 to d12. | Выберите кубик от d4 до d12. |
+| Choose at least one effect. | Выберите хотя бы один эффект. |
+| Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
+| Choose the roll to make. | Выберите бросок. |
+| Select exactly one target first. | Сначала выберите ровно одну цель. |
 | {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
+| {name} uses a Spontaneous Action ({ap} AP). | {name} использует спонтанное действие ({ap} ОД). |
 | Invalid track. | Неверный трек. |
 | That track no longer exists. | Этого трека больше нет. |
 | Invalid playlist. | Неверный плейлист. |
@@ -963,6 +1004,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That item no longer exists. | Этого предмета больше нет. |
 | That offer is no longer available. | Это предложение больше недоступно. |
 | Only the receiving player can answer. | Ответить может только получающий игрок. |
+| Those Help Dice are not available. | Эти кубики помощи недоступны. |
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
 | Only PNG, JPEG and WebP images are accepted. | Принимаются только изображения PNG, JPEG и WebP. |
@@ -1026,7 +1068,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stat | Характеристика |
 | Combat Mastery | Боевое мастерство |
 | Mastery tier | Уровень мастерства |
-| Stacks | Накопления |
 | Unknown field. | Неизвестное поле. |
 | Only NPCs can be Minions. | Приспешниками могут быть только НПС. |
 | Minion must be true or false. | Значение «приспешник» должно быть «да» или «нет». |
@@ -1039,6 +1080,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid states. | Неверные состояния. |
 | Invalid state. | Неверное состояние. |
 | No uses left. | Использований не осталось. |
+| A character holds at most {max} Help Dice. | У персонажа не больше {max} кубиков помощи. |
+| That die is no longer there. | Этого кубика уже нет. |
 | Too many spells. | Слишком много заклинаний. |
 | Unknown list. | Неизвестный список. |
 | Spell crafting (Magic Roll) | Создание заклинания (бросок Магии) |
@@ -1092,5 +1135,4 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}. | {attacker} атакует цель {target} ({mastery}): {total} против {defence} {value}, {result}. |
 | Choose a Combat Mastery. | Выберите боевое мастерство. |
 | A basic attack costs 1 or 2 AP. | Базовая атака стоит 1 или 2 ОД. |
-| Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
 

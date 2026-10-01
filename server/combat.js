@@ -1,6 +1,7 @@
 import * as D from '../shared/rules-data.js';
 import { apMax, normalizeSheet } from './sheet.js';
 import { applyResistance } from '../shared/damage.js';
+import { takeDamage } from '../shared/hp.js';
 import { joinMsgs } from '../shared/localization.js';
 import { AppError } from './errors.js';
 
@@ -118,7 +119,9 @@ export function startOfTurn(sheet, name) {
   const lines = [];
   const hurt = (amount, source, detail) => {
     const before = next.hp.current;
-    next.hp.current = Math.max(0, before - amount);
+    const out = takeDamage(next.hp, amount);
+    next.hp.current = out.current;
+    next.hp.temp = out.temp;
     lines.push({
       key: '{name} takes {amount} damage from {source} ({detail}). HP {from} to {to}.',
       params: { name, amount, source, detail, from: before, to: next.hp.current },

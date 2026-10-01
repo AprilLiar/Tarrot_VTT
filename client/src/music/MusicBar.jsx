@@ -24,8 +24,8 @@ export default function MusicBar() {
   const isGm = identity?.role === 'gm';
   const s = music.state;
   const hasTrack = s?.trackId != null;
-  // The Display shows the bar only while there is something to hear (or to unlock).
-  if (!isGm && !hasTrack && !music.blocked) return null;
+  // The bar is always shown (decided after the playtest), whether or not a scene is on screen, so it is clear what
+  // plays; with nothing playing it just says "Music".
 
   const label = hasTrack ? shorten(s.name) : t('Music');
 

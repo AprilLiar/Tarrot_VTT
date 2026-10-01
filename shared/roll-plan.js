@@ -74,7 +74,7 @@ export function planRoll(sheet, request) {
   }
 
   // Statuses apply on their own, even to a quick roll.
-  const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key));
+  const fx = statusEffects(sheet.statuses, kind, resolveStat(sheet, kind, key), key);
   for (const m of fx.modifiers) terms.push(m);
   if (modifier !== 0) terms.push({ label: T('Custom'), value: modifier });
   // Roll bonuses that come from elsewhere (a Stance's band): [{ label, value }].

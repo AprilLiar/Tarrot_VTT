@@ -35,7 +35,9 @@ test('the GM builds a playlist and controls playback; the Display follows with a
   const gm = await open(gmCtx, 'pick-gm');
   const tvCtx = await desktop(browser);
   const tv = await open(tvCtx, 'pick-display');
-  await expect(tv.getByTestId('music-bar')).toHaveCount(0); // nothing playing yet
+  // The bar is always there on the Display, even with nothing playing.
+  await expect(tv.getByTestId('music-bar')).toBeVisible();
+  await expect(tv.getByTestId('music-title')).toHaveText('Music');
 
   await gm.getByTestId('music-bar').click();
   await gm.getByTestId('new-playlist-name').fill(list);
@@ -77,7 +79,8 @@ test('the GM builds a playlist and controls playback; the Display follows with a
   await expect(tracks.nth(1)).toHaveAttribute('data-playing', 'true');
 
   await gm.getByTestId('stop').click();
-  await expect(tv.getByTestId('music-bar')).toHaveCount(0);
+  await expect(tv.getByTestId('music-title')).toHaveText('Music');
+  await expect(tv.getByTestId('music-record')).toHaveAttribute('data-playing', 'false');
 
   // Clean up so other runs start empty.
   await gm.getByTestId('playlist').filter({ hasText: list }).getByRole('button', { name: 'Delete', exact: true }).click();
