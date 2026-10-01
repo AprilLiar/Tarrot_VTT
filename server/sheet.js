@@ -4,6 +4,7 @@ import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
 import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
 import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../shared/manifest.js';
+import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
 
 // The character sheet lives as one JSON document per character
@@ -87,7 +88,9 @@ export function normalizeSheet(raw) {
     hp: {
       current: clampInt(r.hp?.current, -99, 9999, 0),
       max: clampInt(r.hp?.max, 0, 9999, 0),
+      temp: clampInt(r.hp?.temp, 0, 9999, 0), // Temp HP: a shield without a maximum
     },
+    helpDice: normalizeHelp(r.helpDice),
     defence: {
       physical: clampInt(r.defence?.physical, 0, 99, 0),
       mental: clampInt(r.defence?.mental, 0, 99, 0),
@@ -162,6 +165,7 @@ export function applySet(sheet, path, value, character) {
     case 'hp':
       if (b === 'current') next.hp.current = intIn(value, -99, 9999, T('HP'));
       else if (b === 'max') next.hp.max = intIn(value, 0, 9999, T('Max HP'));
+      else if (b === 'temp') next.hp.temp = intIn(value, 0, 9999, T('Temp HP'));
       else throw bad('Unknown field.', 'bad_path');
       break;
     case 'defence':
@@ -318,6 +322,18 @@ export function applyList(sheet, list, action, p = {}) {
       arr[i] = { ...normalizeEnhancement(p.enhancement, p.id), id: p.id };
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
+    } else throw bad('Unknown action.', 'bad_action');
+    return normalizeSheet(next);
+  }
+
+  if (list === 'helpDice') {
+    if (action === 'add') {
+      if (!HELP_SIDES.includes(p.sides)) throw bad('Choose a die from d4 to d12.');
+      if (next.helpDice.length >= MAX_HELP) throw bad('A character holds at most {max} Help Dice.', 'limit', { max: MAX_HELP });
+      next.helpDice.push(p.sides);
+    } else if (action === 'remove') {
+      if (!isInt(p.index) || p.index < 0 || p.index >= next.helpDice.length) throw bad('That die is no longer there.', 'not_found');
+      next.helpDice.splice(p.index, 1);
     } else throw bad('Unknown action.', 'bad_action');
     return normalizeSheet(next);
   }

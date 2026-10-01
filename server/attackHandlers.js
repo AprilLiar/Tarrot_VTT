@@ -3,12 +3,15 @@ import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as scenes from './scenes.js';
 import * as arcane from './arcane.js';
+import { helpDiceFor, spendHelp } from './help.js';
 import * as stances from './stances.js';
 import { listLocks, lockedError } from './locks.js';
 import { magicLocked, stancesLocked, manifestationsLocked } from '../shared/locks.js';
 import * as D from '../shared/rules-data.js';
 import { buildRoll } from './rolls.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
+import { HELP_SIDES } from '../shared/help.js';
+import { DAMAGE_KINDS } from '../shared/damage.js';
 import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
 import { resolveBand, BANDS } from '../shared/stances.js';
 import { AppError } from './errors.js';
@@ -117,9 +120,10 @@ export function registerAttackHandlers(ctx) {
       advantage: Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, (p.advantage ?? 0) + plan.advantage)),
       modifier: p.modifier ?? 0,
       bonuses: plan.bonuses,
-      dice: plan.dice,
+      dice: [...plan.dice, ...helpDiceFor(sheet, p.help)],
     });
     if (plan.weapon.mastery) roll.title = `${D.MASTERY_LABELS[plan.weapon.mastery]} attack`;
+    await spendHelp(db, c.id, p.help, emitSheet);
     // The number to beat, shown big next to the total on the roll card.
     roll.against = {
       label: `${plan.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
@@ -164,6 +168,131 @@ export function registerAttackHandlers(ctx) {
     io.to(CHAT_ROOM).emit('chat:message', message);
     io.to(GM_ROOM).emit('attack:pending', entry);
     return { attackId, message };
+  });
+
+  // ---- Spontaneous Action (GM only, one time, stored nowhere) ----------------------------------------------
+  // p: { characterId, ap: 1|2, targetMode: 'none'|'one'|'many', roll: 'weapon'|'magic'|'stances'|'manifestation',
+  //      defence: 'physical'|'mental', help?: [indices], effects: { damage?: { amount, kind }, help?: { sides },
+  //      status?: { key, stacks }, temp?: { value } } }
+  // Any combination of the four effects. Damage and Status need a roll (the picked Combat roll against the Defence,
+  // then the usual confirm card); a Help Die and Temp HP alone are given at once. Everything goes to the selected
+  // targets, and with none selected to the acting character.
+  const intIn = (v, min, max, what) => {
+    if (!Number.isInteger(v) || v < min || v > max) throw new AppError('bad_value', '{what} must be a whole number from {min} to {max}.', { what: { t: what }, min, max });
+    return v;
+  };
+  on('spontaneous:do', { gmOnly: true }, async (p) => {
+    const c = await requireControl(p.characterId);
+    if (p.ap !== 1 && p.ap !== 2) throw new AppError('bad_value', 'A Spontaneous Action costs 1 or 2 AP.');
+    if (!['none', 'one', 'many'].includes(p.targetMode)) throw new AppError('bad_value', 'Choose how many targets it has.');
+    const fx = p.effects && typeof p.effects === 'object' ? p.effects : {};
+    const effects = {};
+    if (fx.damage) {
+      if (!DAMAGE_KINDS.includes(fx.damage.kind)) throw new AppError('bad_value', 'Choose a damage type.');
+      effects.damage = { amount: intIn(fx.damage.amount, 0, 999, 'Damage'), kind: fx.damage.kind };
+    }
+    if (fx.help) {
+      if (!HELP_SIDES.includes(fx.help.sides)) throw new AppError('bad_value', 'Choose a die from d4 to d12.');
+      effects.help = { sides: fx.help.sides };
+    }
+    if (fx.status) {
+      const info = D.STATUSES.find((x) => x.key === fx.status.key);
+      if (!info) throw new AppError('bad_value', 'Unknown status.');
+      effects.status = { key: info.key, name: info.name, stackable: info.stackable, stacks: info.stackable ? intIn(fx.status.stacks, 1, 10, 'Status stacks') : 1 };
+    }
+    if (fx.temp) effects.temp = { value: intIn(fx.temp.value, 1, 9999, 'Temp HP') };
+    if (!Object.keys(effects).length) throw new AppError('bad_value', 'Choose at least one effect.');
+    const needsRoll = !!(effects.damage || effects.status);
+    if (needsRoll && p.defence !== 'physical' && p.defence !== 'mental') throw new AppError('bad_value', 'Choose Physical or Mental Defence.');
+    if (needsRoll && !['weapon', 'magic', 'stances', 'manifestation'].includes(p.roll)) throw new AppError('bad_value', 'Choose the roll to make.');
+
+    const sheet = await sheets.getSheet(db, c.id);
+    if (sheet.ap.current < p.ap) throw new AppError('no_ap', 'Not enough AP: this attack costs {cost} and you have {have}.', { cost: p.ap, have: sheet.ap.current });
+
+    // Who it is aimed at.
+    const picked = p.targetMode === 'none' ? [] : [...(shared.targets.get(c.id) ?? [])];
+    if (p.targetMode === 'one' && picked.length !== 1) throw new AppError('no_target', 'Select exactly one target first.');
+    if (p.targetMode === 'many' && !picked.length) throw new AppError('no_target', 'Select at least one target first.');
+    const sceneId = await scenes.getActiveSceneId(db);
+    const ownToken = sceneId == null ? null : await battle.tokenForCharacter(db, sceneId, c.id);
+    const infos = [];
+    if (picked.length) {
+      for (const id of picked) {
+        try {
+          infos.push(await attack.targetInfo(db, id));
+        } catch {
+          // A token that has left the map is dropped.
+        }
+      }
+      if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
+    } else if (ownToken) {
+      infos.push(await attack.targetInfo(db, ownToken.id));
+    }
+
+    const title = T('Spontaneous Action');
+    if (!needsRoll) {
+      // Instant: a Help Die and/or Temp HP, no roll.
+      const lines = [];
+      const names = [];
+      if (infos.length) {
+        for (const t of infos) {
+          const token = await battle.getToken(db, t.tokenId);
+          if (token.ownerKind !== 'character') continue;
+          lines.push(...(await attack.grantBenefits(db, token.ownerId, token.name, effects, emitSheet)));
+          names.push(token.name);
+        }
+      } else {
+        lines.push(...(await attack.grantBenefits(db, c.id, c.name, effects, emitSheet)));
+      }
+      const spent = await sheets.updateSheet(db, c.id, (s) => {
+        const next = structuredClone(s);
+        next.ap.current = Math.max(0, next.ap.current - p.ap);
+        return sheets.normalizeSheet(next);
+      });
+      emitSheet(c.id, spent);
+      say({ key: '{name} uses a Spontaneous Action ({ap} AP).', params: { name: c.name, ap: p.ap } });
+      for (const m of lines) say(m);
+      return { instant: true };
+    }
+
+    if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
+    const mastery = p.roll === 'weapon' ? null : p.roll;
+    const dice = helpDiceFor(sheet, p.help);
+    const roll = buildRoll(sheet, { kind: mastery ? 'mastery' : 'weapon', key: mastery ?? 'prime', dice });
+    await spendHelp(db, c.id, p.help, emitSheet);
+    roll.title = mastery ? `${D.MASTERY_LABELS[mastery]} attack` : T('Weapon Attack Roll');
+    roll.against = {
+      label: `${p.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
+      targets: infos.map((t) => ({ name: t.name, value: t.defence[p.defence] })),
+    };
+    const attackId = (shared.nextAttackId = (shared.nextAttackId ?? 0) + 1);
+    const entry = {
+      id: attackId,
+      ts: Date.now(),
+      characterId: c.id,
+      characterName: c.name,
+      attackerTokenId: ownToken?.id ?? null,
+      weaponName: title,
+      enhancements: [],
+      ap: p.ap,
+      spells: [],
+      base: effects.damage?.amount ?? 0,
+      kind: effects.damage?.kind ?? 'true',
+      statuses: effects.status ? [{ key: effects.status.key, stacks: effects.status.stacks }] : [],
+      unique: [],
+      costs: { damage: [], statuses: [], items: [] },
+      stance: null,
+      spontaneous: { help: effects.help ?? null, temp: effects.temp ?? null },
+      defenceKind: p.defence,
+      roll,
+      targets: infos.map((t) => t.tokenId),
+    };
+    pending.set(attackId, entry);
+    while (pending.size > attack.MAX_PENDING) pending.delete(pending.keys().next().value);
+    const message = shared.chat.add({ type: 'roll', author: await authorName(), characterId: c.id, characterName: c.name, roll });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+    io.to(GM_ROOM).emit('attack:pending', entry);
+    return { attackId };
   });
 
   on('attack:list', { gmOnly: true }, () => ({ attacks: [...pending.values()] }));

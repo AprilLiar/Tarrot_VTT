@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TargetPicker, useTargets } from './TargetPicker.jsx';
 import ApCubes from './ApCubes.jsx';
+import { useHelpPrompt } from '../HelpDice.jsx';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnPrimary } from '../Dialog.jsx';
 import { HeightControl } from '../scene/HeightControl.jsx';
@@ -32,6 +33,7 @@ export function BattleRemote({ s, onAttack }) {
   const [free, setFree] = useState(false);
   const [ask, setAsk] = useState(null); // { dc, dr, aps, movement }
   const info = useTargets(s.characterId);
+  const helpPrompt = useHelpPrompt(s.sheet.helpDice);
   if (stage.mode !== 'battle' || !battle?.imageId) return null;
 
   const token = battle.tokens.find((tk) => tk.ownerKind === 'character' && tk.ownerId === s.characterId);
@@ -50,7 +52,9 @@ export function BattleRemote({ s, onAttack }) {
   }
 
   async function rollInitiative() {
-    const r = await call('combat:roll', { tokenId: mine.tokenId });
+    const help = await helpPrompt.ask();
+    if (help === null) return; // cancelled
+    const r = await call('combat:roll', { tokenId: mine.tokenId, help });
     if (!r.ok) toast(r.error);
   }
 
@@ -159,6 +163,8 @@ export function BattleRemote({ s, onAttack }) {
           <TargetPicker characterId={s.characterId} info={info} />
         </div>
       </div>
+
+      {helpPrompt.dialog}
 
       {ask && (
         <Dialog title={t('Spend AP to move?')} onClose={() => setAsk(null)}>

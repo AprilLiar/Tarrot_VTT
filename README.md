@@ -168,7 +168,8 @@ number. (decided)
 
 ### Distance
 1 Space = 1 square on the battle map. Rule text saying "Space" (for example within 1 Space) uses
-this unit. (decided)
+this unit, and **everything in the system is measured in Spaces** (decided after the second playtest); where
+something is not, ask. (decided)
 
 ### Items
 Using an item reduces its uses. Items in the base rules cannot be rolled. (decided)
@@ -235,6 +236,37 @@ the amount; the Battle remote shows the cubes without arrows.
 ### Resources and defences
 Each character has current and max HP, Physical Defence and Mental Defence. All hand-entered.
 (decided)
+
+**HP and Temp HP on the sheet (decided):** HP is a **red bar** with `current / max` written over it that
+empties in proportion; to its right is a faint **blue Temp HP bar**, half as wide, with the Temp HP value over it
+(filled while above 0). Temp HP has **no maximum**, just a value, and works like a shield: **all damage hits Temp
+HP first** and only the overkill reaches HP (attacks, Enhancement damage costs, Bleeding and Burning at turn start;
+healing never touches it). **Temp HP cannot stack**: gaining Temp HP keeps the larger of what you had and what you
+gain (5 Temp HP and gaining 7 gives 7; 5 and gaining 2 stays 5). The GM or the owner can also set the number by hand.
+The chat says when Temp HP absorbs damage ("Temp HP absorbs N").
+
+### Help Dice
+A general mechanic (decided). Every character has a **track of up to 5 Help Dice**, each a d4, d6, d8, d10 or d12,
+drawn as small vector pictures of dice (my own artwork) under HP on the sheet; the GM or the owner can add one
+(picker) or remove one (tap). **Before every roll** made for a character that holds at least one (attribute, save,
+skill, Combat Mastery, the attack in the Arcane footer, initiative, a Spontaneous Action's roll), a dialog shows the
+row of dice: a tap selects, a second tap unselects, and **Proceed** with nothing selected uses none (Cancel makes no roll).
+Each chosen die is **rolled with the d20 and added like a Dice Roll Bonus** (the same mechanism as a weapon's bonus die)
+and is **used up** (one use). Automatic rolls (the Stance roll, durability checks, crafting) and the GM's "roll all NPCs"
+do not ask. Gaining a die with a **full track** (5): a die larger than the smallest one held replaces the smallest,
+otherwise the new die is lost (decided).
+
+### Spontaneous Action
+A core rule (decided): a one-time action the GM makes up on the spot, stored nowhere. A button **Spontaneous
+Action** in the **General tab** of a character's Arcane tab (GM only) opens the menu: **1 or 2 AP**; **targets** None,
+One or Several (chosen in the Targets list of the General tab; None means the acting character itself); any
+combination of the effects **Damage** (value and type), **Help** (a Help Die of a chosen size), **Status** (any
+status, with stacks where it stacks) and **Temp HP** (a value); and, when Damage or Status is chosen, the **roll**
+(Weapon attack: Prime + Experience, Magic, Stances or Manifest) and the **Defence** it is rolled against (Physical or
+Mental). Damage or Status goes through that roll and the usual **confirm card** (prefilled, GM can edit); a Help Die
+or Temp HP alone is given at once without a roll. **Everything goes to the selected targets** (with none selected, to
+the actor, who is then also the target of the roll against their own Defence); Help Dice and Temp HP are given to
+every target, hit or not, after the damage. AP is spent when it is applied.
 
 ### Resistances
 Per damage type, with any combination of: (decided)
@@ -381,7 +413,10 @@ Implemented behaviour (Phase 3):
   stat is Intelligence or Spirit / Strength or Dexterity), Disoriented X and Weakened X
   (Disadvantage X on mental / physical saves), Grappled, Immobilized, Restrained (Disadvantage on
   Dexterity saves), Exhaustion X (-X on every check and save). The roll dialog shows them and the
-  roller can add more levels on top. Not automated yet: auto-fail effects, effects "against the
+  roller can add more levels on top. **Combat Mastery rolls (decided after the second playtest):**
+  Impaired X and Hindered X (Disadvantage X) change a **Stance roll**, Dazed X (Disadvantage X) a
+  **Manifest roll**, and Exhaustion X (-X) both of them; **nothing changes a Magic roll** (so not
+  the spell's attack, its durability check or the crafting roll either). Weapon attack rolls are not touched. Not automated yet: auto-fail effects, effects "against the
   source", and everything about attacks (Phase 6). (decided)
 - **Combat Mastery rolls:** each Combat Mastery nameplate is a button, all three in the standard UI
   colour (the coloured glow stays behind the box). A Mastery roll is
@@ -632,8 +667,8 @@ Decided:
   (an ellipsis is added when the name is longer). It is only as wide as its content; the rest of
   the row is fully transparent and never blocks the screen. The record spins while playing. On the
   GM's desktop it sits in the top bar; on the Display it sits at the top right (the Display's
-  "Switch" button moved to the top left). The Display shows the bar only while something is
-  playing. (decided)
+  "Switch" button moved to the top left). **The bar is always shown** (decided after the second
+  playtest), on the Display too and whether or not a scene is on screen; with nothing playing it just says "Music".
 - **GM:** clicking the bar opens the full player: now playing with a seek slider, Previous,
   Play/Pause, Next, Stop, Repeat (off, one, playlist), Shuffle, volume; and named playlists with
   tracks that can be added, renamed, deleted and moved up or down. Playlists live in the database.
@@ -914,12 +949,12 @@ Implemented:
 - `characters(id, name, type 'pc'|'npc', folder_id, sheet, created_at)`. Names are 1 to 60
   characters after trimming and need not be unique. `sheet` is one JSON document per character.
   It is added to existing databases at boot (`initSchema` checks `PRAGMA table_info`).
-- **Sheet JSON** (`server/sheet.js`): `ap {current, minion}`, `hp {current, max}`,
+- **Sheet JSON** (`server/sheet.js`): `ap {current, minion}`, `hp {current, max, temp}`,
   `defence {physical, mental}`, `experience`, `stats`, `xDefence` (four stats, no Luck),
   `masteries` (magic, stances, manifestation), `skills` (tier 0-10 per skill), `features`,
   `items` (`id, name, description, uses {current, max}, states[], state, weapon`; `weapon` is `null` or
   `{ base, kind, defence, ap, range, statuses, dice, unique }`), `unarmed` (a weapon: 0 Bludgeoning),
-  `enhancements` (the character's own, see Arcane tab), `stones` (count per sign), `spellDrafts`
+  `enhancements` (the character's own, see Arcane tab), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
   (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes`), `spells`
   (`id, name, description, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
   tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description }], active }`), `manifestations` (`id, name,
@@ -983,10 +1018,10 @@ Implemented:
   `folder:move` `{ id, parentId }`, `folder:delete` `{ id }` (all GM only).
 - `sheet:get` `{ characterId }` returns `{ character, sheet }`. `sheet:set` `{ characterId, path,
   value }` sets one field (paths such as `stats.dexterity`, `hp.max`, `statuses.bleeding`,
-  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements'|'spellDrafts', action: 'add'|
-  'update'|'remove'|'copy'|'use', ... }` (items take an optional `weapon`, Enhancements an `enhancement`, drafts a `draft`); `sheet:set` also takes
+  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements'|'spellDrafts'|'helpDice', action: 'add'|
+  'update'|'remove'|'copy'|'use', ... }` (`helpDice` takes `add` `{ sides }` and `remove` `{ index }`; items take an optional `weapon`, Enhancements an `enhancement`, drafts a `draft`); `sheet:set` also takes
   `unarmed` and `stones.<sign>`. Allowed for the GM, or for a player on their own PC only.
-- `roll:make` `{ characterId, kind: 'attribute'|'save'|'skill', key, mode?, modifier? }` rolls on
+- `roll:make` `{ characterId, kind: 'attribute'|'save'|'skill', key, mode?, modifier?, help? }` (`help`: places in the character's Help Dice track to spend) rolls on
   the server from the stored sheet and posts to the chat. Same permission as editing.
 - `chat:get` returns `{ messages }`; `chat:send` `{ text }`; `chat:clear` (GM only). Need an
   identity.
@@ -1076,11 +1111,12 @@ Battle (Phase 5a):
   A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], table: [6 rows] }`; a
   row is `{ same: true }` or `{ same: false, effect: { bonus, advantage, range, damage, statuses, dice, unique } }`.
   Every change is followed by `stances:changed` to all clients. Stored in the tables `stances` and `stance_vibes`.
+- Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, targetMode: 'none'|'one'|'many', roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
 - Spells: `spell:craft` `{ characterId, draftId }` (spends the stones, posts a Magic roll and a chat line, adds the
   spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
   icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),
   `spell:remove` `{ characterId, id }`. Same permission as editing the sheet.
-- Attacks: `attack:roll` `{ characterId, weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId } | { kind: 'manifestation', manifestationId }, stance?, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
+- Attacks: `attack:roll` `{ characterId, help?, weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId } | { kind: 'manifestation', manifestationId }, stance?, enhancements: [{ id, count }], advantage?, modifier?, confirmRange? }`
   (the GM, or a player for their own PC) works out the attack with `planAttack`, rolls it, posts the roll in the chat and
   sends `attack:pending` `{ id, characterId, characterName, attackerTokenId, weaponName, enhancements, ap, base, kind, statuses, unique, costs,
   defenceKind, roll, targets }` to the GM room. When a target is out of the weapon's range and `confirmRange` is not true it
@@ -1157,12 +1193,11 @@ Each phase ends in a deploy and playtest checkpoint.
 
 Asked one batch at a time; answers move into the sections above.
 
-- Magic system: Zodiac and Tarrot card effects, spontaneous casting tables.
-- Whether statuses should ever affect Combat Mastery rolls.
-- A wider desktop layout for the sheet and the icon set for damage types.
-- Battle token framing (token art shares the picture collection); what one square means in distance.
-- Music: whether sound effects (short one-shots) are wanted later, and whether the Display should also show what is playing on a Scene-less screen.
-- Image limits in Phase 4a are my defaults (see Images).
-- Undo of applied results? Animation budget?
-- PWA/installable phone app and orientation rules for the remote.
-- Backups/export of characters from Turso.
+Answered after the second playtest (all recorded above): no extra magic automation (spell effects are entered by
+hand), statuses affect Stance and Manifest rolls but never Magic rolls, everything is measured in Spaces, no sound
+effects and the music bar is always shown, the Phase 4a image limits stay, there is no phone app (the phone web
+client is enough), no backups or export of characters, and animation and the final look come at the end, when
+every feature is done. "Undo of applied results" was a question about a button that reverses an applied attack
+card (HP, statuses, AP) after a mistake; it is not planned.
+
+Nothing is open at the moment.

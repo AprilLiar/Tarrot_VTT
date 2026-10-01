@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
@@ -6,6 +6,7 @@ import { IntInput, isWholeNumber } from '../sheet/fields.jsx';
 import { TargetPicker, useTargets } from '../sheet/TargetPicker.jsx';
 import Magic, { emptyWork } from './Magic.jsx';
 import Stances from './Stances.jsx';
+import Spontaneous from './Spontaneous.jsx';
 import Manifest from './Manifest.jsx';
 import { LockProvider, Lockable, LockIcon, LockTile, useLocks } from './Locks.jsx';
 import { useStances } from './useStances.js';
@@ -16,6 +17,7 @@ import { enhancementCatalog, planAttack, MAX_COUNT } from '../../../../shared/ar
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
 import { setChatSlot } from '../../lib/chatSlot.js';
+import { useHelpPrompt } from '../HelpDice.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The Arcane tab: everything a character attacks with. This part has the General sub-tab (weapons and
@@ -134,6 +136,7 @@ function LockParts({ note, parts }) {
 
 function General({ s, draft, setDraft }) {
   const t = useT();
+  const { identity } = useApp();
   const { sheet, characterId } = s;
   const globals = useGlobalEnhancements();
   const info = useTargets(characterId);
@@ -194,6 +197,14 @@ function General({ s, draft, setDraft }) {
 
   return (
     <>
+      {identity.role === 'gm' && (
+        <section aria-label={t('Spontaneous Action')}>
+          <button className={`${btnPrimary} w-full`} data-testid="spontaneous-open" onClick={() => setDialog({ type: 'spontaneous' })}>
+            {t('Spontaneous Action')}
+          </button>
+        </section>
+      )}
+
       <section aria-label={t('Weapons')}>
         <h3 className={heading}>{t('Weapons')}</h3>
         <p className="mb-2 text-xs opacity-50">{t('Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet).')}</p>
@@ -231,6 +242,7 @@ function General({ s, draft, setDraft }) {
         </section>
       )}
 
+      {dialog?.type === 'spontaneous' && <Spontaneous s={s} onClose={() => setDialog(null)} />}
       {dialog?.type === 'weapon' && <UnarmedDialog s={s} onClose={() => setDialog(null)} />}
       {dialog?.type === 'enhancement' && (
         <EnhancementDialog
@@ -270,6 +282,8 @@ function AttackFooter({ s, draft, setDraft }) {
   const [busy, setBusy] = useState(false);
   const [far, setFar] = useState(null); // { range, targets: [{ name, distance }] }
   const [options, setOptions] = useState(false);
+  const helpPrompt = useHelpPrompt(sheet.helpDice);
+  const helpChoice = useRef(null); // the Help Dice picked for this attack, kept while a range warning is answered
 
   const choice = {
     weapon: weaponChoice(draft),
@@ -292,11 +306,16 @@ function AttackFooter({ s, draft, setDraft }) {
   else if (!modifierOk) blocked = t('The custom modifier must be a whole number from -99 to 99.');
 
   async function done(confirmRange = false) {
+    if (!confirmRange) {
+      helpChoice.current = await helpPrompt.ask();
+      if (helpChoice.current === null) return; // cancelled: no attack
+    }
     setBusy(true);
-    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, stance: draft.stance, advantage: draft.advantage, modifier: Number(draft.modifier), confirmRange });
+    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, stance: draft.stance, advantage: draft.advantage, modifier: Number(draft.modifier), help: helpChoice.current ?? [], confirmRange });
     setBusy(false);
     if (!r.ok) return toast(r.error);
     if (r.needsConfirm) return setFar(r.needsConfirm);
+    helpChoice.current = null;
     setFar(null);
     setDraft({ ...draft, counts: {}, stance: null });
   }
@@ -333,6 +352,8 @@ function AttackFooter({ s, draft, setDraft }) {
           </p>
         )}
       </div>
+
+      {helpPrompt.dialog}
 
       {options && (
         <Dialog title={t('Attack options')} onClose={() => setOptions(false)}>

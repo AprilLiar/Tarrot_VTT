@@ -9,6 +9,7 @@ import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
 import { registerAttackHandlers } from './attackHandlers.js';
 import { registerSpellHandlers } from './spellHandlers.js';
+import { helpDiceFor, spendHelp } from './help.js';
 import { registerStanceHandlers } from './stanceHandlers.js';
 import { registerLockHandlers } from './lockHandlers.js';
 import { registerManifestHandlers } from './manifestHandlers.js';
@@ -285,9 +286,11 @@ export function registerHandlers(io, socket, db, shared) {
 
   // ---- Rolls and chat -----------------------------------------------------
 
-  on('roll:make', { needsIdentity: true }, async ({ characterId, kind, key, advantage, modifier }) => {
+  on('roll:make', { needsIdentity: true }, async ({ characterId, kind, key, advantage, modifier, help }) => {
     const c = await requireControl(characterId);
-    const roll = buildRoll(await sheets.getSheet(db, c.id), { kind, key, advantage, modifier });
+    const sheet = await sheets.getSheet(db, c.id);
+    const roll = buildRoll(sheet, { kind, key, advantage, modifier, dice: helpDiceFor(sheet, help) });
+    await spendHelp(db, c.id, help, emitSheet);
     const message = chat.add({
       type: 'roll',
       author: await authorName(),

@@ -3,6 +3,7 @@ import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as combat from './combat.js';
 import { buildRoll, rollD20 } from './rolls.js';
+import { helpDiceFor, spendHelp } from './help.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
@@ -425,11 +426,12 @@ export function registerSceneHandlers(ctx) {
 
   // Rolls one combatant's initiative: a character rolls its Speed skill (shown in the chat like any
   // roll); a temporary NPC has no sheet and rolls a plain d20.
-  async function rollInitiative(c, entry) {
+  async function rollInitiative(c, entry, help) {
     const token = await battle.getToken(db, entry.tokenId);
     if (entry.ownerKind === 'character') {
       const sheet = await sheets.getSheet(db, entry.ownerId);
-      const roll = buildRoll(sheet, combat.SPEED_ROLL);
+      const roll = buildRoll(sheet, { ...combat.SPEED_ROLL, dice: helpDiceFor(sheet, help) });
+      await spendHelp(db, entry.ownerId, help, emitSheet);
       combat.setInitiative(c, entry.tokenId, roll.total);
       if (!token.hidden) {
         const message = shared.chat.add({
@@ -477,7 +479,7 @@ export function registerSceneHandlers(ctx) {
         await requireControl(entry.ownerId);
         if (entry.initiative != null) throw new AppError('already_rolled', 'Initiative is already rolled. Ask the GM to change it.');
       }
-      await rollInitiative(c, entry);
+      await rollInitiative(c, entry, p.help);
       await broadcastStage();
     }),
   );
