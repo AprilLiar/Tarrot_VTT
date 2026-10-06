@@ -1,4 +1,4 @@
-import { normalizeStatuses, normalizeDice, normalizeUnique, normalizeCost } from './arcane.js';
+import { normalizeStatuses, normalizeDice, normalizeUnique, normalizeCost, normalizeEffectRefs } from './arcane.js';
 import { SIGNS, stoneInfo } from './spells.js';
 import * as D from './rules-data.js';
 
@@ -40,7 +40,7 @@ const clampInt = (v, min, max, fallback) => (isInt(v) ? Math.min(max, Math.max(m
 const text = (v, max, fallback = '') => (typeof v === 'string' ? v.slice(0, max) : fallback);
 
 // The effect of one band: a roll bonus, Advantage levels, Range, extra Damage, statuses, Dice Roll Bonuses and Unique Effects.
-export const blankEffect = () => ({ bonus: 0, advantage: 0, range: 0, damage: 0, statuses: [], dice: [], unique: [] });
+export const blankEffect = () => ({ bonus: 0, advantage: 0, range: 0, damage: 0, statuses: [], dice: [], unique: [], effects: [] });
 
 export function normalizeBandEffect(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -52,6 +52,7 @@ export function normalizeBandEffect(raw) {
     statuses: normalizeStatuses(r.statuses),
     dice: normalizeDice(r.dice),
     unique: normalizeUnique(r.unique),
+    effects: normalizeEffectRefs(r.effects),
   };
 }
 

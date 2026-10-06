@@ -42,6 +42,21 @@ export function normalizeDice(raw) {
     .map((d) => ({ sides: d.sides, sign: d.sign === -1 ? -1 : 1 }));
 }
 
+// Effects (shared/effects.js) a weapon, an Enhancement or a Stance band puts on somebody: references into the library,
+// [{ id, to: 'target' | 'self' }]. They land whether or not the attack hits.
+export function normalizeEffectRefs(raw) {
+  const seen = new Set();
+  const out = [];
+  for (const r of Array.isArray(raw) ? raw : []) {
+    if (typeof r?.id !== 'string' || !r.id || out.length >= MAX_LIST) continue;
+    const to = r.to === 'self' ? 'self' : 'target';
+    if (seen.has(`${r.id}:${to}`)) continue;
+    seen.add(`${r.id}:${to}`);
+    out.push({ id: r.id, to });
+  }
+  return out;
+}
+
 // A Unique Effect: a name and a description shown in the chat, never automated.
 export function normalizeUnique(raw) {
   return (Array.isArray(raw) ? raw : [])
@@ -50,7 +65,7 @@ export function normalizeUnique(raw) {
     .map((u) => ({ name: text(u.name, D.NAME_MAX).trim(), text: text(u.text, D.TEXT_MAX) }));
 }
 
-export const defaultWeapon = () => ({ base: 1, kind: 'slashing', defence: 'physical', ap: 1, range: null, statuses: [], dice: [], unique: [] });
+export const defaultWeapon = () => ({ base: 1, kind: 'slashing', defence: 'physical', ap: 1, range: null, statuses: [], dice: [], unique: [], effects: [] });
 export const defaultUnarmed = () => ({ ...defaultWeapon(), base: 0, kind: 'bludgeoning' });
 
 export function normalizeWeapon(raw, fallback = defaultWeapon()) {
@@ -64,6 +79,7 @@ export function normalizeWeapon(raw, fallback = defaultWeapon()) {
     statuses: normalizeStatuses(r.statuses),
     dice: normalizeDice(r.dice),
     unique: normalizeUnique(r.unique),
+    effects: normalizeEffectRefs(r.effects),
   };
 }
 
@@ -80,7 +96,7 @@ export function normalizeCost(raw) {
   return { ap: clampInt(cost.ap, 0, MAX_AP_COST, 0), damage, statuses: normalizeStatuses(cost.statuses, { plain: true }), item };
 }
 
-const blankEffect = () => ({ damage: 0, range: 0, advantage: 0, statuses: [], dice: [], unique: [] });
+const blankEffect = () => ({ damage: 0, range: 0, advantage: 0, statuses: [], dice: [], unique: [], effects: [] });
 
 // An Enhancement: an augmentation of an attack with a cost and an effect.
 //   cost:   ap, damage (taken by the user), statuses (put on the user), item (uses spent from an item)
@@ -103,6 +119,7 @@ export function normalizeEnhancement(raw, id) {
       statuses: normalizeStatuses(eff.statuses),
       dice: normalizeDice(eff.dice),
       unique: normalizeUnique(eff.unique),
+      effects: normalizeEffectRefs(eff.effects),
     },
   };
 }
@@ -215,6 +232,7 @@ export function planAttack(sheet, catalog, choice, extras = []) {
   const statuses = [...w.cfg.statuses.map((s) => ({ ...s }))];
   const dice = w.cfg.dice.map((d) => ({ ...d, source: w.name }));
   const unique = w.cfg.unique.map((u) => ({ ...u, source: w.name }));
+  const effectRefs = (w.cfg.effects ?? []).map((r) => ({ ...r }));
   const costs = { damage: [], statuses: [], items: [] };
   const bonuses = [];
 
@@ -226,6 +244,7 @@ export function planAttack(sheet, catalog, choice, extras = []) {
     for (const s of e.effect.statuses) statuses.push({ ...s });
     for (let i = 0; i < count; i++) for (const d of e.effect.dice) dice.push({ ...d, source: e.name });
     for (const u of e.effect.unique) unique.push({ ...u, source: e.name });
+    for (const r of e.effect.effects ?? []) effectRefs.push({ ...r });
     if (e.cost.damage) costs.damage.push({ amount: e.cost.damage.amount * count, kind: e.cost.damage.kind });
     for (const s of e.cost.statuses) costs.statuses.push({ ...s });
     if (e.cost.item) costs.items.push({ itemId: e.cost.item.itemId, uses: e.cost.item.uses * count });
@@ -246,6 +265,7 @@ export function planAttack(sheet, catalog, choice, extras = []) {
     for (const st of x.effect.statuses ?? []) statuses.push({ ...st });
     for (const d of x.effect.dice ?? []) dice.push({ ...d, source: x.name });
     for (const u of x.effect.unique ?? []) unique.push({ ...u, source: x.name });
+    for (const r of x.effect.effects ?? []) effectRefs.push({ ...r });
   }
 
   // Each item must exist and have enough uses left for everything that spends from it.
@@ -281,6 +301,7 @@ export function planAttack(sheet, catalog, choice, extras = []) {
     dice,
     bonuses,
     unique,
+    effectRefs: effectRefs.filter((r, i) => effectRefs.findIndex((x) => x.id === r.id && x.to === r.to) === i),
     costs,
     chosen: picked.map(({ e, count }) => ({ id: e.id, name: e.name, count })),
     // The spells this attack uses up a little of (durability is checked when the attack is applied).

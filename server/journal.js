@@ -7,7 +7,8 @@ import { totalsOf } from '../shared/statuses.js';
 // A journal records what one chat card did to the sheets, as deltas (how much each number moved), so that
 // Revert can take exactly that away again while keeping everything that happened afterwards:
 //   delta = { hp, temp, ap, groups: { id: { key, duration, rounds?, dc?, stacks: n } }, stones: { sign: n }, items: { id: n },
-//             spells: { id: { stab, uses, destroyed } }, spellsAdded: [id], helpAdded: [sides], helpRemoved: [sides] }
+//             spells: { id: { stab, uses, destroyed } }, spellsAdded: [id], helpAdded: [sides], helpRemoved: [sides],
+//             fxAdded: [instance], fxRemoved: [instance], fxUses: { id: n } }   (running Effects, see shared/effects.js)
 // Only the fields a card can change are tracked.
 
 const diffMap = (a = {}, b = {}) => {
@@ -73,6 +74,19 @@ export function sheetDelta(before, after) {
   if (Object.keys(spells).length) delta.spells = spells;
   const added = after.spells.filter((sp) => !before.spells.some((x) => x.id === sp.id)).map((sp) => sp.id);
   if (added.length) delta.spellsAdded = added;
+  // Effects: the instances that came, the ones that went (kept whole, so they can come back) and the uses spent.
+  const fxBefore = before.effects ?? [];
+  const fxAfter = after.effects ?? [];
+  const fxAdded = fxAfter.filter((e) => !fxBefore.some((x) => x.id === e.id));
+  const fxRemoved = fxBefore.filter((e) => !fxAfter.some((x) => x.id === e.id));
+  const fxUses = {};
+  for (const e of fxAfter) {
+    const was = fxBefore.find((x) => x.id === e.id);
+    if (was?.uses && e.uses && e.uses.current !== was.uses.current) fxUses[e.id] = e.uses.current - was.uses.current;
+  }
+  if (fxAdded.length) delta.fxAdded = fxAdded;
+  if (fxRemoved.length) delta.fxRemoved = fxRemoved;
+  if (Object.keys(fxUses).length) delta.fxUses = fxUses;
   const help = diceDiff(before.helpDice ?? [], after.helpDice ?? []);
   if (help.added.length) delta.helpAdded = help.added;
   if (help.removed.length) delta.helpRemoved = help.removed;
@@ -99,6 +113,18 @@ export function mergeDelta(a = {}, b = {}) {
     }
   }
   for (const k of ['spellsAdded', 'helpAdded', 'helpRemoved']) if (b[k]) out[k] = [...(a[k] ?? []), ...b[k]];
+  // Effects: one that came and went inside the same card cancels out; uses add up.
+  if (b.fxAdded || b.fxRemoved || a.fxAdded || a.fxRemoved) {
+    const added = [...(a.fxAdded ?? []), ...(b.fxAdded ?? [])];
+    const removed = [...(a.fxRemoved ?? []), ...(b.fxRemoved ?? [])];
+    const both = new Set(added.filter((e) => removed.some((x) => x.id === e.id)).map((e) => e.id));
+    const keep = (list) => list.filter((e) => !both.has(e.id));
+    for (const [k, list] of [['fxAdded', keep(added)], ['fxRemoved', keep(removed)]]) {
+      if (list.length) out[k] = list;
+      else delete out[k];
+    }
+  }
+  if (b.fxUses) out.fxUses = sumMap(a.fxUses, b.fxUses);
   for (const k of Object.keys(out)) if (out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) && Object.keys(out[k]).length === 0) delete out[k];
   return out;
 }
@@ -131,6 +157,12 @@ export function revertDelta(sheet, delta) {
     sp.stabilization -= d.stab;
     sp.uses.current = Math.max(0, Math.min(sp.uses.max, sp.uses.current - d.uses));
     if (d.destroyed && sp.uses.current > 0) sp.destroyed = false;
+  }
+  if (delta.fxAdded?.length) next.effects = (next.effects ?? []).filter((e) => !delta.fxAdded.some((x) => x.id === e.id));
+  for (const e of delta.fxRemoved ?? []) if (!(next.effects ?? []).some((x) => x.id === e.id)) next.effects = [...(next.effects ?? []), e];
+  for (const [id, d] of Object.entries(delta.fxUses ?? {})) {
+    const e = (next.effects ?? []).find((x) => x.id === id);
+    if (e?.uses) e.uses.current = Math.max(0, Math.min(e.uses.max, e.uses.current - d));
   }
   for (const id of delta.spellsAdded ?? []) {
     const sp = next.spells.find((x) => x.id === id);

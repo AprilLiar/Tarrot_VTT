@@ -11,11 +11,16 @@ import { registerAttackHandlers } from './attackHandlers.js';
 import { registerSpellHandlers } from './spellHandlers.js';
 import { helpDiceFor, spendHelp } from './help.js';
 import { registerStanceHandlers } from './stanceHandlers.js';
+import { createJournal } from './journal.js';
+import { registerEffectHandlers } from './effectHandlers.js';
+import { registerBasicHandlers } from './basicHandlers.js';
+import { spendRollUses } from './effectRuntime.js';
+import * as fxRuntime from './effectRuntime.js';
 import { registerLockHandlers } from './lockHandlers.js';
 import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
-import { tokenStatuses } from './battle.js';
+import { tokenStatuses, tokenEffects } from './battle.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
 import { createSaves, putStatus } from './saves.js';
@@ -70,8 +75,9 @@ export function registerHandlers(io, socket, db, shared) {
     io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
     // The statuses are shown on the character's token, so the stage is sent again when they change.
     const seen = (shared.statusSeen ??= new Map());
-    const sig = JSON.stringify(tokenStatuses(JSON.stringify(sheet)));
-    const was = seen.get(characterId) ?? '[]';
+    const json = JSON.stringify(sheet);
+    const sig = JSON.stringify([tokenStatuses(json), tokenEffects(json)]);
+    const was = seen.get(characterId) ?? '[[],[]]';
     seen.set(characterId, sig);
     if (sig !== was) await stage.broadcast();
   };
@@ -233,6 +239,20 @@ export function registerHandlers(io, socket, db, shared) {
       return next;
     });
     emitSheet(c.id, sheet);
+    // Using an item puts the Effects it carries on its user, as one card with Revert.
+    if (list === 'items' && action === 'use') {
+      const refs = sheet.items.find((i) => i.id === rest.id)?.effects ?? [];
+      if (refs.length) {
+        const cat = fxRuntime.catalog(await fxRuntime.listGlobal(db), sheet);
+        const journal = createJournal();
+        const rows = [];
+        for (const r of refs) {
+          const def = cat.find((e) => e.id === r.id);
+          if (def) rows.push(...(await fxRuntime.giveEffect(db, journal, c.id, def, sheet.items.find((i) => i.id === rest.id).name, emitSheet)).rows);
+        }
+        effects.post({ kind: 'effect', blocks: [{ name: c.name, rows }], journal });
+      }
+    }
     return { sheet };
   });
 
@@ -308,6 +328,7 @@ export function registerHandlers(io, socket, db, shared) {
     const sheet = await sheets.getSheet(db, c.id);
     const roll = buildRoll(sheet, { kind, key, advantage, modifier, dice: helpDiceFor(sheet, help) });
     await spendHelp(db, c.id, help, emitSheet);
+    await spendRollUses(db, c.id, roll, emitSheet);
     const message = chat.add({
       type: 'roll',
       author: await authorName(),
@@ -403,6 +424,8 @@ export function registerHandlers(io, socket, db, shared) {
   registerLockHandlers({ io, db, on, emitSheet });
 
   registerStanceHandlers({ io, db, on, isGm, identity });
+  registerEffectHandlers({ io, db, on, requireControl, emitSheet, effects });
+  registerBasicHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
 
   // ---- Music -----------------------------------------------------------------
 

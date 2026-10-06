@@ -16,6 +16,8 @@ import { HELP_SIDES } from '../shared/help.js';
 import { DAMAGE_KINDS } from '../shared/damage.js';
 import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
 import { resolveBand, BANDS, blankEffect } from '../shared/stances.js';
+import { sharedAgainst, combatMods } from '../shared/effects.js';
+import * as effectRuntime from './effectRuntime.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
 import { T } from '../shared/localization.js';
@@ -38,6 +40,21 @@ export function registerAttackHandlers(ctx) {
     const message = shared.chat.add({ type: 'roll', author: { role: 'player', name }, characterId, characterName: name, roll });
     io.to(CHAT_ROOM).emit('chat:message', message);
   };
+  // What the targets' Effects add to the one attack roll (only what every target shares), and the spending of Uses afterwards.
+  const NONE = { levels: [], terms: [], used: [] };
+  const againstOf = (infos) => sharedAgainst(infos.map((t) => ({ name: t.name, mods: t.against ?? NONE })));
+  async function spendAfterRoll(attackerId, roll, infos, against) {
+    await effectRuntime.spendRollUses(db, attackerId, roll, emitSheet);
+    for (const [i, ids] of Object.entries(against.used)) {
+      const t = infos[Number(i)];
+      if (t?.ownerKind === 'character') await effectRuntime.spendUses(db, null, t.ownerId, ids, emitSheet);
+    }
+  }
+  // The Effects an attack puts on somebody, resolved against the library (global and the attacker's own): [{ def, to }].
+  async function grantsOf(sheet, refs) {
+    const cat = effectRuntime.catalog(await effectRuntime.listGlobal(db), sheet);
+    return refs.map((r) => ({ def: cat.find((e) => e.id === r.id), to: r.to })).filter((g) => g.def);
+  }
   const get = (id) => {
     const p = pending.get(id);
     if (!p) throw new AppError('not_found', 'That attack is no longer waiting.');
@@ -116,9 +133,12 @@ export function registerAttackHandlers(ctx) {
     }
 
     // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
+    const against = againstOf(infos);
     const roll = buildRoll(sheet, {
       kind: plan.weapon.mastery ? 'mastery' : 'weapon',
       key: plan.weapon.mastery ?? 'prime',
+      attack: plan.weapon.mastery ?? 'weapon',
+      against,
       advantage: Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, (p.advantage ?? 0) + plan.advantage)),
       modifier: p.modifier ?? 0,
       bonuses: plan.bonuses,
@@ -126,6 +146,9 @@ export function registerAttackHandlers(ctx) {
     });
     if (plan.weapon.mastery) roll.title = `${D.MASTERY_LABELS[plan.weapon.mastery]} attack`;
     await spendHelp(db, c.id, p.help, emitSheet);
+    await spendAfterRoll(c.id, roll, infos, against);
+    // The attacker's own Effects: flat damage and the Critical Hit threshold.
+    const mine = combatMods(sheet);
     // The number to beat, shown big next to the total on the roll card.
     roll.against = {
       label: `${plan.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
@@ -144,7 +167,9 @@ export function registerAttackHandlers(ctx) {
       ap: plan.ap,
       spells: plan.spellIds,
       stance: stanceEntry,
-      base: plan.base,
+      base: Math.max(0, plan.base + mine.damageDealt),
+      critThreshold: Math.max(2, 20 + mine.crit),
+      effectGrants: await grantsOf(sheet, plan.effectRefs),
       kind: plan.kind,
       statuses: plan.statuses,
       unique: plan.unique,
@@ -161,6 +186,7 @@ export function registerAttackHandlers(ctx) {
     while (pending.size > attack.MAX_PENDING) pending.delete(pending.keys().next().value);
 
     const author = await authorName();
+    for (const n of against.notes) say({ key: '{effect} on {name} is not added to the roll: the targets differ. Use Edit on the card if it should count.', params: { effect: { t: n.label, c: 'effect' }, name: n.name } });
     if (stanceRoll) {
       const card = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll: stanceRoll });
       io.to(CHAT_ROOM).emit('chat:message', card);
@@ -203,6 +229,7 @@ export function registerAttackHandlers(ctx) {
       effects.status = apply;
     }
     if (fx.temp) effects.temp = { value: intIn(fx.temp.value, 1, 9999, 'Temp HP') };
+    if (fx.effect) effects.effect = { id: String(fx.effect.id), to: fx.effect.to === 'self' ? 'self' : 'target' };
     if (!Object.keys(effects).length) throw new AppError('bad_value', 'Choose at least one effect.');
     const needsRoll = !!(effects.damage || effects.status);
     if (needsRoll && p.defence !== 'physical' && p.defence !== 'mental') throw new AppError('bad_value', 'Choose Physical or Mental Defence.');
@@ -243,6 +270,19 @@ export function registerAttackHandlers(ctx) {
       } else {
         blocks.push({ name: c.name, rows: await attack.grantBenefits(db, journal, c.id, c.name, effects, emitSheet) });
       }
+      if (effects.effect) {
+        for (const g of await grantsOf(sheet, [effects.effect])) {
+          if (g.to === 'self' || !infos.length) {
+            blocks.push({ name: c.name, rows: (await effectRuntime.giveEffect(db, journal, c.id, g.def, c.name, emitSheet)).rows });
+            continue;
+          }
+          for (const t of infos) {
+            const token = await battle.getToken(db, t.tokenId);
+            if (token.ownerKind !== 'character') continue;
+            blocks.push({ name: token.name, hidden: token.hidden, rows: (await effectRuntime.giveEffect(db, journal, token.ownerId, g.def, c.name, emitSheet)).rows });
+          }
+        }
+      }
       const spent = await journal.update(db, c.id, (s) => {
         const next = structuredClone(s);
         next.ap.current = Math.max(0, next.ap.current - p.ap);
@@ -257,8 +297,11 @@ export function registerAttackHandlers(ctx) {
     if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
     const mastery = p.roll === 'weapon' ? null : p.roll;
     const dice = helpDiceFor(sheet, p.help);
-    const roll = buildRoll(sheet, { kind: mastery ? 'mastery' : 'weapon', key: mastery ?? 'prime', dice });
+    const against = againstOf(infos);
+    const roll = buildRoll(sheet, { kind: mastery ? 'mastery' : 'weapon', key: mastery ?? 'prime', attack: mastery === 'stances' ? undefined : (mastery ?? 'weapon'), against, dice });
     await spendHelp(db, c.id, p.help, emitSheet);
+    await spendAfterRoll(c.id, roll, infos, against);
+    const mine = combatMods(sheet);
     roll.title = mastery ? `${D.MASTERY_LABELS[mastery]} attack` : T('Weapon Attack Roll');
     roll.against = {
       label: `${p.defence === 'physical' ? 'Physical' : 'Mental'} Defence`,
@@ -275,7 +318,9 @@ export function registerAttackHandlers(ctx) {
       enhancements: [],
       ap: p.ap,
       spells: [],
-      base: effects.damage?.amount ?? 0,
+      base: effects.damage ? Math.max(0, effects.damage.amount + mine.damageDealt) : 0,
+      critThreshold: Math.max(2, 20 + mine.crit),
+      effectGrants: effects.effect ? await grantsOf(sheet, [{ id: effects.effect.id, to: effects.effect.to }]) : [],
       kind: effects.damage?.kind ?? 'true',
       statuses: effects.status ? [effects.status] : [],
       unique: [],

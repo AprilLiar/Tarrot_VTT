@@ -82,6 +82,11 @@ export function createSaves({ io, db, shared, emitSheet, effects, rooms }) {
     const out = await journal.update(db, req.characterId, (s) => {
       let next = structuredClone(s);
       next.ap.current = Math.max(0, next.ap.current - spend);
+      // The Save used up a use of each Effect with uses that touched it.
+      for (const id of r.effectsUsed ?? []) {
+        const e = next.effects.find((x) => x.id === id);
+        if (e?.uses && (e.uses.current -= 1) <= 0) next.effects = next.effects.filter((x) => x.id !== id);
+      }
       if (req.kind === 'apply' && !pass) next = putStatus(next, req.apply, req.dc);
       if (req.kind === 'repeated' && pass) next = dropRepeated(next, req.apply.key);
       return sheets.normalizeSheet(next);

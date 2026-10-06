@@ -1,3 +1,4 @@
+import { effectiveMovement, statMods } from '../../../../shared/effects.js';
 import { useState } from 'react';
 import { TargetPicker, useTargets } from './TargetPicker.jsx';
 import ApCubes from './ApCubes.jsx';
@@ -38,7 +39,7 @@ export function BattleRemote({ s, onAttack }) {
 
   const token = battle.tokens.find((tk) => tk.ownerKind === 'character' && tk.ownerId === s.characterId);
   const targets = info?.targets ?? [];
-  const apMax = s.sheet.ap.minion ? 2 : 4;
+  const apMax = Math.max(0, (s.sheet.ap.minion ? 2 : 4) + statMods(s.sheet).maxAp);
   const combat = battle.combat;
   const mine = combat?.order.find((e) => e.ownerKind === 'character' && e.ownerId === s.characterId);
   const myTurn = !!mine && combat.activeTokenId === mine.tokenId;
@@ -110,7 +111,7 @@ export function BattleRemote({ s, onAttack }) {
               </div>
               <div>
                 <div className="text-xs opacity-60">{t('Movement per AP')}</div>
-                <div className="text-lg">{s.sheet.movement}</div>
+                <div className="text-lg">{effectiveMovement(s.sheet)}</div>
               </div>
               <div>
                 <div className="text-xs opacity-60">{t('Banked')}</div>

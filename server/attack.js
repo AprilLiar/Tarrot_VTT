@@ -4,6 +4,8 @@ import { addHelpDie } from '../shared/help.js';
 import { computeTarget, applyResistance, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
 import { joinMsgs } from '../shared/localization.js';
 import { normalizeApply, autoDc } from '../shared/statuses.js';
+import { effectiveDefence, effectiveResistances, againstMods, combatMods, hpOf } from '../shared/effects.js';
+import * as effectRuntime from './effectRuntime.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
@@ -27,10 +29,11 @@ const int = (v, min, max, what) => {
 // The numbers the card needs about a target token: its name, Defences, resistances and HP.
 export async function targetInfo(db, tokenId) {
   const token = await battle.getToken(db, tokenId);
-  const base = { tokenId: token.id, name: token.name, ownerKind: token.ownerKind, hidden: token.hidden };
+  const base = { tokenId: token.id, name: token.name, ownerKind: token.ownerKind, ownerId: token.ownerId, hidden: token.hidden };
   if (token.ownerKind !== 'character') return { ...base, sheet: false, defence: { physical: TEMP_NPC_DEFENCE, mental: TEMP_NPC_DEFENCE } };
   const sheet = await sheets.getSheet(db, token.ownerId);
-  return { ...base, sheet: true, defence: sheet.defence, resistances: sheet.resistances, hp: sheet.hp };
+  // Defences and resistances as the target's running Effects make them; `against` is what its Effects add to attacks against it.
+  return { ...base, sheet: true, defence: effectiveDefence(sheet), resistances: effectiveResistances(sheet), hp: sheet.hp, against: againstMods(sheet) };
 }
 
 // Checks and cleans what the GM sends from the card: only the total, the base damage, the damage type,
@@ -49,7 +52,7 @@ export function cleanApply(pending, input, targets) {
   return {
     total: int(i.total ?? pending.roll.total, -999, 999, 'Attack total'),
     natural,
-    critThreshold: DEFAULT_CRIT,
+    critThreshold: pending.critThreshold ?? DEFAULT_CRIT,
     base: int(i.base, 0, 999, 'Base damage'),
     kind: i.kind,
     ap: int(i.ap ?? pending.ap, 0, 20, 'AP cost'),
@@ -107,16 +110,16 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
     let hp = null;
     let result;
     const isChar = token.ownerKind === 'character';
-    const work = (resistance) =>
-      computeTarget({ total: clean.total, natural: clean.natural, critThreshold: clean.critThreshold, defence: t.defence, base: clean.base, kind: clean.kind, resistance, override: t.override });
+    const work = (resistance, taken = 0) =>
+      computeTarget({ total: clean.total, natural: clean.natural, critThreshold: clean.critThreshold, defence: t.defence, base: clean.base, kind: clean.kind, resistance, taken, override: t.override });
 
     if (isChar) {
       const sheet = await journal.update(db, token.ownerId, (s) => {
-        result = work(s.resistances?.[clean.kind]);
+        result = work(effectiveResistances(s)[clean.kind], combatMods(s).damageTaken);
         const next = structuredClone(s);
         if (result.hit) {
           const before = next.hp.current;
-          const out = takeDamage(next.hp, result.damage, result.heal);
+          const out = takeDamage(hpOf(next), result.damage, result.heal);
           next.hp.current = out.current;
           next.hp.temp = out.temp;
           hp = { before, after: next.hp.current, absorbed: out.absorbed };
@@ -167,6 +170,24 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
     blocks.push({ name: token.name, rows, hidden: token.hidden, tokenId: t.tokenId });
   }
 
+  // The Effects the attack puts on somebody (a weapon's, an Enhancement's, a Stance band's, a Spontaneous Action's): on the targets or
+  // on the attacker, whether or not the attack hit.
+  const selfRows = [];
+  for (const g of pending.effectGrants ?? []) {
+    if (g.to === 'self') {
+      if (pending.characterId == null) continue;
+      const out = await effectRuntime.giveEffect(db, journal, pending.characterId, g.def, attackerName, emitSheet);
+      selfRows.push(...out.rows);
+      continue;
+    }
+    for (const t of clean.targets) {
+      const token = await battle.getToken(db, t.tokenId);
+      if (token.ownerKind !== 'character') continue;
+      const out = await effectRuntime.giveEffect(db, journal, token.ownerId, g.def, attackerName, emitSheet);
+      blocks.find((b) => b.tokenId === t.tokenId).rows.push(...out.rows);
+    }
+  }
+
   // What a Spontaneous Action also grants (a Help Die, Temp HP): to every target, hit or not.
   const gains = pending.spontaneous;
   if (gains && (gains.help || gains.temp)) {
@@ -188,9 +209,9 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
       next.ap.current = Math.max(0, next.ap.current - clean.ap);
       if (clean.exposed) next.statuses = { ...next.statuses, exposed: (next.statuses?.exposed ?? 0) + 1 };
       for (const d of costs.damage) {
-        const res = d.kind === 'true' ? { damage: d.amount, heal: 0 } : applyResistance(next.resistances?.[d.kind], d.amount);
+        const res = d.kind === 'true' ? { damage: d.amount, heal: 0 } : applyResistance(effectiveResistances(next)[d.kind], d.amount);
         const before = next.hp.current;
-        const out = takeDamage(next.hp, res.damage, res.heal);
+        const out = takeDamage(hpOf(next), res.damage, res.heal);
         next.hp.current = out.current;
         next.hp.temp = out.temp;
         own.rows.push({ key: '{label} {n} {kind} damage as a cost (HP {from} to {to}).', params: { label: { t: 'Takes', c: 'damage' }, n: num(res.damage, 'damage'), kind: kw(d.kind === 'true' ? 'True' : capitalise(d.kind), 'damage'), from: before, to: next.hp.current } });
@@ -251,6 +272,7 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
   for (const u of pending.unique ?? []) {
     own.rows.push({ key: '{source}: {name}. {text}', params: { source: u.source, name: u.name, text: u.text } });
   }
+  own.rows.push(...selfRows);
   if (own.rows.length) blocks.push(own);
   return { blocks, rolls };
 }

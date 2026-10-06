@@ -668,7 +668,7 @@ export default function BattleView() {
                     {t('+{n} sp.', { n: tk.height })}
                   </div>
                 )}
-                <TokenStatuses statuses={tk.statuses} size={(iconPct / 100) / tk.size} />
+                <TokenStatuses statuses={tk.statuses} effects={tk.effects} size={(iconPct / 100) / tk.size} />
                 <div
                   data-testid="token-name"
                   className="pointer-events-none absolute left-1/2 top-full mt-px -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 text-white"

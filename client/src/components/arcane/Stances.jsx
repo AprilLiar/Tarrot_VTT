@@ -5,6 +5,7 @@ import { FormDialog } from '../sheet/SheetLists.jsx';
 import { IntInput } from '../sheet/fields.jsx';
 import { CostFields, DiceList, StatusList, UniqueList, costToForm, costValid, formToCost, isNum } from './editors.jsx';
 import { bandParts, costParts } from './summaries.js';
+import { EffectRefs } from '../effects/EffectRefs.jsx';
 import { useStances } from './useStances.js';
 import { Blurred, LockIcon, useLocks } from './Locks.jsx';
 import { BANDS, SIGN_VIBES, blankEffect, groupTable } from '../../../../shared/stances.js';
@@ -293,12 +294,13 @@ const rowToForm = (r) => ({
   statuses: r.effect?.statuses ?? [],
   dice: r.effect?.dice ?? [],
   unique: r.effect?.unique ?? [],
+  effects: r.effect?.effects ?? [],
 });
 const rowValid = (r) => r.same || (isNum(r.bonus, -99, 99) && isNum(r.advantage, -10, 10) && isNum(r.range, -99, 99) && isNum(r.damage, -99, 99));
 const formToRow = (r) =>
   r.same
     ? { same: true }
-    : { same: false, effect: { bonus: Number(r.bonus), advantage: Number(r.advantage), range: Number(r.range), damage: Number(r.damage), statuses: r.statuses, dice: r.dice, unique: r.unique.filter((u) => u.name.trim()) } };
+    : { same: false, effect: { bonus: Number(r.bonus), advantage: Number(r.advantage), range: Number(r.range), damage: Number(r.damage), statuses: r.statuses, dice: r.dice, unique: r.unique.filter((u) => u.name.trim()), effects: r.effects } };
 
 function StanceDialog({ sign, stance, parent, onClose, onDone }) {
   const t = useT();
@@ -396,6 +398,7 @@ function StanceDialog({ sign, stance, parent, onClose, onDone }) {
                 <StatusList value={r.statuses} onChange={(v) => setRow(i, { statuses: v })} title={t('Adds these statuses to targets that are hit')} />
                 <DiceList value={r.dice} onChange={(v) => setRow(i, { dice: v })} title={t('Dice Roll Bonuses')} />
                 <UniqueList value={r.unique} onChange={(v) => setRow(i, { unique: v })} title={t('Unique Effects')} />
+                <EffectRefs value={r.effects} onChange={(v) => setRow(i, { effects: v })} title={t('Effects it puts on (whether or not it hits)')} />
               </>
             )}
           </div>

@@ -52,6 +52,8 @@ Repository layout:
 | `shared/manifest.js`, `server/manifestHandlers.js` | Tarot Cards and Manifestations of a character, and the events that change them. |
 | `shared/stances.js`, `server/stances.js`, `server/stanceHandlers.js` | Stances: bands and tables, the tree in the database, visibility per viewer, socket events. |
 | `shared/spells.js`, `server/spellHandlers.js` | Spell Stones, scheme rules (`validateScheme`, `layoutScheme`), drafts and finished spells, crafting, spell events. |
+| `shared/effects.js`, `server/effectRuntime.js`, `server/effectHandlers.js` | Effects: parts and levers, scopes, durations and ticking, what they do to rolls, Defence, stats, damage and resistances; the global library, putting an Effect on, spending uses; socket events. |
+| `shared/basicActions.js`, `server/basicActions.js`, `server/basicHandlers.js`, `server/defaults.js` | Basic Actions (the DC20 list), their table, the shipped defaults (seeded once) and `basic:use`. |
 | `shared/arcane.js`, `server/arcane.js` | Weapons and Enhancements: normalising, `planAttack` (what a drafted attack costs and does), token distance, the global Enhancements table. |
 | `LOCALIZATION.md` | The Localization Mapping: every text of the app in English and Russian (a table to read and fix by hand). |
 | `shared/localization.js`, `server/i18n.js`, `client/src/i18n.jsx` | Reading the table, translating with `{placeholders}`, the per-socket language on the server, the language context on the client. |
@@ -64,6 +66,7 @@ Repository layout:
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
 | `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`. |
+| `client/src/components/effects/` | `EffectEditor` (the Effect dialog), `EffectRefs` (pick Effects in a weapon, Enhancement or band), `EffectsLibrary`, `ActiveEffects` (sheet list), `BasicActions`, `effectText`, `useEffectLibrary`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
@@ -264,7 +267,7 @@ Action** in the **General tab** of a character's Arcane tab (GM only) opens the 
 setting for the number of targets**: it goes to **all the selected targets** (chosen in the Targets list of the General
 tab; with none selected it is for the acting character itself); any
 combination of the effects **Damage** (value and type), **Help** (a Help Die of a chosen size), **Status** (any
-status, with stacks where it stacks, a Duration and the DC of its Save) and **Temp HP** (a value); and, when Damage or Status is chosen, the **roll**
+status, with stacks where it stacks, a Duration and the DC of its Save), **Temp HP** (a value) and an **Effect** (any Effect of the library, put on the targets or on the user, see Effects); and, when Damage or Status is chosen, the **roll**
 (Weapon attack: Prime + Experience, Magic, Stances or Manifest) and the **Defence** it is rolled against (Physical or
 Mental), set apart by a thin divider line and an "Against" label from what is rolled. Damage or Status goes through that roll and the usual **confirm card** (prefilled, GM can edit); a Help Die
 or Temp HP alone is given at once without a roll. **Everything goes to the selected targets** (with none selected, to
@@ -399,6 +402,62 @@ or the DC). A **manual change of a status's number** on the sheet works on the L
 then Repeated, then 1 Minute, then 1 Round. Statuses that existed before are Long. **Revert** on a card takes back exactly the
 stacks of the Duration it gave (and brings back a status an end of turn removed). The sheet keeps the totals as `statuses` and the
 groups as `statusGroups` (`{ id, key, stacks, duration, rounds?, dc? }`).
+
+### Effects (decided)
+An **Effect** is a named bundle of modifiers a character has for a while (a Dodge, a blessing, a curse): like a status, but made
+of **parts** that the GM and the players compose freely (the "monolith" system, `shared/effects.js`; the levers follow the DC20
+Foundry system's effect keys). **Definition:** name, description, an **icon** for the token, a **Duration**, optional **Uses**
+and up to 20 parts. A part that changes nothing is dropped. **Parts (levers):**
+- **Rolls:** Advantage levels, a flat bonus and Dice Roll Bonuses on a **scope**: all rolls; all Attribute rolls, all Saves,
+  all Skill rolls, all Combat Mastery rolls, all attacks, Weapon / Magic / Manifest attacks, Initiative; or one stat, one Save
+  (a stat or Physical / Mental), one skill, one Combat Mastery. They show as terms and sources in the roll breakdown.
+- **Against the bearer:** Advantage / Disadvantage levels and a bonus on the **attack rolls made against** whoever has the Effect.
+  An attack is one roll against all targets, so the roll takes **only what every selected target shares** (the smallest in size,
+  same sign); the chat names the Effects of the other targets that were not applied so the GM can use Edit. (decided)
+- **Defence:** flat change of Physical / Mental Defence (never below 0): used by attacks and shown on the sheet ("With Effects").
+- **Movement, AP and HP:** flat change of Movement (squares per AP), maximum AP and maximum HP (healing caps at the new maximum).
+- **Damage, Crit and DC:** damage the bearer deals (added to the base damage of its attacks, noted on the card), damage it takes
+  (flat, after resistances, never below 0), the natural roll that is a Critical Hit (negative lowers it from 20) and the DC of
+  the Saves its statuses ask for (Automatic DC).
+- **Resistance:** a temporary flat X, Half, Double or Immunity to a damage type, laid over the sheet's resistances.
+- **Starts with:** statuses put on the bearer when the Effect starts (no Save, lasting as the Effect does: Until end of turn and
+  Until start of next turn count as 1 Round) and Temp HP.
+- **Note:** free text for the table, never automated.
+
+**Duration:** *Until end of turn* (ends when the bearer ends their turn), *Until start of next turn* (ends when the bearer's next
+turn starts: a Dodge), *1 Minute* (5 rounds, counted at the end of each of the bearer's turns) and *Long* (until removed by hand,
+the default). Durations count turns, so they only run in combat. **Uses** (optional, 1 to 10): the Effect ends after that many
+**attacks**: for a roll part, rolls it changed (spent when the roll is made); for an against part, attacks rolled against the
+bearer (spent when the attack is rolled, no Revert). An Effect with no uses left ends. **The same Effect put on again refreshes**
+the running one (duration and uses start over); it never stacks, different Effects add up. (decided)
+
+**Where Effects live:** a **global library** the GM edits (Arcane > General without a character) and each character's **own
+library** (the sheet's `effectDefs`, edited by the GM or the owner in the General tab). A running Effect (`sheet.effects`) is a
+**copy** of the definition, so editing the library never changes what is running. The sheet lists the running Effects (what each
+does, how long, remove button) under the Statuses; the General tab can **Put on** any Effect on its character; an Effect shows as
+an **icon on the token** (the Effect's own icon, a sparkle by default; game-icons.net, see Status icons), after the statuses.
+**Sources:** a Basic Action, a weapon, an Enhancement (a Manifestation's or a spell's too), a Stance band and a Spontaneous Action can **put Effects on** the user or
+the selected targets (`effects: [{ id, to: 'self' | 'target' }]`, references into the library); they **land whether or not the
+attack hits**. Every change goes through the journal, so a chat card's **Revert** removes what it added and brings back what it
+removed (including spent uses). A card line shows "Gains / Refreshes {effect}" and "{effect} ends".
+An **item** can carry Effects too (`item.effects`, on its user only): using the item (the Use button) puts them on, as one card with Revert.
+
+### Basic Actions (decided)
+The things anybody can do on their turn, from DC20's Basic Actions, listed in the **General tab** (`shared/basicActions.js`).
+Shipped with the app (the GM can edit, delete and add actions; a deleted one stays deleted): Attack, Move, Spell (text only: they
+point to the footer attack, the D-pad and the Magic tab), Dodge (1 AP: Effect *Dodge*, Disadvantage on the next attack against
+you, Until start of next turn, 1 use), Full Dodge (2 AP, all attacks), Disengage, Full Disengage, Hide, Help (1 AP: a d8 Help
+Die to the selected targets), Object, Feint, Taunt, Intimidate, Grapple, Shove, Tackle, Throw, Disarm, Analyze Creature, Calm
+Animal, Combat Insight, Conceal, Investigate, Search, Medicine, Pass Through and Extend Jump. Not included: the weapon styles,
+Martial Enhancements, the MP/SP converters, Opportunity Attack, Spell Duel and Sustained Action. An action has a name, text, an
+**AP cost**, an optional **roll** (a Tarrot roll: Athletics became Weight Manipulation, Acrobatics and Stealth Body Movement,
+Insight and Awareness Awareness, Trickery Fine Motor Skills, Influence and Intimidation Likability, Knowledge and Medicine
+Symbolism; the GM can change each), **Effects** it puts on the user or the selected targets, and an optional **Help Die**.
+**Using an action** (the GM, or the player of the character) is **instant, with no GM confirm card**: it spends the AP, posts
+the roll (contested rolls and DCs are judged by the GM, nothing is decided for them: so actions whose effect depends on winning a
+contest, like Feint or Taunt, put nothing on automatically), puts the Effects on and gives the Help Die, and posts **one chat card
+with Revert**. An action that aims at others needs a selected target. The shipped Dodge, Full Dodge, Disengage and
+Full Disengage Effects are global Effects of their own (`default:*`).
 
 ## Feature design
 
@@ -1114,7 +1173,8 @@ Implemented:
   (`id, name, description, draftId, runes, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
   tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description }], active }`), `manifestations` (`id, name,
   description, effect` like a spell's), `resistances`
-  (per damage type), `statuses` (key to stacks). Every read and write passes through
+  (per damage type), `statuses` (key to stacks), `effects` (running Effects: `id, defId, name, description, icon, duration, rounds?, uses { current, max } | null, parts, source`) and
+  `effectDefs` (the character's own Effect library: `id, name, description, icon, duration, uses, parts`). Every read and write passes through
   `normalizeSheet`, which fills defaults and clamps, so new fields never need a migration.
   Ranges: stats -2 to 7, masteries 1 to 10, Experience 1 to 10, item max uses 1 to 100.
 - The chat log and pending trade offers are not in the database (server memory only).
@@ -1123,6 +1183,7 @@ Implemented:
   (no subfolders, no characters) can be deleted. Character deletion is permanent and requires
   the exact name.
 
+- `effect_defs(id, data, position)` (the global Effects) and `basic_actions(id, data, position)` (the Basic Actions); the shipped ones are put in once (a `meta` row remembers it).
 - `images(id, mime, data, bytes)`: random 32-hex id, stored as a BLOB.
 - `scene_folders`, `scenes(id, name, folder_id, scene_image_id, battle_image_id)` (the Battle
   image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.
@@ -1266,7 +1327,16 @@ Battle (Phase 5a):
   A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], cost: { ap, damage, statuses, item }, table: [6 rows] }`; a
   row is `{ same: true }` or `{ same: false, effect: { bonus, advantage, range, damage, statuses, dice, unique } }`.
   Every change is followed by `stances:changed` to all clients. Stored in the tables `stances` and `stance_vibes`.
-- Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
+- Effects: `effect:library` returns `{ effects }` (the global ones; `effect:library` is sent again to everyone after every change), GM only
+  `effect:save` `{ id?, effect }` and `effect:delete` `{ id }`; `effect:give` `{ characterId, effectId }` (an Effect from the global or the
+  character's own library onto a character: the GM on anyone, a player on their own PC; posts a card with Revert) and `effect:remove`
+  `{ characterId, id }` (by hand). The character's own library is edited with `sheet:list` `{ list: 'effectDefs', action, id?, effect? }`.
+  A weapon, an Enhancement's `effect`, a band's `effect` and `spontaneous:do`'s `effects.effect` `{ id, to }` carry references to Effects; the
+  pending attack has `effectGrants: [{ def, to }]`, `critThreshold` and the damage already changed by the attacker's Effects; tokens in the
+  stage carry `statuses: [{ key, stacks }]` and `effects: [{ id, name, icon }]` for their icons (the stage is sent again when they change).
+- Basic Actions: `basic:list` returns `{ actions }` (`basic:actions` is sent again after every change), GM only `basic:save` `{ id?, action }` and
+  `basic:delete` `{ id }`; `basic:use` `{ characterId, actionId }` (the GM, or the player of the character) does the action at once.
+- Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value }, effect?: { id, to } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
 - Spells: `spell:craft` `{ characterId, draftId }` (spends the stones, posts a Magic roll and a chat line, adds the
   spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
   icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),

@@ -6,11 +6,12 @@ import * as D from '../../../../shared/rules-data.js';
 import { DICE_SIDES, MAX_LIST, MAX_AP_COST } from '../../../../shared/arcane.js';
 import { useT } from '../../i18n.jsx';
 import { StatusSetup } from '../StatusSetup.jsx';
+import { EffectRefs } from '../effects/EffectRefs.jsx';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const select = 'min-h-11 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-base';
-const label = 'flex flex-col gap-1 text-sm';
-const box = 'flex flex-col gap-2 rounded-lg border border-white/10 p-2';
+export const select = 'min-h-11 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-base';
+export const label = 'flex flex-col gap-1 text-sm';
+export const box = 'flex flex-col gap-2 rounded-lg border border-white/10 p-2';
 
 export const isNum = (v, min, max) => isWholeNumber(v) && Number(v) >= min && Number(v) <= max;
 
@@ -151,7 +152,7 @@ export function UniqueList({ value, onChange, title }) {
 
 // ---- Weapon --------------------------------------------------------------------------------------------
 
-export const weaponToForm = (w) => ({ base: String(w.base), kind: w.kind, defence: w.defence, ap: String(w.ap), range: w.range == null ? '' : String(w.range), statuses: w.statuses, dice: w.dice, unique: w.unique });
+export const weaponToForm = (w) => ({ base: String(w.base), kind: w.kind, defence: w.defence, ap: String(w.ap), range: w.range == null ? '' : String(w.range), statuses: w.statuses, dice: w.dice, unique: w.unique, effects: w.effects ?? [] });
 export const weaponValid = (f) => isNum(f.base, 0, 999) && isNum(f.ap, 0, MAX_AP_COST) && (f.range.trim() === '' || isNum(f.range, 0, 999));
 export const formToWeapon = (f) => ({
   base: Number(f.base),
@@ -162,6 +163,7 @@ export const formToWeapon = (f) => ({
   statuses: f.statuses,
   dice: f.dice,
   unique: f.unique.filter((u) => u.name.trim()),
+  effects: f.effects,
 });
 
 // The fields of a weapon: damage, type, Defence, AP, Range and what it adds on top.
@@ -198,6 +200,7 @@ export function WeaponFields({ form, setForm }) {
       <StatusList value={form.statuses} onChange={(v) => up({ statuses: v })} title={t('Adds these statuses to targets that are hit')} />
       <DiceList value={form.dice} onChange={(v) => up({ dice: v })} title={t('Dice Roll Bonuses')} />
       <UniqueList value={form.unique} onChange={(v) => up({ unique: v })} title={t('Unique Effects')} />
+      <EffectRefs value={form.effects} onChange={(v) => up({ effects: v })} title={t('Effects it puts on (whether or not it hits)')} />
     </div>
   );
 }
@@ -236,6 +239,7 @@ export const enhancementToForm = (e, items) => ({
   statuses: e?.effect.statuses ?? [],
   dice: e?.effect.dice ?? [],
   unique: e?.effect.unique ?? [],
+  effects: e?.effect.effects ?? [],
 });
 
 export const formToEnhancement = (f) => ({
@@ -250,6 +254,7 @@ export const formToEnhancement = (f) => ({
     statuses: f.statuses,
     dice: f.dice,
     unique: f.unique.filter((u) => u.name.trim()),
+    effects: f.effects,
   },
 });
 
@@ -351,6 +356,7 @@ export function EnhancementFields({ f, setF, items, withName = true }) {
         <StatusList value={f.statuses} onChange={(v) => up({ statuses: v })} title={t('Adds these statuses to targets that are hit')} />
         <DiceList value={f.dice} onChange={(v) => up({ dice: v })} title={t('Dice Roll Bonuses')} />
         <UniqueList value={f.unique} onChange={(v) => up({ unique: v })} title={t('Unique Effects')} />
+        <EffectRefs value={f.effects} onChange={(v) => up({ effects: v })} title={t('Effects it puts on (whether or not it hits)')} />
       </div>
     </>
   );
