@@ -1,16 +1,9 @@
 // Bottom sheet on phones, centered card on larger screens.
-export default function Dialog({ title, onClose, children }) {
+export default function Dialog({ title, children }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-label={title}
-        className="max-h-[90%] w-full overflow-y-auto rounded-t-2xl bg-[#1a1626] p-4 sm:max-w-md sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // Tapping outside the dialog does nothing: it is only closed with its own buttons, so no work is lost by a stray tap.
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+      <div role="dialog" aria-label={title} className="max-h-[90%] w-full overflow-y-auto rounded-t-2xl bg-[#1a1626] p-4 sm:max-w-md sm:rounded-2xl">
         <h2 className="mb-3 text-lg font-semibold">{title}</h2>
         {children}
       </div>

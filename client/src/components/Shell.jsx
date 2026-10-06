@@ -91,6 +91,9 @@ export default function Shell({ children }) {
       {settingsOpen && (
         <Dialog title={t('Settings')} onClose={() => setSettingsOpen(false)}>
           <SettingsBody />
+          <button className={`${btn} mt-4 w-full`} data-testid="settings-close" onClick={() => setSettingsOpen(false)}>
+            {t('Close')}
+          </button>
         </Dialog>
       )}
 

@@ -431,11 +431,11 @@ the default). Durations count turns, so they only run in combat. **Uses** (optio
 bearer (spent when the attack is rolled, no Revert). An Effect with no uses left ends. **The same Effect put on again refreshes**
 the running one (duration and uses start over); it never stacks, different Effects add up. (decided)
 
-**Where Effects live:** a **global library** the GM edits (Arcane > General without a character) and each character's **own
+**Where Effects live:** (a **player** does not see the Effects library in the General tab, it is the GM's view: a player puts an Effect on through a Basic Action, an Enhancement or an item; the sheet still lists the running Effects) a **global library** the GM edits (Arcane > General without a character) and each character's **own
 library** (the sheet's `effectDefs`, edited by the GM or the owner in the General tab). A running Effect (`sheet.effects`) is a
 **copy** of the definition, so editing the library never changes what is running. The sheet lists the running Effects (what each
 does, how long, remove button) under the Statuses; the General tab can **Put on** any Effect on its character; an Effect shows as
-an **icon on the token** (the Effect's own icon, a sparkle by default; game-icons.net, see Status icons), after the statuses.
+an **icon on the token** (the Effect's own icon, a sparkle by default; game-icons.net, see Status icons), after the statuses. A **Stance's table shows the Effects of each band** (by name, with where they go) next to its other effects.
 **Sources:** a Basic Action, a weapon, an Enhancement (a Manifestation's or a spell's too), a Stance band and a Spontaneous Action can **put Effects on** the user or
 the selected targets (`effects: [{ id, to: 'self' | 'target' }]`, references into the library); they **land whether or not the
 attack hits**. Every change goes through the journal, so a chat card's **Revert** removes what it added and brings back what it
@@ -443,7 +443,7 @@ removed (including spent uses). A card line shows "Gains / Refreshes {effect}" a
 An **item** can carry Effects too (`item.effects`, on its user only): using the item (the Use button) puts them on, as one card with Revert.
 
 ### Basic Actions (decided)
-The things anybody can do on their turn, from DC20's Basic Actions, listed in the **General tab** (`shared/basicActions.js`).
+The things anybody can do on their turn, from DC20's Basic Actions, in the **General tab**: a **Basic Actions** button opens a small, compact list (**closed at first**, so it does not take room; tap a name to read its text, **Use** beside it) (`shared/basicActions.js`).
 Shipped with the app (the GM can edit, delete and add actions; a deleted one stays deleted): Attack, Move, Spell (text only: they
 point to the footer attack, the D-pad and the Magic tab), Dodge (1 AP: Effect *Dodge*, Disadvantage on the next attack against
 you, Until start of next turn, 1 use), Full Dodge (2 AP, all attacks), Disengage, Full Disengage, Hide, Help (1 AP: a d8 Help
@@ -452,7 +452,7 @@ Animal, Combat Insight, Conceal, Investigate, Search, Medicine, Pass Through and
 Martial Enhancements, the MP/SP converters, Opportunity Attack, Spell Duel and Sustained Action. An action has a name, text, an
 **AP cost**, an optional **roll** (a Tarrot roll: Athletics became Weight Manipulation, Acrobatics and Stealth Body Movement,
 Insight and Awareness Awareness, Trickery Fine Motor Skills, Influence and Intimidation Likability, Knowledge and Medicine
-Symbolism; the GM can change each), **Effects** it puts on the user or the selected targets, and an optional **Help Die**.
+Symbolism; the GM can change each), **Effects** and **statuses (conditions)** it puts on the user or the selected targets, and an optional **Help Die**. A status goes through the same rule as an attack's statuses (see Status Saves and Durations): one with a Save is only put on after that Save fails, with its Duration and DC (Automatic DC is the user's).
 **Using an action** (the GM, or the player of the character) is **instant, with no GM confirm card**: it spends the AP, posts
 the roll (contested rolls and DCs are judged by the GM, nothing is decided for them: so actions whose effect depends on winning a
 contest, like Feint or Taunt, put nothing on automatically), puts the Effects on and gives the Help Die, and posts **one chat card
@@ -566,6 +566,7 @@ Implemented behaviour (Phase 3):
   an item between any two characters at once, with no confirmation.
 
 ### Small interface rules (decided)
+- **Dialogs and panels close only with their own buttons (decided):** tapping or clicking outside a dialog, a drawer (Cast, Scenes) or the Music panel does **nothing**, so a stray tap never loses what was typed. (The token's round menu, a note's pop-up and the volume pop-over still close on an outside tap: they hold nothing.)
 - **Parameter icons:** Movement, Size and Experience Modifier on the sheet have a faint drawing behind their value (footsteps,
   a growing square, a star), large, semi-transparent and on the right, exactly like the shield and the brain behind the
   Defences.

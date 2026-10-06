@@ -7,13 +7,14 @@ import * as library from './effectRuntime.js';
 import { buildRoll } from './rolls.js';
 import { createJournal } from './journal.js';
 import { AppError } from './errors.js';
+import { autoDc } from '../shared/statuses.js';
 
 // Socket events for Basic Actions (shared/basicActions.js).
 //  - basic:list                    the actions (everyone); `basic:actions` is sent again after every change
 //  - basic:save / basic:delete     the GM edits the list
 //  - basic:use { characterId, actionId }   spends the AP, makes the action's roll, puts its Effects on the user or the selected targets
 //                                  and gives its Help Die: at once, as one chat card with Revert. The GM or the player of the character.
-export function registerBasicHandlers({ io, db, on, requireControl, emitSheet, effects: cards, authorName, shared, rooms }) {
+export function registerBasicHandlers({ io, db, on, requireControl, emitSheet, effects: cards, saves, authorName, shared, rooms }) {
   const send = async () => io.emit('basic:actions', { actions: await actions.listActions(db) });
 
   on('basic:list', { needsIdentity: true }, async () => ({ actions: await actions.listActions(db) }));
@@ -36,7 +37,7 @@ export function registerBasicHandlers({ io, db, on, requireControl, emitSheet, e
 
     // Who it is aimed at (only needed when something goes to the targets).
     const toTargets = action.effects.filter((r) => r.to === 'target');
-    const needsTargets = !!action.help || toTargets.length > 0;
+    const needsTargets = !!action.help || toTargets.length > 0 || action.statuses.some((s) => s.to === 'target');
     const targets = [];
     if (needsTargets) {
       for (const id of await battle.effectiveTargets(db, shared, c.id)) {
@@ -85,6 +86,30 @@ export function registerBasicHandlers({ io, db, on, requireControl, emitSheet, e
         if (!block) blocks.push((block = { name: token.name, hidden: token.hidden, rows: [], tokenId: t.tokenId }));
         block.rows.push(...(await library.giveEffect(db, journal, token.ownerId, def, action.name, emitSheet)).rows);
       }
+    }
+    // The statuses (conditions): each lands at once, or after the Save its status asks for.
+    const rolls = [];
+    for (const st of action.statuses) {
+      const { to: toWho, ...apply } = st;
+      const who = toWho === 'self' ? [{ id: c.id, name: c.name, hidden: false, tokenId: null }] : [];
+      if (toWho !== 'self') {
+        for (const t of targets) {
+          const token = await battle.getToken(db, t.tokenId);
+          if (token.ownerKind === 'character') who.push({ id: token.ownerId, name: token.name, hidden: token.hidden, tokenId: t.tokenId });
+        }
+      }
+      for (const w of who) {
+        const dc = apply.dc === 'auto' ? autoDc(sheet) : apply.dc;
+        const out = await saves.begin(journal, { characterId: w.id, name: w.name, hidden: w.hidden, apply, dc, source: action.name });
+        let block = w.tokenId == null ? own : blocks.find((b) => b.tokenId === w.tokenId);
+        if (!block) blocks.push((block = { name: w.name, hidden: w.hidden, rows: [], tokenId: w.tokenId }));
+        block.rows.push(...out.rows);
+        for (const r of out.rolls) rolls.push({ ...r, characterId: w.id });
+      }
+    }
+    for (const r of rolls) {
+      const message = shared.chat.add({ type: 'roll', author: { role: 'player', name: r.name }, characterId: r.characterId, characterName: r.name, roll: r.roll });
+      io.to(rooms.CHAT_ROOM).emit('chat:message', message);
     }
     if (action.help) {
       for (const t of targets) {

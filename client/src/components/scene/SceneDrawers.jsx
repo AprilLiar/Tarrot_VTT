@@ -14,7 +14,7 @@ function Drawer({ title, side, onClose, children, testId }) {
   const t = useT();
   return (
     <>
-      <div className="absolute inset-0 z-40 bg-black/30" data-no-pan onPointerDown={onClose} />
+      <div className="absolute inset-0 z-40 bg-black/30" data-no-pan />
       <aside
         data-no-pan
         data-testid={testId}

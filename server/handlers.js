@@ -425,7 +425,7 @@ export function registerHandlers(io, socket, db, shared) {
 
   registerStanceHandlers({ io, db, on, isGm, identity });
   registerEffectHandlers({ io, db, on, requireControl, emitSheet, effects });
-  registerBasicHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerBasicHandlers({ io, db, on, requireControl, emitSheet, effects, saves, authorName, shared, rooms: { GM_ROOM, CHAT_ROOM } });
 
   // ---- Music -----------------------------------------------------------------
 

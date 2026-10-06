@@ -91,6 +91,9 @@ export function StageSection({ s }) {
               </button>
             ))}
           </div>
+          <button className={`${btn} mt-3 w-full`} onClick={() => setChoosing(false)}>
+            {t('Close')}
+          </button>
         </Dialog>
       )}
     </section>

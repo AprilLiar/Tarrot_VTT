@@ -3,11 +3,15 @@ import { T } from './localization.js';
 import { normalizeEffectRefs, MAX_AP_COST } from './arcane.js';
 import { normalizeDefinition } from './effects.js';
 import { HELP_SIDES } from './help.js';
+import { normalizeApply } from './statuses.js';
 
 // Basic Actions (from DC20): the things anybody can do on their turn. A Basic Action costs AP, may make a roll (shown in the chat; contested
 // and DC results are judged by the GM, nothing is decided for them), may put Effects (shared/effects.js) on the user or the selected
 // targets, and may give a Help Die to the selected targets. The GM edits the list in the general Arcane tab.
-//   { id, name, description, ap, roll: null | { kind: 'skill'|'attribute'|'weapon'|'mastery', key }, effects: [{ id, to }], help: null | { sides } }
+//   { id, name, description, ap, roll: null | { kind: 'skill'|'attribute'|'weapon'|'mastery', key }, effects: [{ id, to }],
+//     statuses: [{ key, stacks, duration, dc, to }], help: null | { sides } }
+// `statuses` (conditions) go to the user or the selected targets (`to`), the same way an attack's statuses do: a status with a Save
+// is only put on after that Save fails (shared/statuses.js).
 
 export const MAX_ACTIONS = 100;
 export const DEFAULT_ACTION_PREFIX = 'default:';
@@ -26,6 +30,20 @@ export function normalizeActionRoll(raw) {
   return null;
 }
 
+// Statuses an action puts on: { key, stacks, duration, dc, to: 'self' | 'target' }.
+export function normalizeActionStatuses(raw) {
+  const seen = new Set();
+  const out = [];
+  for (const s of Array.isArray(raw) ? raw : []) {
+    const apply = normalizeApply(s);
+    const to = s?.to === 'self' ? 'self' : 'target';
+    if (!apply || seen.has(`${apply.key}:${to}`) || out.length >= 10) continue;
+    seen.add(`${apply.key}:${to}`);
+    out.push({ ...apply, to });
+  }
+  return out;
+}
+
 export function normalizeAction(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
   return {
@@ -35,6 +53,7 @@ export function normalizeAction(raw, id) {
     ap: clampInt(r.ap, 0, MAX_AP_COST, 1),
     roll: normalizeActionRoll(r.roll),
     effects: normalizeEffectRefs(r.effects),
+    statuses: normalizeActionStatuses(r.statuses),
     help: r.help && HELP_SIDES.includes(r.help.sides) ? { sides: r.help.sides } : null,
   };
 }

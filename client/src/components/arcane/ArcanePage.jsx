@@ -246,7 +246,7 @@ function General({ s, draft, setDraft }) {
         </div>
       </section>
 
-      <EffectsLibrary s={s} />
+      {identity.role === 'gm' && <EffectsLibrary s={s} />}
 
       {info && (
         <section aria-label={t('Targets')} className={card}>

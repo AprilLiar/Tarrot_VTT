@@ -269,6 +269,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add variation | Добавить вариацию |
 | Delete Stance | Удалить Стойку |
 | Delete {name} and every variation hanging from it? This cannot be undone. | Удалить «{name}» и все вариации, зависящие от неё? Это нельзя отменить. |
+| (missing Effect) | (эффект удалён) |
 | Stance roll | Бросок Стойки |
 | No effect | Без эффекта |
 | Vibe of {name} | Описание знака: {name} |
@@ -317,6 +318,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Damage {n} | Урон {n} |
 | Effect: {list} | Эффект: {list} |
 | Roll {n} | Бросок {n} |
+| {effect} ({to}) | {effect} ({to}) |
 | Effects | Эффекты |
 | No Effects running. | Действующих эффектов нет. |
 | {n} rounds left | осталось раундов: {n} |
@@ -328,12 +330,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | A Combat Mastery | Боевое мастерство |
 | Which one | Какой именно |
 | Effects it puts on | Накладываемые эффекты |
+| Statuses it puts on the user | Состояния, накладываемые на пользователя |
+| Statuses it puts on the selected targets | Состояния, накладываемые на выбранные цели |
 | Gives a Help Die to the selected targets | Даёт выбранным целям кубик помощи |
-| (missing Effect) | (эффект удалён) |
-| Basic Actions | Базовые действия |
-| Using an action spends its AP and does what it says. Actions that aim at others use the selected targets. | Использование действия тратит его ОД и делает то, что в нём сказано. Действия, направленные на других, используют выбранные цели. |
-| The Basic Actions every character has (from DC20). Edit them, delete them or add your own. | Базовые действия, доступные каждому персонажу (из DC20). Меняйте их, удаляйте или добавляйте свои. |
 | Help Die d{n} | Кубик помощи d{n} |
+| Basic Actions | Базовые действия |
+| The Basic Actions every character has (from DC20). Edit them, delete them or add your own. | Базовые действия, доступные каждому персонажу (из DC20). Меняйте их, удаляйте или добавляйте свои. |
 | Use | Использовать |
 | Delete Basic Action | Удалить базовое действие |
 | Remove part | Убрать часть |
@@ -1411,6 +1413,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Using an action spends its AP and does what it says. Actions that aim at others use the selected targets. | Использование действия тратит его ОД и делает то, что в нём сказано. Действия, направленные на других, используют выбранные цели. |
 | One | Одна |
 | Several | Несколько |
 | Nobody is targeted: it is for the acting character. | Целей нет: действие для самого персонажа. |

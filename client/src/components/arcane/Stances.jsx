@@ -6,6 +6,8 @@ import { IntInput } from '../sheet/fields.jsx';
 import { CostFields, DiceList, StatusList, UniqueList, costToForm, costValid, formToCost, isNum } from './editors.jsx';
 import { bandParts, costParts } from './summaries.js';
 import { EffectRefs } from '../effects/EffectRefs.jsx';
+import { useEffectLibrary } from '../effects/useEffectLibrary.js';
+import { useOwnEffects } from '../effects/ownEffects.js';
 import { useStances } from './useStances.js';
 import { Blurred, LockIcon, useLocks } from './Locks.jsx';
 import { BANDS, SIGN_VIBES, blankEffect, groupTable } from '../../../../shared/stances.js';
@@ -236,6 +238,9 @@ function Tree({ sign, all, vibes, s, draft, setDraft, gm, onBack }) {
 // The table of a Stance: one row per band; a "-" row is merged into the cell above it.
 function BandTable({ table }) {
   const t = useT();
+  const globals = useEffectLibrary();
+  const own = useOwnEffects();
+  const nameOf = (id) => [...globals, ...own].find((e) => e.id === id)?.name ?? t('(missing Effect)');
   const groups = groupTable(table);
   return (
     <table className="mt-3 w-full border-collapse text-sm" data-testid="band-table">
@@ -249,7 +254,7 @@ function BandTable({ table }) {
         {groups.flatMap((g) =>
           Array.from({ length: g.span }, (_, k) => {
             const i = g.from + k;
-            const parts = bandParts(g.effect, t);
+            const parts = bandParts(g.effect, t, nameOf);
             return (
               <tr key={i} className="border-t border-white/10" data-testid="band-row" data-band={BANDS[i].id}>
                 <td className="py-1 pr-2 align-top opacity-80">{t(BANDS[i].label)}</td>

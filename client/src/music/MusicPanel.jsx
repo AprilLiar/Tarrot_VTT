@@ -295,7 +295,7 @@ export function MusicPanel({ onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 z-[60] bg-black/40" />
       <aside
         data-testid="music-panel"
         aria-label={t('Music')}

@@ -10,6 +10,8 @@ import { normalizeSheet, apMax } from '../sheet.js';
 import { sheetDelta, revertDelta } from '../journal.js';
 import { putOn } from '../effectRuntime.js';
 import { startOfTurn } from '../combat.js';
+import { normalizeAction } from '../../shared/basicActions.js';
+import { bandParts } from '../../client/src/components/arcane/summaries.js';
 
 let n = 0;
 const newId = () => `x${++n}`;
@@ -305,6 +307,29 @@ describe('Basic Actions', () => {
     const r = await g.call('basic:use', { characterId: id, actionId: help.id });
     expect(r.ok).toBe(false);
     expect((await sheetOf(g, id)).ap.current).toBe(1); // nothing was spent
+  });
+
+  it('can put statuses (conditions) on the user or the targets; one with no Save lands at once', async () => {
+    const a = normalizeAction({ name: 'Duck', statuses: [{ key: 'hidden', to: 'self' }, { key: 'bleeding', stacks: 2, duration: 'minute', to: 'target' }, { key: 'nope' }] }, 'x');
+    expect(a.statuses).toEqual([
+      { key: 'hidden', stacks: 1, duration: 'long', dc: 'auto', to: 'self' },
+      { key: 'bleeding', stacks: 2, duration: 'minute', dc: 'auto', to: 'target' },
+    ]);
+    const g = await client({ role: 'gm' });
+    const id = (await g.call('character:create', { name: 'Mira', type: 'pc' })).id;
+    await g.call('sheet:set', { characterId: id, path: 'ap.current', value: 4 });
+    const saved = await g.call('basic:save', { action: { name: 'Duck', ap: 1, statuses: [{ key: 'hidden', to: 'self' }] } });
+    expect((await g.call('basic:use', { characterId: id, actionId: saved.action.id })).ok).toBe(true);
+    expect((await sheetOf(g, id)).statuses.hidden).toBe(1);
+    // One that aims at others needs a target.
+    const aimed = await g.call('basic:save', { action: { name: 'Hex', ap: 1, statuses: [{ key: 'bleeding', to: 'target' }] } });
+    expect((await g.call('basic:use', { characterId: id, actionId: aimed.action.id })).ok).toBe(false);
+  });
+
+  it('a Stance band lists the Effects it puts on', () => {
+    const t = (text, p = {}) => text.replace(/\{(\w+)\}/g, (_, k) => (typeof p[k] === 'object' ? p[k].t : p[k]));
+    const parts = bandParts({ bonus: 1, advantage: 0, range: 0, damage: 0, statuses: [], dice: [], unique: [], effects: [{ id: 'e1', to: 'target' }, { id: 'e2', to: 'self' }] }, t, (id) => (id === 'e1' ? 'Rage' : 'Calm'));
+    expect(parts).toEqual(['Roll +1', 'Rage (on the targets)', 'Calm (on the user)']);
   });
 
   it('a rolled action posts its roll', async () => {
