@@ -76,6 +76,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Language | Язык |
 | Deadzone of the Area tool | Мёртвая зона инструмента «Область» |
 | While dragging a new area, the striped Deadzone starts this many times the size of the area away from where you pressed. Letting go inside it cancels the area. | При создании области полосатая мёртвая зона начинается на столько размеров области от места нажатия. Отпустите кнопку внутри неё, чтобы отменить создание. |
+| Status icon size in Battle | Размер значков статусов в бою |
+| The size of the status icons on tokens, as a share of one grid square. A token shows as many icons as fit inside its square, the first applied. | Размер значков статусов на фишках в долях одной клетки сетки. Фишка показывает столько значков, сколько помещается в её квадрате, начиная с первых наложенных. |
 | These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
 | Back | Назад |
 | Characters | Персонажи |

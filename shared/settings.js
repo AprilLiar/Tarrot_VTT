@@ -5,6 +5,8 @@ export const LANG_VALUES = ['en', 'ru'];
 export const SETTINGS = {
   lang: { type: 'choice', values: LANG_VALUES },
   // Area tool: the Deadzone starts this many times the area's size away from where the drag began (1.1 to 3).
+  // Battle: the side of a status icon on a token, in percent of one grid square (1x1 token).
+  statusIconSize: { type: 'number', min: 10, max: 50, step: 1, default: 25 },
   deadzone: { type: 'number', min: 1.1, max: 3, step: 0.1, default: 1.5 },
 };
 
