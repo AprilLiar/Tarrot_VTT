@@ -5,6 +5,7 @@ import { AppError } from './errors.js';
 import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
 import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../shared/manifest.js';
 import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
+import { reconcileGroups, DURATIONS, MINUTE_ROUNDS, statusInfo } from '../shared/statuses.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
 
 // The character sheet lives as one JSON document per character
@@ -77,6 +78,25 @@ function normalizeFeature(raw) {
   };
 }
 
+// A status that was spelled differently before (stored sheets keep working).
+const STATUS_RENAMES = { blood_oxydization: 'blood_oxidization' };
+const renamed = (key) => STATUS_RENAMES[key] ?? key;
+
+// The groups a character's status stacks are split into (shared/statuses.js), cleaned.
+function normalizeGroups(raw) {
+  const out = [];
+  for (const g of Array.isArray(raw) ? raw : []) {
+    const key = renamed(g?.key);
+    const info = statusInfo(key);
+    if (!info || !DURATIONS.includes(g.duration) || !isInt(g.stacks) || g.stacks < 1) continue;
+    const group = { id: typeof g.id === 'string' && g.id ? g.id : randomUUID(), key, stacks: Math.min(99, g.stacks), duration: g.duration };
+    if (g.duration === 'minute') group.rounds = clampInt(g.rounds, 1, MINUTE_ROUNDS, MINUTE_ROUNDS);
+    if (g.duration === 'repeated') group.dc = clampInt(g.dc, 1, 99, 10);
+    out.push(group);
+  }
+  return out;
+}
+
 export function defaultSheet() {
   return normalizeSheet({});
 }
@@ -117,6 +137,7 @@ export function normalizeSheet(raw) {
     manifestations: (Array.isArray(r.manifestations) ? r.manifestations : []).slice(0, MAX_MANIFESTATIONS).map((m) => normalizeManifestation(m, randomUUID())),
     resistances: {},
     statuses: {},
+    statusGroups: [],
   };
   for (const sign of SIGNS) sheet.stones[sign] = clampInt(r.stones?.[sign], 0, MAX_STONE_COUNT, 0);
   sheet.ap.current = clampInt(r.ap?.current, 0, apMax(sheet), apMax(sheet));
@@ -130,10 +151,15 @@ export function normalizeSheet(raw) {
     const res = normalizeResistance(r.resistances?.[t]);
     if (!isDefaultResistance(res)) sheet.resistances[t] = res;
   }
+  const rawStatuses = {};
+  for (const [key, n] of Object.entries(r.statuses ?? {})) rawStatuses[renamed(key)] = (rawStatuses[renamed(key)] ?? 0) + (isInt(n) ? n : 0);
   for (const st of D.STATUSES) {
-    const n = clampInt(r.statuses?.[st.key], 0, 99, 0);
+    const n = clampInt(rawStatuses[st.key], 0, 99, 0);
     if (n > 0) sheet.statuses[st.key] = st.stackable ? n : 1;
   }
+  // The stacks, split by how they last. Whatever the totals hold that the groups do not is Long (a manual change, an
+  // older sheet); whatever the groups hold that the totals lack is taken away, Long first.
+  sheet.statusGroups = reconcileGroups(sheet.statuses, normalizeGroups(r.statusGroups), randomUUID);
   return sheet;
 }
 

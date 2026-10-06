@@ -5,6 +5,7 @@ import { FormDialog } from '../sheet/SheetLists.jsx';
 import * as D from '../../../../shared/rules-data.js';
 import { DICE_SIDES, MAX_LIST, MAX_AP_COST } from '../../../../shared/arcane.js';
 import { useT } from '../../i18n.jsx';
+import { StatusSetup } from '../StatusSetup.jsx';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const select = 'min-h-11 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-base';
@@ -29,34 +30,38 @@ export function DamageKindSelect({ value, onChange, withTrue = false, testId, ar
   );
 }
 
-// [{ key, stacks }]: statuses put on somebody.
-export function StatusList({ value, onChange, title }) {
+// [{ key, stacks, duration, dc }]: statuses put on somebody, each with how long it lasts and the DC of its Save. `plain` is for
+// the statuses a character gains by itself (an Enhancement's cost): only { key, stacks }.
+export function StatusList({ value, onChange, title, plain = false }) {
   const t = useT();
   const name = (key) => D.STATUSES.find((s) => s.key === key)?.name;
   return (
     <div className="flex flex-col gap-1 text-sm">
       {title}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2">
         {value.map((s, i) => {
           const info = D.STATUSES.find((x) => x.key === s.key);
           return (
-            <span key={s.key} className="flex items-center gap-1 rounded-full bg-white/10 py-1 pl-3 pr-1">
-              {t(name(s.key))}
-              {info?.stackable && (
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  aria-label={t('{name} stacks', { name: { t: name(s.key) } })}
-                  className="w-12 rounded bg-black/40 px-1 text-center"
-                  value={s.stacks}
-                  onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, stacks: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : x)))}
-                />
-              )}
-              <button type="button" className="h-7 w-7 rounded-full bg-white/10" aria-label={t('Remove {name}', { name: { t: name(s.key) } })} onClick={() => onChange(value.filter((_, j) => j !== i))}>
-                x
-              </button>
-            </span>
+            <div key={s.key} className="rounded-lg bg-white/5 p-2" data-testid="status-entry" data-key={s.key}>
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium">{t(name(s.key))}</span>
+                {info?.stackable && (
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    aria-label={t('{name} stacks', { name: { t: name(s.key) } })}
+                    className="w-12 rounded bg-black/40 px-1 text-center"
+                    value={s.stacks}
+                    onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, stacks: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : x)))}
+                  />
+                )}
+                <button type="button" className="h-8 w-8 rounded-full bg-white/10" aria-label={t('Remove {name}', { name: { t: name(s.key) } })} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+                  x
+                </button>
+              </div>
+              {!plain && <StatusSetup apply={s} testId="entry-status" onChange={(next) => onChange(value.map((x, j) => (j === i ? next : x)))} />}
+            </div>
           );
         })}
         {value.length < MAX_LIST && (
@@ -64,7 +69,7 @@ export function StatusList({ value, onChange, title }) {
             className="min-h-9 rounded-lg border border-white/20 bg-black/30 px-2 text-sm"
             aria-label={t('Add a status')}
             value=""
-            onChange={(e) => e.target.value && !value.some((s) => s.key === e.target.value) && onChange([...value, { key: e.target.value, stacks: 1 }])}
+            onChange={(e) => e.target.value && !value.some((s) => s.key === e.target.value) && onChange([...value, plain ? { key: e.target.value, stacks: 1 } : { key: e.target.value, stacks: 1, duration: 'long', dc: 'auto' }])}
           >
             <option value="">{t('Add status...')}</option>
             {D.STATUSES.map((s) => (
@@ -287,7 +292,7 @@ export function EnhancementFields({ f, setF, items, withName = true }) {
             <DamageKindSelect value={f.dmgKind} onChange={(v) => up({ dmgKind: v })} withTrue aria={t('Damage type')} />
           </div>
         )}
-        <StatusList value={f.costStatuses} onChange={(v) => up({ costStatuses: v })} title={t('You gain these statuses')} />
+        <StatusList plain value={f.costStatuses} onChange={(v) => up({ costStatuses: v })} title={t('You gain these statuses')} />
         {items.length > 0 && (
           <>
             <label className="flex min-h-10 items-center gap-2 text-sm">

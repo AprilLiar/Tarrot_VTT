@@ -34,7 +34,7 @@ export const MAX_NOTE = 500;
 export const MAX_SPELLS = 200;
 export const STABILIZATION_START = 10;
 export const STABILIZATION_STEP = 3;
-export const TATTOO_STATUS = 'blood_oxydization';
+export const TATTOO_STATUS = 'blood_oxidization';
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 

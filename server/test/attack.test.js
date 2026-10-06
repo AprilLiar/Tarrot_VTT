@@ -258,7 +258,7 @@ describe('the confirm card', () => {
     await ctx.g.call('sheet:set', { characterId: ctx.o.id, path: 'resistances.fire', value: { flat: 2 } });
     const pending = await pendingAttack(ctx);
     server.shared.attacks.get(pending.id).roll.natural = 10; // the die is random; keep out of the crit and natural 1 rules
-    const r = await ctx.g.call('attack:apply', card(pending, { statuses: [{ key: 'burning', stacks: 2 }] }));
+    const r = await ctx.g.call('attack:apply', card(pending, { statuses: [{ key: 'burning', stacks: 2, dc: 99 }] }));
     expect(r.ok).toBe(true);
     // 20 vs 12: difference 8, a Heavy Hit: 4 + 1 = 5, fire resistance 2 leaves 3.
     const ogre = await sheetOf(ctx.g, ctx.o.id);

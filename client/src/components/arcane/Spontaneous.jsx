@@ -8,6 +8,8 @@ import { DiceIcon } from '../DiceIcon.jsx';
 import { useHelpPrompt } from '../HelpDice.jsx';
 import { useTargets } from '../sheet/TargetPicker.jsx';
 import { HELP_SIDES } from '../../../../shared/help.js';
+import { StatusSetup } from '../StatusSetup.jsx';
+import { statusSave } from '../../../../shared/statuses.js';
 import * as D from '../../../../shared/rules-data.js';
 import { T } from '../../../../shared/localization.js';
 import { useT } from '../../i18n.jsx';
@@ -36,6 +38,8 @@ export default function Spontaneous({ s, onClose }) {
   const [sides, setSides] = useState(6);
   const [statusKey, setStatusKey] = useState('bleeding');
   const [stacks, setStacks] = useState(1);
+  const [duration, setDuration] = useState('long');
+  const [dc, setDc] = useState('auto');
   const [temp, setTemp] = useState('5');
   const [roll, setRoll] = useState('magic');
   const [defence, setDefence] = useState('physical');
@@ -55,7 +59,7 @@ export default function Spontaneous({ s, onClose }) {
     const effects = {};
     if (on.damage) effects.damage = { amount: Number(damage), kind };
     if (on.help) effects.help = { sides };
-    if (on.status) effects.status = { key: statusKey, stacks: status?.stackable ? stacks : 1 };
+    if (on.status) effects.status = { key: statusKey, stacks: status?.stackable ? stacks : 1, duration, dc };
     if (on.temp) effects.temp = { value: Number(temp) };
     return call('spontaneous:do', { characterId: s.characterId, ap, effects, roll, defence, help });
   }
@@ -123,6 +127,16 @@ export default function Spontaneous({ s, onClose }) {
               )}
             </div>
           )}
+          {on.status && (
+            <StatusSetup
+              apply={{ key: statusKey, stacks, duration: !statusSave(statusKey) && duration === 'repeated' ? 'long' : duration, dc }}
+              testId="spont-status-setup"
+              onChange={(next) => {
+                setDuration(next.duration);
+                setDc(next.dc);
+              }}
+            />
+          )}
         </div>
 
         <div className={box}>
@@ -143,6 +157,9 @@ export default function Spontaneous({ s, onClose }) {
                 </button>
               ))}
             </div>
+            {/* What is rolled (above) is set apart from what it is rolled against (below). */}
+            <hr className="my-1 border-white/15" data-testid="spont-divider" />
+            <div className="text-xs uppercase tracking-wide opacity-60">{t('Against')}</div>
             <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Defence it is rolled against')}>
               {[['physical', t('vs Physical Defence')], ['mental', t('vs Mental Defence')]].map(([id, text]) => (
                 <button type="button" key={id} role="radio" aria-checked={defence === id} data-testid={`spont-defence-${id}`} className={`${btn} ${defence === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setDefence(id)}>

@@ -3,6 +3,7 @@ import { takeDamage, gainTemp } from '../shared/hp.js';
 import { addHelpDie } from '../shared/help.js';
 import { computeTarget, applyResistance, hitParam, DAMAGE_KINDS, DEFAULT_CRIT } from '../shared/damage.js';
 import { joinMsgs } from '../shared/localization.js';
+import { normalizeApply, autoDc } from '../shared/statuses.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
@@ -40,9 +41,9 @@ export function cleanApply(pending, input, targets) {
   if (!DAMAGE_KINDS.includes(i.kind)) throw new AppError('bad_value', 'Choose a damage type.');
   if (!targets.length) throw new AppError('no_target', 'None of the targets is on the map any more.');
   const statuses = (Array.isArray(i.statuses) ? i.statuses : []).map((s) => {
-    const info = D.STATUSES.find((x) => x.key === s?.key);
-    if (!info) throw new AppError('bad_value', 'Unknown status.');
-    return { key: info.key, name: info.name, stackable: info.stackable, stacks: int(s.stacks, 1, 10, 'Status stacks') };
+    const apply = normalizeApply(s);
+    if (!apply) throw new AppError('bad_value', 'Unknown status.');
+    return { ...apply, name: D.STATUSES.find((x) => x.key === apply.key).name, stackable: D.STATUSES.find((x) => x.key === apply.key).stackable };
   });
   const natural = pending.roll.natural;
   return {
@@ -94,10 +95,12 @@ export async function grantBenefits(db, journal, characterId, name, benefits, em
 // Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers; `journal` notes every change so the
 // card can be reverted. -> { blocks, rolls }: what happened to each character as blocks of rows (the card shows them
 // in the chat), and the durability rolls to post as roll cards.
-export async function applyAttack(db, pending, clean, { emitSheet, journal }) {
+export async function applyAttack(db, pending, clean, { emitSheet, journal, saves }) {
   const blocks = [];
-  const rolls = [];
+  const rolls = []; // [{ roll, name, characterId }]: the rolls to post as roll cards
   const attackerName = pending.characterName;
+  const attackerSheet = pending.characterId != null ? await sheets.getSheet(db, pending.characterId) : null;
+  const sourceName = `${attackerName} (${pending.weaponName})`;
 
   for (const t of clean.targets) {
     const token = await battle.getToken(db, t.tokenId);
@@ -117,10 +120,6 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal }) {
           next.hp.current = out.current;
           next.hp.temp = out.temp;
           hp = { before, after: next.hp.current, absorbed: out.absorbed };
-          for (const st of clean.statuses) {
-            const have = next.statuses?.[st.key] ?? 0;
-            next.statuses = { ...next.statuses, [st.key]: st.stackable ? have + st.stacks : 1 };
-          }
         }
         return sheets.normalizeSheet(next);
       });
@@ -155,9 +154,14 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal }) {
       if (hp?.absorbed) rows.push({ key: '{label} absorbs {n}.', params: { label: { t: 'Temp HP', c: 'temp' }, n: num(hp.absorbed, 'temp') } });
       if (hp) rows.push({ key: '{label} {from} to {to}.', params: { label: { t: 'HP', c: 'hp' }, from: num(hp.before, 'hp'), to: num(hp.after, 'hp') } });
       else if (!isChar) rows.push({ key: '(temporary NPC: no sheet, apply by hand)' });
-      if (isChar && clean.statuses.length) {
-        const list = clean.statuses.map((s) => kw(s.stackable ? `${s.name} ${s.stacks}` : s.name, 'status'));
-        rows.push({ key: '{label} {list}.', params: { label: { t: 'Adds', c: 'status' }, list: joinMsgs(list) } });
+      // The statuses: each lands at once, or after the Save its status asks for (see server/saves.js).
+      if (isChar) {
+        for (const st of clean.statuses) {
+          const dc = st.dc === 'auto' ? (attackerSheet ? autoDc(attackerSheet) : 10) : st.dc;
+          const out = await saves.begin(journal, { characterId: token.ownerId, name: token.name, hidden: token.hidden, apply: st, dc, source: sourceName });
+          rows.push(...out.rows);
+          for (const r of out.rolls) rolls.push({ ...r, characterId: token.ownerId });
+        }
       }
     }
     blocks.push({ name: token.name, rows, hidden: token.hidden, tokenId: t.tokenId });
@@ -220,14 +224,14 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal }) {
         if (!sp || !usable(sp)) continue;
         const roll = sp.tattoo ? buildRoll(next, { kind: 'save', key: 'strength' }) : buildRoll(next, { kind: 'mastery', key: 'magic' });
         roll.against = { label: 'Stabilization', targets: [{ name: sp.name, value: sp.stabilization }] };
-        rolls.push(roll);
+        rolls.push({ roll, name: attackerName, characterId: pending.characterId });
         if (roll.total >= sp.stabilization) {
           sp.stabilization += STABILIZATION_STEP;
           own.rows.push({ key: '{spell} holds: Stabilization rises to {n}.', params: { spell: kw(sp.name, 'spell'), n: num(sp.stabilization, 'num') } });
         } else if (sp.tattoo) {
           sp.stabilization = STABILIZATION_START;
           next.statuses = { ...next.statuses, [TATTOO_STATUS]: (next.statuses?.[TATTOO_STATUS] ?? 0) + 1 };
-          own.rows.push({ key: '{spell} bites {name}: Blood Oxydization {n}.', params: { spell: kw(sp.name, 'spell'), name: attackerName, n: num(next.statuses[TATTOO_STATUS], 'status') } });
+          own.rows.push({ key: '{spell} bites {name}: Blood Oxidization {n}.', params: { spell: kw(sp.name, 'spell'), name: attackerName, n: num(next.statuses[TATTOO_STATUS], 'status') } });
         } else {
           sp.stabilization = STABILIZATION_START;
           sp.uses.current = Math.max(0, sp.uses.current - 1);

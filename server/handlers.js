@@ -17,6 +17,8 @@ import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
+import { createSaves, putStatus } from './saves.js';
+import { normalizeApply } from '../shared/statuses.js';
 import { cleanSetting } from '../shared/settings.js';
 import { registerAudioHandlers, AUDIO_ROOM } from './audioHandlers.js';
 
@@ -68,6 +70,7 @@ export function registerHandlers(io, socket, db, shared) {
   };
 
   const effects = createEffects({ io, db, shared, emitSheet, chatRoom: CHAT_ROOM });
+  const saves = createSaves({ io, db, shared, emitSheet, effects, rooms: { GM_ROOM, CHAT_ROOM, charRoom } });
 
   // The GM controls every character; a player controls only their own PC.
   async function requireControl(characterId) {
@@ -333,6 +336,33 @@ export function registerHandlers(io, socket, db, shared) {
     io.emit('setting:forced', { key, value: clean });
   });
 
+  // A status added by hand on a sheet (no Save, whoever the source): it lasts as `duration` says. Repeated needs a Save to roll, so it
+  // is only for statuses that have one, and comes with the DC of that Save (`dc`, a number).
+  on('status:add', { needsIdentity: true }, async ({ characterId, key, stacks, duration, dc }) => {
+    const c = await requireControl(characterId);
+    const apply = normalizeApply({ key, stacks, duration, dc });
+    if (!apply) throw new AppError('bad_value', 'Unknown status.');
+    if (duration === 'repeated' && apply.duration !== 'repeated') throw new AppError('bad_value', 'This status has no Save, so it cannot be Repeated.');
+    if (apply.duration === 'repeated' && apply.dc === 'auto') throw new AppError('bad_value', 'A Repeated status needs a DC for its Save.');
+    const sheet = await sheets.updateSheet(db, c.id, (s) => sheets.normalizeSheet(putStatus(s, apply, apply.dc)));
+    emitSheet(c.id, sheet);
+    return { sheet };
+  });
+
+  // A Save a status asks for (server/saves.js): the player of the character it is put on answers, with the AP they spend for
+  // Advantage; the GM can answer for a player who is not there (no AP is spent then). `save:list` is what is waiting for me.
+  on('save:answer', { needsIdentity: true }, async ({ id, ap }) => {
+    const req = shared.saves?.get(id);
+    if (!req) throw new AppError('not_found', 'That Save is no longer waiting.');
+    await requireControl(req.characterId);
+    const spend = isGm() ? 0 : Number.isInteger(ap) && ap >= 0 ? ap : 0;
+    await saves.answer(id, spend, await authorName());
+  });
+  on('save:list', { needsIdentity: true }, async () => {
+    const mine = saves.list(identity().characterId, isGm());
+    return { saves: await Promise.all(mine.map((r) => saves.describe(r))) };
+  });
+
   // Takes back what an effect card did (an applied attack, the start of a turn, a crafted spell).
   on('effects:revert', { gmOnly: true }, async ({ messageId }) => {
     await effects.revert(messageId);
@@ -352,13 +382,14 @@ export function registerHandlers(io, socket, db, shared) {
     requireControl,
     emitSheet,
     effects,
+    saves,
     shared,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
   });
 
   // ---- Attacks ---------------------------------------------------------------
 
-  registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, saves, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
 
   registerSpellHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
   registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm });

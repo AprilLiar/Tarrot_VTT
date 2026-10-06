@@ -127,7 +127,7 @@ describe('Spontaneous Action', () => {
     await ctx.g.call('sheet:set', { characterId: ctx.foe, path: 'hp.temp', value: 3 });
     await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
     const seen = seenPending(ctx.g);
-    const r = await act(ctx.g, ctx, { ap: 2, roll: 'stances', defence: 'physical', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, help: { sides: 6 }, temp: { value: 9 } } });
+    const r = await act(ctx.g, ctx, { ap: 2, roll: 'stances', defence: 'physical', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2, dc: 99 }, help: { sides: 6 }, temp: { value: 9 } } });
     expect(r.ok).toBe(true);
     const pending = await seen;
     expect(pending).toMatchObject({ weaponName: 'Spontaneous Action', ap: 2, base: 5, kind: 'fire', defenceKind: 'physical', statuses: [{ key: 'burning', stacks: 2 }] });
@@ -135,7 +135,7 @@ describe('Spontaneous Action', () => {
     expect(pending.roll.title).toBe('Stances attack');
     expect(pending.roll.against.targets).toEqual([{ name: 'Ogre', value: 5 }]);
     server.shared.attacks.get(pending.id).roll.natural = 10;
-    expect((await ctx.g.call('attack:apply', { id: pending.id, total: 20, base: 5, kind: 'fire', ap: 2, statuses: [{ key: 'burning', stacks: 2 }] })).ok).toBe(true);
+    expect((await ctx.g.call('attack:apply', { id: pending.id, total: 20, base: 5, kind: 'fire', ap: 2, statuses: [{ key: 'burning', stacks: 2, dc: 99 }] })).ok).toBe(true);
     const foe = await sheetOf(ctx.g, ctx.foe);
     // 5 + 2 (a Heavy Hit, 15 over) = 7 damage: 3 Temp HP absorb 3, 4 reach HP; then the new Temp HP and Help Die arrive.
     expect(foe.hp.current).toBe(16);

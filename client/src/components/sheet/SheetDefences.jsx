@@ -3,6 +3,9 @@ import { btn, btnDanger, input } from '../Dialog.jsx';
 import { FormDialog } from './SheetLists.jsx';
 import { IntInput, isWholeNumber } from './fields.jsx';
 import * as D from '../../../../shared/rules-data.js';
+import { call } from '../../AppContext.jsx';
+import { DurationPicker } from '../StatusSetup.jsx';
+import { DURATION_LABELS, statusSave } from '../../../../shared/statuses.js';
 import { useT } from '../../i18n.jsx';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -153,9 +156,44 @@ export function Resistances({ s }) {
 function AddStatusDialog({ s, onClose }) {
   const t = useT();
   const [query, setQuery] = useState('');
+  const [choice, setChoice] = useState(null); // the status picked, to be set up
+  const [stacks, setStacks] = useState(1);
+  const [duration, setDuration] = useState('long');
+  const [dc, setDc] = useState(10);
   const matches = D.STATUSES.filter(
     (st) => !s.sheet.statuses[st.key] && t(st.name).toLowerCase().includes(query.trim().toLowerCase()),
   );
+  if (choice) {
+    const info = D.STATUSES.find((x) => x.key === choice);
+    const save = statusSave(choice);
+    return (
+      <FormDialog
+        title={t(info.name)}
+        submitLabel={t('Add status')}
+        onClose={onClose}
+        run={() => call('status:add', { characterId: s.characterId, key: choice, stacks: info.stackable ? stacks : 1, duration, dc })}
+      >
+        <p className="text-sm opacity-70">{t(info.text)}</p>
+        {info.stackable && (
+          <label className="flex flex-col gap-1 text-sm">
+            {t('Stacks')}
+            <input type="number" min="1" max="99" className={input} aria-label={t('Stacks')} data-testid="status-add-stacks" value={stacks} onChange={(e) => setStacks(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} />
+          </label>
+        )}
+        <div className="flex flex-col gap-1 text-sm">
+          {t('Duration')}
+          <DurationPicker value={duration} save={save} onChange={setDuration} testId="status-add-duration" />
+        </div>
+        {duration === 'repeated' && (
+          <label className="flex flex-col gap-1 text-sm">
+            {t('DC of the Repeated Save')}
+            <input type="number" min="1" max="99" className={input} aria-label={t('DC')} data-testid="status-add-dc" value={dc} onChange={(e) => setDc(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} />
+          </label>
+        )}
+        <p className="text-xs opacity-60">{t('A status added by hand needs no Save.')}</p>
+      </FormDialog>
+    );
+  }
   return (
     <FormDialog title={t('Add status')} submitLabel={t('Close')} onClose={onClose} run={() => ({ ok: true })}>
       <input
@@ -172,10 +210,7 @@ function AddStatusDialog({ s, onClose }) {
             key={st.key}
             data-testid="status-option"
             className="min-h-16 w-full shrink-0 rounded-lg bg-white/10 px-3 py-2 text-left active:bg-white/20"
-            onClick={async () => {
-              await s.set(`statuses.${st.key}`, 1);
-              onClose();
-            }}
+            onClick={() => setChoice(st.key)}
           >
             <div className="font-medium">{t(st.name)}</div>
             <div className="line-clamp-2 text-xs leading-snug opacity-60">{t(st.text)}</div>
@@ -200,6 +235,7 @@ export function Statuses({ s }) {
         {active.length === 0 && <p className="text-sm opacity-60">{t('No statuses.')}</p>}
         {active.map((st) => {
           const stacks = s.sheet.statuses[st.key];
+          const groups = (s.sheet.statusGroups ?? []).filter((g) => g.key === st.key);
           return (
             <div key={st.key} className={card} data-testid="status">
               <div className="flex items-center gap-2">
@@ -221,6 +257,19 @@ export function Statuses({ s }) {
                   x
                 </button>
               </div>
+              {/* How each part of it lasts (a status can come in several groups). */}
+              {groups.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1" data-testid="status-groups">
+                  {groups.map((g) => (
+                    <span key={g.id} data-testid="status-group" data-duration={g.duration} className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
+                      {st.stackable ? `${g.stacks} ` : ''}
+                      {t(DURATION_LABELS[g.duration])}
+                      {g.duration === 'minute' ? ` (${t('{n} rounds left', { n: g.rounds })})` : ''}
+                      {g.duration === 'repeated' ? ` (${t('DC {n}', { n: g.dc })})` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
               <button
                 className="mt-1 w-full text-left"
                 aria-label={t('Toggle full text of {name}', { name: { t: st.name } })}

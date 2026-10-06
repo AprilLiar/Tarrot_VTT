@@ -10,6 +10,7 @@ import { magicLocked, stancesLocked, manifestationsLocked } from '../shared/lock
 import * as D from '../shared/rules-data.js';
 import { buildRoll, adjustLevels } from './rolls.js';
 import { createJournal } from './journal.js';
+import { normalizeApply } from '../shared/statuses.js';
 import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.js';
 import { HELP_SIDES } from '../shared/help.js';
 import { DAMAGE_KINDS } from '../shared/damage.js';
@@ -24,7 +25,7 @@ import { T } from '../shared/localization.js';
 //                  the Arcane tab, posts it in the chat and sends a pending attack to the GM's confirm card.
 //  - attack:list / attack:targets / attack:apply / attack:cancel   (GM only)
 export function registerAttackHandlers(ctx) {
-  const { io, db, on, requireControl, emitSheet, effects: cards, authorName, shared, isGm, rooms } = ctx;
+  const { io, db, on, requireControl, emitSheet, effects: cards, saves, authorName, shared, isGm, rooms } = ctx;
   const { GM_ROOM, CHAT_ROOM } = rooms;
   const pending = shared.attacks;
 
@@ -33,8 +34,8 @@ export function registerAttackHandlers(ctx) {
     io.to(CHAT_ROOM).emit('chat:message', message);
   };
   // A roll made for the attacker as part of applying (a spell's durability check), as a roll card.
-  const postRoll = (entry, roll) => {
-    const message = shared.chat.add({ type: 'roll', author: { role: 'player', name: entry.characterName }, characterId: entry.characterId, characterName: entry.characterName, roll });
+  const postRoll = ({ roll, name, characterId }) => {
+    const message = shared.chat.add({ type: 'roll', author: { role: 'player', name }, characterId, characterName: name, roll });
     io.to(CHAT_ROOM).emit('chat:message', message);
   };
   const get = (id) => {
@@ -196,9 +197,10 @@ export function registerAttackHandlers(ctx) {
       effects.help = { sides: fx.help.sides };
     }
     if (fx.status) {
-      const info = D.STATUSES.find((x) => x.key === fx.status.key);
-      if (!info) throw new AppError('bad_value', 'Unknown status.');
-      effects.status = { key: info.key, name: info.name, stackable: info.stackable, stacks: info.stackable ? intIn(fx.status.stacks, 1, 10, 'Status stacks') : 1 };
+      const apply = normalizeApply(fx.status);
+      if (!apply) throw new AppError('bad_value', 'Unknown status.');
+      if (D.STATUSES.find((x) => x.key === apply.key).stackable) intIn(fx.status.stacks, 1, 10, 'Status stacks');
+      effects.status = apply;
     }
     if (fx.temp) effects.temp = { value: intIn(fx.temp.value, 1, 9999, 'Temp HP') };
     if (!Object.keys(effects).length) throw new AppError('bad_value', 'Choose at least one effect.');
@@ -275,7 +277,7 @@ export function registerAttackHandlers(ctx) {
       spells: [],
       base: effects.damage?.amount ?? 0,
       kind: effects.damage?.kind ?? 'true',
-      statuses: effects.status ? [{ key: effects.status.key, stacks: effects.status.stacks }] : [],
+      statuses: effects.status ? [effects.status] : [],
       unique: [],
       costs: { damage: [], statuses: [], items: [] },
       stance: null,
@@ -342,7 +344,7 @@ export function registerAttackHandlers(ctx) {
       base: clean.base,
       kind: clean.kind,
       ap: clean.ap,
-      statuses: clean.statuses.map((x) => ({ key: x.key, stacks: x.stacks })),
+      statuses: clean.statuses.map((x) => ({ key: x.key, stacks: x.stacks, duration: x.duration, dc: x.dc })),
       total: clean.total,
     };
     pending.set(id, entry);
@@ -366,8 +368,8 @@ export function registerAttackHandlers(ctx) {
     pending.delete(p.id);
     try {
       const journal = createJournal();
-      const { blocks, rolls } = await attack.applyAttack(db, entry, clean, { emitSheet, journal });
-      for (const roll of rolls) postRoll(entry, roll);
+      const { blocks, rolls } = await attack.applyAttack(db, entry, clean, { emitSheet, journal, saves });
+      for (const r of rolls) postRoll(r);
       cards.post({
         kind: 'attack',
         title: { key: '{name} attacks with {weapon}', params: { name: entry.characterName, weapon: entry.weaponName } },
