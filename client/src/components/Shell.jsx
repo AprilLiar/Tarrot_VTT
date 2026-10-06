@@ -4,6 +4,7 @@ import { useIsDesktop } from '../lib/useMedia.js';
 import { Initial } from './Picker.jsx';
 import ChatPanel from './ChatPanel.jsx';
 import { AttackInbox } from './AttackCard.jsx';
+import { SaveInbox } from './SavePrompt.jsx';
 import MusicBar from '../music/MusicBar.jsx';
 import Dialog, { btn, btnPrimary } from './Dialog.jsx';
 import { useT } from '../i18n.jsx';
@@ -95,6 +96,7 @@ export default function Shell({ children }) {
 
       <ChatPanel />
       {isGm && <AttackInbox />}
+      <SaveInbox />
 
       <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (

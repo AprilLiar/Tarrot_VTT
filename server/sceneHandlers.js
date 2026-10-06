@@ -5,6 +5,8 @@ import * as combat from './combat.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { helpDiceFor, spendHelp } from './help.js';
 import { createJournal } from './journal.js';
+import { statusMsg } from './saves.js';
+import { tickGroups, totalsOf } from '../shared/statuses.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
@@ -20,7 +22,7 @@ import { T } from '../shared/localization.js';
 //  - Hidden summons are filtered out on the server for everyone but the GM.
 
 export function registerSceneHandlers(ctx) {
-  const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, shared, rooms } = ctx;
+  const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, saves, shared, rooms } = ctx;
   const targets = shared.targets;
   const areaTargets = shared.areaTargets;
   const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
@@ -426,11 +428,38 @@ export function registerSceneHandlers(ctx) {
   }
 
   // The active combatant ends a turn: unspent Movement is lost, AP is refilled.
+  // The statuses of the character follow: 1 Round ones end, 1 Minute ones lose a round, and each status that is Repeated gets its
+  // Save (one Save for all its stacks): a non-player character rolls now, a player is asked while the next turn goes on.
   async function finishTurn(entry) {
     await battle.clearBank(db, entry.tokenId);
-    if (entry.ownerKind === 'character') {
-      emitSheet(entry.ownerId, await sheets.updateSheet(db, entry.ownerId, combat.endOfTurn));
+    if (entry.ownerKind !== 'character') return;
+    const token = await battle.getToken(db, entry.tokenId);
+    const journal = createJournal();
+    const rows = [];
+    const out = await journal.update(db, entry.ownerId, (s) => {
+      const next = structuredClone(combat.endOfTurn(s));
+      const { groups, ended } = tickGroups(next.statusGroups ?? []);
+      for (const g of ended) rows.push({ key: '{status} ends.', params: { status: statusMsg({ key: g.key, stacks: g.stacks, duration: g.duration }) } });
+      next.statusGroups = groups;
+      next.statuses = totalsOf(groups);
+      return sheets.normalizeSheet(next);
+    });
+    emitSheet(entry.ownerId, out);
+    const rolls = [];
+    for (const key of [...new Set(out.statusGroups.filter((g) => g.duration === 'repeated').map((g) => g.key))]) {
+      const dc = Math.max(...out.statusGroups.filter((g) => g.key === key && g.duration === 'repeated').map((g) => g.dc ?? 10));
+      const done = await saves.repeat(journal, { characterId: entry.ownerId, name: token.name, hidden: token.hidden, key, dc });
+      if (done) {
+        rows.push(...done.rows);
+        rolls.push(...done.rolls);
+      }
     }
+    if (token.hidden) return;
+    for (const r of rolls) {
+      const message = shared.chat.add({ type: 'roll', author: { role: 'player', name: r.name }, characterId: entry.ownerId, characterName: r.name, roll: r.roll });
+      io.to(CHAT_ROOM).emit('chat:message', message);
+    }
+    if (rows.length) effects.post({ kind: 'turn', title: { key: 'End of turn', params: {} }, blocks: [{ name: token.name, rows }], journal });
   }
 
   // Keeps the combat in step with the map before every stage broadcast.

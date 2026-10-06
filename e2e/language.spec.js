@@ -60,6 +60,7 @@ test('Settings on the picker switch the whole app to Russian, and the choice is 
   await page.getByPlaceholder('Поиск').fill('Кровот');
   await expect(page.getByTestId('status-option')).toContainText('Кровотечение');
   await page.getByTestId('status-option').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Добавить состояние', exact: true }).click(); // set up: how long it lasts
   await expect(page.getByTestId('status')).toContainText('чистого урона');
 
   // Server messages come in Russian too: an NPC cannot be a PC's Minion... use the GM-only guard instead.

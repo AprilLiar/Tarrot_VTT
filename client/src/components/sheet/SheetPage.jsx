@@ -185,24 +185,20 @@ export default function SheetPage({ characterId }) {
                 <NumField label={t('Mental Defence')} value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
               </div>
             </div>
-            <div className={tile}>
-              <div className="text-xs opacity-60">
-                <MovementIcon />
-                {t('Movement (squares per AP)')}
-              </div>
-              <div className="w-16 text-xl">
+            <div className={`${tile} relative overflow-hidden`}>
+              <MovementIcon />
+              <div className="relative text-xs opacity-60">{t('Movement (squares per AP)')}</div>
+              <div className="relative w-16 text-xl">
                 <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
               </div>
             </div>
-            <div className={tile}>
-              <div className="text-xs opacity-60">
-                <SizeIcon />
-                {t('Size (token)')}
-              </div>
+            <div className={`${tile} relative overflow-hidden`}>
+              <SizeIcon />
+              <div className="relative text-xs opacity-60">{t('Size (token)')}</div>
               <select
                 aria-label={t('Size')}
                 data-testid="size-select"
-                className="min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
+                className="relative min-h-10 rounded-lg border border-white/20 bg-black/30 px-2 text-lg"
                 value={sheet.size}
                 onChange={(e) => set('size', Number(e.target.value))}
               >
@@ -213,12 +209,10 @@ export default function SheetPage({ characterId }) {
                 ))}
               </select>
             </div>
-            <div className={tile}>
-              <div className="text-xs opacity-60">
-                <ExperienceIcon />
-                {t('Experience Modifier')}
-              </div>
-              <div className="w-16 text-xl">
+            <div className={`${tile} relative overflow-hidden`}>
+              <ExperienceIcon />
+              <div className="relative text-xs opacity-60">{t('Experience Modifier')}</div>
+              <div className="relative w-16 text-xl">
                 <NumField label={t('Experience Modifier')} testId="experience-value" value={sheet.experience} min={D.EXPERIENCE_MIN} max={D.EXPERIENCE_MAX} onCommit={(n) => set('experience', n)} />
               </div>
             </div>

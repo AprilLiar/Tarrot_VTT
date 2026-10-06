@@ -7,6 +7,7 @@ import { computeTarget, hitLabel, DAMAGE_KINDS, DEFAULT_CRIT } from '../../../sh
 import { takeDamage } from '../../../shared/hp.js';
 import { useT } from '../i18n.jsx';
 import { STATUSES } from '../../../shared/rules-data.js';
+import { StatusSetup } from './StatusSetup.jsx';
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const field = 'flex flex-col gap-1 text-sm';
@@ -72,7 +73,7 @@ function AttackCard({ attack, onClose }) {
   const [base, setBase] = useState(String(attack.base));
   const [kind, setKind] = useState(attack.kind);
   const [ap, setAp] = useState(String(attack.ap));
-  const [statuses, setStatuses] = useState(() => attack.statuses.map((x) => ({ key: x.key, stacks: x.stacks }))); // [{ key, stacks }]
+  const [statuses, setStatuses] = useState(() => attack.statuses.map((x) => ({ key: x.key, stacks: x.stacks, duration: x.duration ?? 'long', dc: x.dc ?? 'auto' }))); // [{ key, stacks }]
   const [info, setInfo] = useState([]); // what the server knows about each target
   const [busy, setBusy] = useState(false);
 
@@ -204,32 +205,38 @@ function AttackCard({ attack, onClose }) {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {statuses.map((s, i) => (
-            <span key={s.key} className="flex items-center gap-1 rounded-full bg-white/10 py-1 pl-3 pr-1 text-sm">
-              {t(STATUSES.find((x) => x.key === s.key)?.name)}
-              {STATUSES.find((x) => x.key === s.key)?.stackable && (
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  aria-label={t('{name} stacks', { name: { t: STATUSES.find((x) => x.key === s.key)?.name } })}
-                  className="w-12 rounded bg-black/40 px-1 text-center"
-                  value={s.stacks}
-                  onChange={(e) => setStatuses((l) => l.map((x, j) => (j === i ? { ...x, stacks: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : x)))}
-                />
-              )}
-              <button className="h-7 w-7 rounded-full bg-white/10" aria-label={t('Remove {name}', { name: { t: STATUSES.find((x) => x.key === s.key)?.name } })} onClick={() => setStatuses((l) => l.filter((_, j) => j !== i))}>
-                x
-              </button>
-            </span>
-          ))}
+        <div className="flex flex-col gap-2" data-testid="attack-statuses">
+          {statuses.map((st, i) => {
+            const info = STATUSES.find((x) => x.key === st.key);
+            return (
+              <div key={st.key} className="rounded-lg bg-white/5 p-2" data-testid="attack-status" data-key={st.key}>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate font-medium">{t(info?.name)}</span>
+                  {info?.stackable && (
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      aria-label={t('{name} stacks', { name: { t: info.name } })}
+                      className="w-12 rounded bg-black/40 px-1 text-center"
+                      value={st.stacks}
+                      onChange={(e) => setStatuses((l) => l.map((x, j) => (j === i ? { ...x, stacks: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : x)))}
+                    />
+                  )}
+                  <button className="h-8 w-8 rounded-full bg-white/10" aria-label={t('Remove {name}', { name: { t: info?.name } })} onClick={() => setStatuses((l) => l.filter((_, j) => j !== i))}>
+                    x
+                  </button>
+                </div>
+                <StatusSetup apply={st} testId="attack-status" onChange={(next) => setStatuses((l) => l.map((x, j) => (j === i ? next : x)))} />
+              </div>
+            );
+          })}
           <select
-            className="min-h-9 rounded-lg border border-white/20 bg-black/30 px-2 text-sm"
+            className="min-h-9 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-sm"
             aria-label={t('Add a status')}
             data-testid="attack-add-status"
             value=""
-            onChange={(e) => e.target.value && !statuses.some((s) => s.key === e.target.value) && setStatuses((l) => [...l, { key: e.target.value, stacks: 1 }])}
+            onChange={(e) => e.target.value && !statuses.some((s) => s.key === e.target.value) && setStatuses((l) => [...l, { key: e.target.value, stacks: 1, duration: 'long', dc: 'auto' }])}
           >
             <option value="">{t('Add status...')}</option>
             {STATUSES.map((s) => (

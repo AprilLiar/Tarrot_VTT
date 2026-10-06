@@ -70,7 +70,7 @@ export const TEXT_MAX = 2000;
 // All DC20 Foundry statuses, remapped to Tarrot stats. Automation comes later:
 // for now a status is a name, a stack count where it stacks, and rule text.
 export const STATUSES = [
-  { key: "blood_oxydization", name: "Blood Oxydization", stackable: true, text: "The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated." },
+  { key: "blood_oxidization", name: "Blood Oxidization", stackable: true, text: "The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated." },
   { key: "bleeding", name: "Bleeding", stackable: true, text: "X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated)." },
   { key: "blinded", name: "Blinded", stackable: false, text: "Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage." },
   { key: "burning", name: "Burning", stackable: true, text: "X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack." },

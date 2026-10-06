@@ -759,6 +759,61 @@ test('areas: named, lit up while drawn, cancelled in the Deadzone, and picked as
   await gmCtx.close();
 });
 
+test('a status with a Save: the player gets a prompt with the DC and their modifiers, spends AP for Advantage, and the status lands after the roll', async ({ browser }) => {
+  const pc = `Mara-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await battleScene(gm, `Saves-${uid()}`);
+  await placeToken(gm, pc);
+  const ctx = await phone(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '4');
+
+  // The GM gives the character Dazed (a Mental Save) with a hard manual DC; nobody is selected, so it is for the actor.
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: pc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await gm.getByTestId('view-arcane').click();
+  await gm.getByTestId('spontaneous-open').click();
+  await gm.getByTestId('spont-status').check();
+  await gm.getByTestId('spont-status-key').selectOption('dazed');
+  await gm.getByTestId('spont-status-setup-duration-repeated').click();
+  await gm.getByTestId('spont-status-setup-dc-manual').click();
+  await gm.getByTestId('spont-status-setup-dc-value').fill('99');
+  await gm.getByRole('dialog').getByRole('button', { name: 'Roll', exact: true }).click();
+  const card = gm.getByTestId('attack-card');
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId('attack-status')).toHaveAttribute('data-key', 'dazed');
+  await card.getByLabel('Attack total').fill('40');
+  await card.getByTestId('attack-apply').click();
+  await expect(card).toHaveCount(0);
+
+  // The player is asked: the Save, the DC, the modifiers they already have; 0 AP to start with.
+  const prompt = p.getByTestId('save-prompt');
+  await expect(prompt).toBeVisible();
+  await expect(prompt.getByTestId('save-kind')).toHaveText('Mental Save');
+  await expect(prompt.getByTestId('save-dc')).toHaveText('99');
+  await expect(prompt.getByTestId('save-modifiers')).toContainText('No Advantage or Disadvantage yet.');
+  await expect(prompt.getByTestId('save-ap')).toHaveText('0');
+  await prompt.getByRole('button', { name: 'More AP' }).click();
+  await expect(prompt.getByTestId('save-ap')).toHaveText('1');
+  await expect(prompt.getByTestId('save-result-net')).toContainText('Advantage 1');
+  await prompt.getByTestId('save-roll').click();
+  await expect(prompt).toHaveCount(0);
+
+  // 99 cannot be met: the status lands, Repeated, and the 1 AP for Advantage was spent (the Spontaneous Action cost 1).
+  await p.getByTestId('chat-toggle').click();
+  await expect(p.getByTestId('effects-card').last()).toContainText('Failed');
+  await p.getByTestId('chat-panel').getByRole('button', { name: 'Close' }).click();
+  await expect(p.getByTestId('ap-current')).toHaveAttribute('data-current', '2');
+  await expect(p.getByTestId('status-group')).toContainText('Repeated (DC 99)');
+  await ctx.close();
+  await gmCtx.close();
+});
+
 test('areas: Move drags an area, and Ctrl or Shift with the mouse wheel turns the selected one', async ({ browser }) => {
   const gmCtx = await desktop(browser);
   const gm = await open(gmCtx, 'pick-gm');

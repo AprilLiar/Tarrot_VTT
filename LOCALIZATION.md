@@ -23,6 +23,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove {name} | Убрать: {name} |
 | Add a status | Добавить состояние |
 | Add status... | Добавить состояние... |
+| Later | Позже |
 | Advantage | Преимущество |
 | Spontaneous Action | Спонтанное действие |
 | Edit | Изменить |
@@ -51,6 +52,24 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | PC | Игрок |
 | NPC | НПС |
 | Delete | Удалить |
+| Saves waiting: {n} | Ожидают спасброски: {n} |
+| Save for {name} | Спасбросок: {name} |
+| Save against a status | Спасбросок против статуса |
+| Save | Сохранить |
+| DC | Сл |
+| Modifiers | Модификаторы |
+| Advantage {n} | Преимущество {n} |
+| Disadvantage {n} | Помеха {n} |
+| No Advantage or Disadvantage yet. | Преимущества и помехи пока нет. |
+| AP to spend for Advantage (1 AP = 1 level) | ОД на преимущество (1 ОД = 1 уровень) |
+| Less AP | Меньше ОД |
+| More AP | Больше ОД |
+| You have {n} AP. | У вас {n} ОД. |
+| The Save is rolled normally. | Спасбросок без преимущества и помехи. |
+| Rolled for the player: no AP is spent. | Бросок за игрока: ОД не тратятся. |
+| Other Saves | Другие спасброски |
+| Roll for them | Бросить за них |
+| Roll Save | Бросить спасбросок |
 | Sent to everyone. | Отправлено всем. |
 | Set this for everyone, to the value you have now | Установить это всем на текущее значение |
 | Apply to everyone | Применить ко всем |
@@ -71,6 +90,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {from} wants to give you {item}. | {from} хочет отдать вам предмет: {item}. |
 | Decline | Отказаться |
 | Accept | Принять |
+| Duration | Длительность |
+| Difficulty Class | Класс сложности |
+| 8 + Experience Modifier + Prime | 8 + модификатор опыта + основная характеристика |
+| Automatic | Автоматически |
+| Manual | Вручную |
+| {save} Save, DC | {save}, Сл |
 | Locking mode | Режим блокировки |
 | Locking mode: tap an open tab again to lock it, and tap a part to lock it. Players see a blur where something is locked; you see everything. | Режим блокировки: коснитесь открытой вкладки ещё раз, чтобы заблокировать её, и коснитесь части, чтобы заблокировать её. Игроки видят размытие на месте заблокированного; вы видите всё. |
 | Open a character's Arcane tab to work with its Magic. Here you can lock its parts for the players. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. Здесь можно заблокировать её части для игроков. |
@@ -101,8 +126,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | The custom modifier must be a whole number from -99 to 99. | Свой модификатор должен быть целым числом от -99 до 99. |
 | Stance: {name} | Стойка: {name} |
 | Nothing chosen | Ничего не выбрано |
-| Advantage {n} | Преимущество {n} |
-| Disadvantage {n} | Помеха {n} |
 | {n} AP | {n} ОД |
 | Options | Настройки |
 | Done | Готово |
@@ -117,7 +140,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No | Нет |
 | Attack anyway | Всё равно атаковать |
 | Edit Unarmed Attack | Изменить атаку без оружия |
-| Save | Сохранить |
 | Enhancements for everyone | Усиления для всех |
 | These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИП, помимо Мощной и Точной атаки. Чтобы создать усиление для одного персонажа, откройте его вкладку Аркана. |
 | None yet | Пока нет |
@@ -221,6 +243,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stacks | Накопления |
 | Temp HP | Врем. ОЗ |
 | Temp HP value | Значение врем. ОЗ |
+| Against | Против |
 | Defence it is rolled against | Защита, против которой бросок |
 | vs Physical Defence | против физической защиты |
 | vs Mental Defence | против ментальной защиты |
@@ -335,8 +358,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Area | Область |
 | Pictures | Картинки |
 | Battle | Бой |
-| Less AP | Меньше ОД |
-| More AP | Больше ОД |
 | AP: {current} of {max} | ОД: {current} из {max} |
 | Set AP to {n} | Установить ОД: {n} |
 | You cannot move there. | Туда нельзя переместиться. |
@@ -379,11 +400,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No resistances. | Сопротивлений нет. |
 | Add or edit resistance | Добавить или изменить сопротивление |
 | Add status | Добавить состояние |
+| DC of the Repeated Save | Сл повторяющегося спасброска |
+| A status added by hand needs no Save. | Статус, добавленный вручную, не требует спасброска. |
 | No matching statuses. | Подходящих состояний нет. |
 | Statuses | Состояния |
 | No statuses. | Состояний нет. |
 | Decrease {name} | Уменьшить: {name} |
 | Increase {name} | Увеличить: {name} |
+| {n} rounds left | осталось раундов: {n} |
+| DC {n} | Сл {n} |
 | Toggle full text of {name} | Показать или скрыть полный текст: {name} |
 | Edit feature | Изменить особенность |
 | New feature | Новая особенность |
@@ -508,7 +533,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | HP {from} to {to} | ОЗ {from} → {to} |
 | None of the targets is on the map any more. | Ни одной из целей больше нет на карте. |
 | Discard | Отклонить |
-| Later | Позже |
 | Apply | Применить |
 
 ## Battle map and combat
@@ -778,7 +802,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Hit | Попадание |
 | Heavy Hit | Сильное попадание |
 | Brutal Hit | Жестокое попадание |
-| Blood Oxydization | Окисление крови |
+| Blood Oxidization | Окисление крови |
 | The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. | Кровь становится гораздо более кислотной (из-за проваленного спасброска Силы против татуировки-заклинания). Не автоматизировано. |
 | Bleeding | Кровотечение |
 | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). | X чистого урона в начале хода. Снимается только лечением или полезным предметом за 1 ОД (только формулировка; использование предметов не автоматизировано). |
@@ -907,7 +931,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Temperature | Температура |
 | Emotion | Эмоция |
 | Control | Контроль |
-| Modifiers | Модификаторы |
 | Separation | Разделение |
 | Positive | Положительное |
 | Negative | Отрицательное |
@@ -916,7 +939,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Ignoring | Игнорирование |
 | Recognition | Распознавание |
 | Unification | Объединение |
-| Duration | Длительность |
 | Filling | Наполнение |
 | Targeting & Geometry | Цели и геометрия |
 | Avoidance | Уклонение |
@@ -981,7 +1003,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | True | Чистый |
 | Heals | Лечит |
 | HP | ОЗ |
-| Adds | Добавляет |
 | Takes | Получает |
 | Gains | Получает |
 | Spends | Тратит |
@@ -1001,13 +1022,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {label} absorbs {n}. | {label} поглощает {n}. |
 | {label} {from} to {to}. | {label} {from} → {to}. |
 | (temporary NPC: no sheet, apply by hand) | (временный НПС: листа нет, примените вручную) |
-| {label} {list}. | {label} {list}. |
 | {label} {n} {kind} damage as a cost (HP {from} to {to}). | {label} {n} урона ({kind}) как плату (ОЗ {from} → {to}). |
 | {label} {status} as a cost. | {label} {status} как плату. |
 | {label} {n} uses of {item}. | {label} {n} исп. предмета {item}. |
 | {label} 1 (natural 1). | {label} 1 (натуральная 1). |
 | {spell} holds: Stabilization rises to {n}. | {spell} держится: Стабилизация растёт до {n}. |
-| {spell} bites {name}: Blood Oxydization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
+| {spell} bites {name}: Blood Oxidization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
 | {spell} falters and is destroyed. | {spell} даёт сбой и уничтожается. |
 | {spell} falters: Stabilization resets to {n} and it loses a use ({left} left). | {spell} даёт сбой: Стабилизация сбрасывается до {n}, теряется одно использование (осталось {left}). |
 | {source}: {name}. {text} | {source}: {name}. {text} |
@@ -1094,6 +1114,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That offer is no longer available. | Это предложение больше недоступно. |
 | Only the receiving player can answer. | Ответить может только получающий игрок. |
 | That is not a valid value for this setting. | Недопустимое значение для этой настройки. |
+| This status has no Save, so it cannot be Repeated. | У этого статуса нет спасброска, поэтому он не может быть повторяющимся. |
+| A Repeated status needs a DC for its Save. | Повторяющемуся статусу нужна Сл для спасброска. |
+| That Save is no longer waiting. | Этот спасбросок больше не ожидается. |
 | Those Help Dice are not available. | Эти кубики помощи недоступны. |
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
@@ -1109,6 +1132,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid id. | Неверный идентификатор. |
 | Type must be PC or NPC. | Тип должен быть «Игрок» или «НПС». |
 | Type the exact name to confirm deletion. | Введите точное имя для подтверждения удаления. |
+| Resisted | Устоял |
+| Failed | Провал |
+| Adds | Добавляет |
+| Ends | Заканчивается |
+| {status} ({duration}) | {status} ({duration}) |
+| {save} against {status}: {total} vs DC {dc}, {result}. | {save} против {status}: {total} против Сл {dc}, {result}. |
+| {label} {list}. | {label} {list}. |
+| {status}: {save} against DC {dc}, waiting for {name}. | {status}: {save} против Сл {dc}, ждём {name}. |
+| {name}: {status} | {name}: {status} |
 | GM only. | Только для мастера. |
 | Only the GM or the Display can change a size. | Менять размер могут только мастер и экран стола. |
 | The Display Screen cannot summon. | Экран стола не может вызывать персонажей. |
@@ -1136,6 +1168,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Only the GM or the Display can ping. | Ставить метки могут только мастер и экран стола. |
 | Ping the map. | Поставьте метку на карте. |
 | Round {round}: {name}'s turn. | Раунд {round}: ход — {name}. |
+| {status} ends. | {status} заканчивается. |
+| End of turn | Конец хода |
 | {name} rolls Initiative: {n}. | {name} бросает инициативу: {n}. |
 | Combat begins. Roll for Initiative. | Бой начинается. Бросайте инициативу. |
 | Combat begins. Round 1. | Бой начинается. Раунд 1. |
@@ -1202,12 +1236,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Half: {v} | Половина: {v} |
 | Double: {v} | Двойной: {v} |
 | Custom | Свой |
-| Manual | Вручную |
 | Unknown stat. | Неизвестная характеристика. |
 | That stat has no Save. | У этой характеристики нет спасброска. |
 | Unknown skill. | Неизвестный навык. |
 | Unknown Combat Mastery. | Неизвестное боевое мастерство. |
 | Unknown roll type. | Неизвестный вид броска. |
+| 1 Round | 1 раунд |
+| 1 Minute | 1 минута |
+| Long | Долгий |
+| Repeated | Повторяющийся |
 
 ## Unused (no longer in the app)
 
@@ -1247,7 +1284,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | This part of the Arcane tab is not built yet. | Эта часть вкладки Аркана ещё не готова. |
 | Open a character's Arcane tab to work with its Magic. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. |
 | Targets: | Цели: |
-| You have {n} AP. | У вас {n} ОД. |
 | Roll attack | Бросить атаку |
 | {name} attacks ({mastery}) | {name} атакует ({mastery}) |
 | {attacker} attacks {target} ({mastery}): {total} vs {defence} {value}, {result}. | {attacker} атакует цель {target} ({mastery}): {total} против {defence} {value}, {result}. |

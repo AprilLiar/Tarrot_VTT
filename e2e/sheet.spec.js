@@ -184,6 +184,14 @@ test('statuses apply to a roll automatically, and the status list is readable', 
   for (let i = 1; i < boxes.length; i++) expect(boxes[i].y).toBeGreaterThanOrEqual(boxes[i - 1].y + boxes[i - 1].height - 1);
   await p.page.getByPlaceholder('Search').fill('Dazed');
   await options.first().click();
+  // The status is set up first: how many stacks, how long it lasts (and, for Repeated, the DC of its Save).
+  await p.page.getByTestId('status-add-stacks').fill('1');
+  await p.page.getByTestId('status-add-duration-repeated').click();
+  await expect(p.page.getByTestId('status-add-dc')).toBeVisible();
+  await p.page.getByTestId('status-add-duration-minute').click();
+  await expect(p.page.getByTestId('status-add-dc')).toHaveCount(0);
+  await p.page.getByRole('dialog').getByRole('button', { name: 'Add status', exact: true }).click();
+  await expect(p.page.getByTestId('status-group')).toContainText('1 Minute (5 rounds left)');
   await p.page.getByRole('button', { name: 'Increase Dazed' }).click();
   await expect(p.page.getByTestId('status')).toContainText('Dazed (2)');
 

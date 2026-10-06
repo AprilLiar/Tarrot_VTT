@@ -1,10 +1,11 @@
-// Small icons before the labels of the sheet's parameters: Movement (footsteps), Size (a square growing in its corners)
-// and Experience Modifier (a star). Plain outlines in the text colour.
-const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+// Faint drawings behind the values of Movement, Size and Experience Modifier, the same size and place as the shield and the brain behind
+// the Defences (large, semi-transparent, on the right): footsteps, a growing square and a star.
+const cls = 'pointer-events-none absolute right-1 top-1/2 h-14 w-14 -translate-y-1/2 opacity-[0.13]';
+const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 function Icon({ id, children }) {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" className="mr-1 inline-block shrink-0 align-[-3px] opacity-70" aria-hidden="true" data-testid={`icon-${id}`}>
+    <svg viewBox="0 0 24 24" className={cls} aria-hidden="true" data-testid={`icon-${id}`}>
       {children}
     </svg>
   );

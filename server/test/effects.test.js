@@ -84,10 +84,10 @@ const lastCard = () => cards().at(-1);
 async function applyOnFoe(ctx, apply = {}) {
   await ctx.p.call('battle:target', { characterId: ctx.a, tokenId: ctx.foeToken });
   const seen = seenPending(ctx.g);
-  await act(ctx.g, ctx, { ap: 2, roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2 }, temp: { value: 4 } } });
+  await act(ctx.g, ctx, { ap: 2, roll: 'stances', effects: { damage: { amount: 5, kind: 'fire' }, status: { key: 'burning', stacks: 2, dc: 99 }, temp: { value: 4 } } });
   const pending = await seen;
   server.shared.attacks.get(pending.id).roll.natural = 10;
-  const r = await ctx.g.call('attack:apply', { id: pending.id, total: 20, base: 5, kind: 'fire', ap: 2, statuses: [{ key: 'burning', stacks: 2 }], ...apply });
+  const r = await ctx.g.call('attack:apply', { id: pending.id, total: 20, base: 5, kind: 'fire', ap: 2, statuses: [{ key: 'burning', stacks: 2, dc: 99 }], ...apply });
   expect(r.ok).toBe(true);
   return pending;
 }

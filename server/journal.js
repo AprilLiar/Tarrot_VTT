@@ -2,10 +2,11 @@ import * as sheets from './sheet.js';
 import { AppError } from './errors.js';
 import { HELP_SIDES, MAX_HELP } from '../shared/help.js';
 import { STABILIZATION_START } from '../shared/spells.js';
+import { totalsOf } from '../shared/statuses.js';
 
 // A journal records what one chat card did to the sheets, as deltas (how much each number moved), so that
 // Revert can take exactly that away again while keeping everything that happened afterwards:
-//   delta = { hp, temp, ap, statuses: { key: n }, stones: { sign: n }, items: { id: n },
+//   delta = { hp, temp, ap, groups: { id: { key, duration, rounds?, dc?, stacks: n } }, stones: { sign: n }, items: { id: n },
 //             spells: { id: { stab, uses, destroyed } }, spellsAdded: [id], helpAdded: [sides], helpRemoved: [sides] }
 // Only the fields a card can change are tracked.
 
@@ -45,8 +46,15 @@ export function sheetDelta(before, after) {
   num('hp', after.hp.current - before.hp.current);
   num('temp', (after.hp.temp ?? 0) - (before.hp.temp ?? 0));
   num('ap', after.ap.current - before.ap.current);
-  const statuses = diffMap(before.statuses, after.statuses);
-  if (Object.keys(statuses).length) delta.statuses = statuses;
+  // Statuses are followed as the groups they are kept in (shared/statuses.js), so a revert takes back exactly the stacks of
+  // the Duration the card gave, whatever happened to the others.
+  const groups = {};
+  for (const g of after.statusGroups ?? []) {
+    const was = (before.statusGroups ?? []).find((x) => x.id === g.id);
+    if (g.stacks !== (was?.stacks ?? 0)) groups[g.id] = { ...g, stacks: g.stacks - (was?.stacks ?? 0) };
+  }
+  for (const g of before.statusGroups ?? []) if (!(after.statusGroups ?? []).some((x) => x.id === g.id)) groups[g.id] = { ...g, stacks: -g.stacks };
+  if (Object.keys(groups).length) delta.groups = groups;
   const stones = diffMap(before.stones, after.stones);
   if (Object.keys(stones).length) delta.stones = stones;
   const items = {};
@@ -77,7 +85,12 @@ export const isEmpty = (delta) => !delta || Object.keys(delta).length === 0;
 export function mergeDelta(a = {}, b = {}) {
   const out = { ...a };
   for (const k of ['hp', 'temp', 'ap']) if (b[k]) out[k] = (out[k] ?? 0) + b[k];
-  for (const k of ['statuses', 'stones', 'items']) if (b[k]) out[k] = sumMap(a[k], b[k]);
+  for (const k of ['stones', 'items']) if (b[k]) out[k] = sumMap(a[k], b[k]);
+  if (b.groups) {
+    out.groups = { ...a.groups };
+    for (const [id, g] of Object.entries(b.groups)) out.groups[id] = { ...g, stacks: (out.groups[id]?.stacks ?? 0) + g.stacks };
+    for (const id of Object.keys(out.groups)) if (!out.groups[id].stacks) delete out.groups[id];
+  }
   if (b.spells) {
     out.spells = { ...a.spells };
     for (const [id, d] of Object.entries(b.spells)) {
@@ -96,11 +109,16 @@ export function revertDelta(sheet, delta) {
   if (delta.hp) next.hp.current = Math.max(0, Math.min(next.hp.max, next.hp.current - delta.hp));
   if (delta.temp) next.hp.temp = Math.max(0, (next.hp.temp ?? 0) - delta.temp);
   if (delta.ap) next.ap.current = Math.max(0, next.ap.current - delta.ap);
-  for (const [k, d] of Object.entries(delta.statuses ?? {})) {
-    const v = (next.statuses?.[k] ?? 0) - d;
-    next.statuses = { ...next.statuses };
-    if (v > 0) next.statuses[k] = v;
-    else delete next.statuses[k];
+  if (delta.groups) {
+    let groups = (next.statusGroups ?? []).map((g) => ({ ...g }));
+    for (const [id, d] of Object.entries(delta.groups)) {
+      const g = groups.find((x) => x.id === id);
+      if (g) g.stacks -= d.stacks;
+      else if (d.stacks < 0) groups.push({ ...d, id, stacks: -d.stacks }); // a group the card removed comes back
+    }
+    groups = groups.filter((g) => g.stacks > 0);
+    next.statusGroups = groups;
+    next.statuses = totalsOf(groups);
   }
   for (const [sign, d] of Object.entries(delta.stones ?? {})) next.stones[sign] = Math.max(0, (next.stones[sign] ?? 0) - d);
   for (const [id, d] of Object.entries(delta.items ?? {})) {

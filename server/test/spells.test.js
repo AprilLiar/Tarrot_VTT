@@ -268,7 +268,7 @@ describe('finished spells', () => {
     expect((await p.call('spell:remove', { characterId: id, id: spell.id })).ok).toBe(true);
   });
 
-  it('a Spell tattoo has no uses: a failed Strength Save adds Blood Oxydization instead', async () => {
+  it('a Spell tattoo has no uses: a failed Strength Save adds Blood Oxidization instead', async () => {
     const { g, p, id } = await fight();
     const spell = (await grant(g, id, { tattoo: true, stabilization: 999 })).sheet.spells[0];
     for (let i = 0; i < 2; i++) {
@@ -279,7 +279,7 @@ describe('finished spells', () => {
       await g.call('sheet:set', { characterId: id, path: 'ap.current', value: 4 });
     }
     const sheet = await sheetOf(g, id);
-    expect(sheet.statuses.blood_oxydization).toBe(2); // stacks
+    expect(sheet.statuses.blood_oxidization).toBe(2); // stacks
     expect(sheet.spells[0]).toMatchObject({ tattoo: true, destroyed: false });
   });
 

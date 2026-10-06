@@ -264,9 +264,9 @@ Action** in the **General tab** of a character's Arcane tab (GM only) opens the 
 setting for the number of targets**: it goes to **all the selected targets** (chosen in the Targets list of the General
 tab; with none selected it is for the acting character itself); any
 combination of the effects **Damage** (value and type), **Help** (a Help Die of a chosen size), **Status** (any
-status, with stacks where it stacks) and **Temp HP** (a value); and, when Damage or Status is chosen, the **roll**
+status, with stacks where it stacks, a Duration and the DC of its Save) and **Temp HP** (a value); and, when Damage or Status is chosen, the **roll**
 (Weapon attack: Prime + Experience, Magic, Stances or Manifest) and the **Defence** it is rolled against (Physical or
-Mental). Damage or Status goes through that roll and the usual **confirm card** (prefilled, GM can edit); a Help Die
+Mental), set apart by a thin divider line and an "Against" label from what is rolled. Damage or Status goes through that roll and the usual **confirm card** (prefilled, GM can edit); a Help Die
 or Temp HP alone is given at once without a roll. **Everything goes to the selected targets** (with none selected, to
 the actor, who is then also the target of the roll against their own Defence); Help Dice and Temp HP are given to
 every target, hit or not, after the damage. AP is spent when it is applied.
@@ -300,7 +300,7 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 
 | Status | Stacks | Draft rule |
 |---|---|---|
-| Blood Oxydization | yes | The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. |
+| Blood Oxidization | yes | The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. |
 | Bleeding | yes | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). |
 | Blinded | no | Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage. |
 | Burning | yes | X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack. |
@@ -339,6 +339,54 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 | Unheard | no | Advantage on melee attacks against flanked enemies who cannot hear you. |
 | Unseen | no | Advantage on your attacks; attackers have Disadvantage. |
 | Weakened | yes | Disadvantage X on physical saves (Strength, Dexterity). |
+
+### Status Saves and Durations (decided)
+**Which Save a status asks for.** A status needs a **Mental Save** when it is Dazed, Charmed, Disoriented, Doomed,
+Frightened, Intimidated, Taunted or Terrified; **no Save** when it is Blood Oxidization (renamed from "Oxydization"
+everywhere; stored sheets are converted), Fully Concealed, Half Cover, Hidden, Invisible, Partially Concealed, Surprised, 3/4
+Cover, Unheard or Unseen; **every other status needs a Physical Save** (`shared/statuses.js`).
+
+**When a Save happens.** Whenever a status would be put on a character by an attack card or a Spontaneous Action and it has a
+Save, the character first makes that Save (d20 + the stat and X Defence as for any Save, plus whatever statuses already change
+it) against a **Difficulty Class**. The Save **passes when its total equals or beats the DC** (no special treatment for a natural
+20 or 1): a pass means the status does not land, a failure means it does. Where a status is set up (attack card, Spontaneous
+Action, the status lists of weapons and Enhancements) there are two DC options: **Automatic** (the default: 8 + the attacker's
+Experience Modifier + the attacker's Prime, its highest stat) or **Manual** (a number, 1 to 99). The statuses a character puts
+on **itself** (an Enhancement's cost, Exposed from a natural 1, Blood Oxidization from a Spell tattoo) and statuses **added by
+hand on a sheet** need **no Save**.
+- **Non-player characters** (NPC sheets) always roll at once, with no AP, and the result is applied or not.
+- **Players** get a **prompt** on their own device: the status, the Save, the DC, the modifiers the character already has
+  (every Advantage or Disadvantage from effects and conditions listed with its source) and an **AP stepper, 0 by default**:
+  **1 AP buys 1 level of Advantage** (at most the AP they have, up to 10). The AP is spent when they roll. If they close the
+  prompt a **Saves waiting** badge brings it back, also after a reload.
+- **The flow:** Apply puts the damage in at once; the status row of the chat card says "waiting for {name}", and the roll and the
+  result arrive as their own **effect card** (kind Save, revertible) when the player answers. If the player is not there the GM
+  sees the same waiting Saves and can press **Roll for them** (rolled for them, no AP spent). An attack card that is Edited does
+  not undo Saves that were already answered.
+- **Temporary NPCs** have no sheet and no statuses (as before: applied by hand).
+
+**Duration.** Chosen next to every status that is set up (default **Long**):
+- **1 Round:** removed when the character the status is on ends their turn (so a status put on during their own turn ends at the
+  end of that turn).
+- **1 Minute:** 5 rounds, counted the same way: one round is counted off at the end of each of the character's turns and the
+  status ends with the fifth. Durations count turns, so they only run while a combat is running; outside combat they stay until
+  removed by hand.
+- **Long:** lasts until it is removed by hand.
+- **Repeated:** at the end of each of the character's turns they make the Save against the status; **passing it removes the
+  status**. Only a status that has a Save can be Repeated (and a Repeated status added by hand on a sheet asks for the DC to
+  use). An NPC rolls at once; a player is asked (same prompt, AP for Advantage) while the next turn starts at once.
+
+**Stacks of one status are grouped by Duration.** There is **one Save per status** however many stacks it has: Bleeding (2)
+Repeated and Bleeding (3) Repeated are one **Bleeding (5), Repeated**, which makes **one** Save at the end of the turn, against
+the **highest DC** of its applications, and a pass removes all 5. Stacks of the same Duration merge (Long, Round, Repeated);
+**1 Minute applications stay separate, each with its own timer**, and stacks of different Durations are remembered apart but
+their effects are **added together** (a status's total is what every rule uses: Bleeding 2 for a minute and Bleeding 3 Repeated
+are 5 true damage at the start of the turn, while a passed Repeated Save removes only the Repeated part). A status that does not
+stack counts as 1 however many groups hold it. The sheet shows each group as a small tag (stacks, the Duration, "5 rounds left"
+or the DC). A **manual change of a status's number** on the sheet works on the Long group; lowering it takes from Long first,
+then Repeated, then 1 Minute, then 1 Round. Statuses that existed before are Long. **Revert** on a card takes back exactly the
+stacks of the Duration it gave (and brings back a status an end of turn removed). The sheet keeps the totals as `statuses` and the
+groups as `statusGroups` (`{ id, key, stacks, duration, rounds?, dc? }`).
 
 ## Feature design
 
@@ -447,8 +495,9 @@ Implemented behaviour (Phase 3):
   an item between any two characters at once, with no confirmation.
 
 ### Small interface rules (decided)
-- **Parameter icons:** Movement, Size and Experience Modifier on the sheet have a small icon (footsteps, a growing square,
-  a star) before their labels, like the faint shield and brain behind the Defences.
+- **Parameter icons:** Movement, Size and Experience Modifier on the sheet have a faint drawing behind their value (footsteps,
+  a growing square, a star), large, semi-transparent and on the right, exactly like the shield and the brain behind the
+  Defences.
 - **Notes on stones** (in the Spell Drafts and in the editor) are shown in the interface's standard text size.
 - **Icon:** the web service has an icon (a wooden box of Tarrot cards): `client/public/favicon-32.png`, `icon-192.png`
   and `apple-touch-icon.png` (on the interface's dark colour), linked from `client/index.html`.
@@ -680,7 +729,8 @@ Decided:
   Attacks that the GM postpones ("Later") wait in a badge; the GM can also **Discard** one.
 - **The card** is deliberately small (changed after the playtest): the GM sets only the **Total**,
   **Base damage**, **Damage type** (the twelve types, or True, which ignores resistances), **AP
-  cost** and **Add status** (with stacks; added to every target that is hit). Everything else is
+  cost** and **Add status** (with stacks, a Duration and, for a status with a Save, the DC: Automatic or Manual; each status is
+  added to every target that is hit, after that target's Save, see Status Saves and Durations). Everything else is
   automatic: the natural roll, the critical range (natural 20), Exposed on a natural 1, the targets and
   each target's Defence. Below the fields the card lists each target with its Defence and the outcome
   as it will be applied (read only).
@@ -861,7 +911,7 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   only deletable). The spell itself always works; the roll only decides durability. A GM-only toggle
   adds a **Spell tattoo** tag: no uses, still Stabilization, and the durability check is a Strength Save
   against it; success still adds +3, failure removes no uses but adds 1 stack of the new status
-  **Blood Oxydization** (stackable (X) status; the blood becomes much more acidic, no automation).
+  **Blood Oxidization** (stackable (X) status; the blood becomes much more acidic, no automation).
 
 **Stances tab.** A scrollable list of the 12 Zodiac signs (big sign image, name, a short vibe text).
 Tapping one opens a skill-tree-like screen with the Zodiac's **base Stance** in the centre (globally
@@ -953,7 +1003,7 @@ Stones, Spell Combinations, Spell Fine Tuning.
 - **Durability at Apply:** when the GM applies an attack that used a spell, the attacker makes a Magic roll against
   its Stabilization (posted as a roll card): success +3; failure resets it to 10 and removes 1 use, and at 0 uses
   the spell is destroyed. A **Spell tattoo** has no uses: it uses a Strength Save; success +3; failure resets
-  Stabilization and adds 1 stack of the new status **Blood Oxydization** (stackable, not automated).
+  Stabilization and adds 1 stack of the new status **Blood Oxidization** (stackable, not automated).
 
 **How the Stances tab is built (answers and my defaults):**
 - **List:** twelve entries, one per sign: a big glyph in the base Stance's colour, the name and a "vibe" text. The
@@ -1226,7 +1276,13 @@ Battle (Phase 5a):
   (the GM or that PC's player), or clears all targets (tokens and areas) with `null`; `mark:update` `{ id, x?, y?, angle? }` (GM and Display) moves or turns an area. `battle:target_area` `{ characterId,
   markId | null }` toggles an area the same way (`null` clears the area picks). Area marks in `stage.battle.marks` carry
   `n` (their number) and `targetedBy` (the characters that picked them). `settings:force` `{ key, value }` (GM only) is
-  relayed to every socket as `setting:forced` `{ key, value }`.
+  relayed to every socket as `setting:forced` `{ key, value }`. Statuses: `status:add` `{ characterId, key, stacks?, duration?, dc? }`
+  adds a status by hand (no Save; Repeated needs a Save and a number `dc`) and returns `{ sheet }`. A status that needs a Save
+  asks the player with `save:ask` `{ id, characterId, name, kind: 'apply' | 'repeated', apply: { key, stacks, duration }, save, dc,
+  source, net, sources, expression, apMax }` (to the PC's devices; `save:pending` with the same data to the GM) and `save:resolved`
+  `{ id }` when it is answered; `save:answer` `{ id, ap }` answers (the character's player, or the GM who rolls for them with no
+  AP), `save:list` returns the `{ saves }` waiting for me. The statuses of `attack:apply` and of a Spontaneous Action's
+  `effects.status` are `{ key, stacks, duration, dc: 'auto' | number }`.
 
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.

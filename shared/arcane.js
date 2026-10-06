@@ -1,4 +1,5 @@
 import * as D from './rules-data.js';
+import { normalizeApply } from './statuses.js';
 import { T } from './localization.js';
 
 // Weapons, Enhancements and the attack drafted from them (the Arcane tab). Pure functions shared by the
@@ -19,14 +20,16 @@ const isKind = (k) => D.DAMAGE_TYPES.includes(k);
 
 // ---- Normalising (always returns a complete, valid shape) --------------------------------------
 
-export function normalizeStatuses(raw) {
+// Statuses put on somebody: { key, stacks, duration, dc } (shared/statuses.js). `plain` is for the statuses a character gains by
+// itself (an Enhancement's cost): only { key, stacks }, they never need a Save and are Long.
+export function normalizeStatuses(raw, { plain = false } = {}) {
   const seen = new Set();
   const out = [];
   for (const s of Array.isArray(raw) ? raw : []) {
-    const info = D.STATUSES.find((x) => x.key === s?.key);
-    if (!info || seen.has(info.key) || out.length >= MAX_LIST) continue;
-    seen.add(info.key);
-    out.push({ key: info.key, stacks: info.stackable ? clampInt(s.stacks, 1, 10, 1) : 1 });
+    const apply = normalizeApply(s);
+    if (!apply || seen.has(apply.key) || out.length >= MAX_LIST) continue;
+    seen.add(apply.key);
+    out.push(plain ? { key: apply.key, stacks: apply.stacks } : apply);
   }
   return out;
 }
@@ -85,7 +88,7 @@ export function normalizeEnhancement(raw, id) {
     name: text(r.name, D.NAME_MAX, 'Enhancement').trim() || 'Enhancement',
     description: text(r.description, D.TEXT_MAX),
     repeatable: r.repeatable === true,
-    cost: { ap: clampInt(cost.ap, 0, MAX_AP_COST, 0), damage, statuses: normalizeStatuses(cost.statuses), item },
+    cost: { ap: clampInt(cost.ap, 0, MAX_AP_COST, 0), damage, statuses: normalizeStatuses(cost.statuses, { plain: true }), item },
     effect: {
       ...blankEffect(),
       damage: clampInt(eff.damage, -99, 99, 0),
@@ -242,11 +245,12 @@ export function planAttack(sheet, catalog, choice, extras = []) {
   }
   if (ap > MAX_AP_COST) return fail('That is too much AP for one attack.');
 
-  // The same status from several sources adds up (a status that does not stack stays at 1).
+  // The same status from several sources, lasting the same way and with the same DC, adds up (a status that does not stack
+  // stays at 1); another Duration or DC stays an application of its own.
   const merged = [];
   for (const s of statuses) {
     const info = D.STATUSES.find((x) => x.key === s.key);
-    const have = merged.find((m) => m.key === s.key);
+    const have = merged.find((m) => m.key === s.key && m.duration === s.duration && m.dc === s.dc);
     if (have) have.stacks = info.stackable ? Math.min(10, have.stacks + s.stacks) : 1;
     else merged.push({ ...s });
   }
