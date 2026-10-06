@@ -1,5 +1,6 @@
 import * as D from './rules-data.js';
 import { T } from './localization.js';
+import { combatMods } from './effects.js';
 
 // Which Save a status asks for when it is put on somebody. Every status not listed asks for a Physical Save.
 const MENTAL = ['dazed', 'charmed', 'disoriented', 'doomed', 'frightened', 'intimidated', 'taunted', 'terrified'];
@@ -41,7 +42,7 @@ export function normalizeApply(raw) {
 
 // The Difficulty Class of an Automatic Save: 8 + the source's Experience Modifier + the source's Prime (its highest stat).
 export function autoDc(sheet) {
-  return 8 + sheet.experience + D.skillStat(sheet.stats, { scaling: { prime: true } }).value;
+  return 8 + sheet.experience + D.skillStat(sheet.stats, { scaling: { prime: true } }).value + combatMods(sheet).dc;
 }
 
 // ---- A character's statuses in groups ---------------------------------------------------------------------

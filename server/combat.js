@@ -2,6 +2,7 @@ import * as D from '../shared/rules-data.js';
 import { apMax, normalizeSheet } from './sheet.js';
 import { applyResistance } from '../shared/damage.js';
 import { takeDamage } from '../shared/hp.js';
+import { effectiveResistances, hpOf, tickEnd, tickStart } from '../shared/effects.js';
 import { joinMsgs } from '../shared/localization.js';
 import { AppError } from './errors.js';
 
@@ -117,9 +118,13 @@ export { applyResistance };
 export function startOfTurn(sheet, name) {
   const next = structuredClone(sheet);
   const lines = [];
+  // Effects that last "until the start of the next turn" end now.
+  const started = tickStart(next.effects ?? []);
+  next.effects = started.effects;
+  for (const e of started.ended) lines.push({ key: '{effect} ends.', params: { effect: { t: e.name, c: 'effect' } } });
   const hurt = (amount, source, detail) => {
     const before = next.hp.current;
-    const out = takeDamage(next.hp, amount);
+    const out = takeDamage(hpOf(next), amount);
     next.hp.current = out.current;
     next.hp.temp = out.temp;
     lines.push({
@@ -131,12 +136,12 @@ export function startOfTurn(sheet, name) {
   if (bleeding > 0) hurt(bleeding, { t: `Bleeding ${bleeding}`, c: 'status' }, { key: 'true damage' });
   const burning = next.statuses?.burning ?? 0;
   if (burning > 0) {
-    const out = applyResistance(next.resistances?.fire, burning);
+    const out = applyResistance(effectiveResistances(next).fire, burning);
     const source = { t: `Burning ${burning}`, c: 'status' };
     const detail = joinMsgs([{ t: 'Fire' }, ...out.steps]);
     if (out.heal > 0) {
       const before = next.hp.current;
-      next.hp.current = Math.min(next.hp.max, before + out.heal);
+      next.hp.current = Math.min(hpOf(next).max, before + out.heal);
       lines.push({
         key: '{name} is healed {n} by {source} ({detail}). HP {from} to {to}.',
         params: { name, n: { v: out.heal, c: 'heal' }, source, detail, from: { v: before, c: 'hp' }, to: { v: next.hp.current, c: 'hp' } },

@@ -21,12 +21,19 @@ function statusNames(list, t) {
   });
 }
 
-export function enhancementSummary(e, items, t) {
+// A Cost (of an Enhancement or a Stance) as short pieces of text.
+export function costParts(c, t, items = []) {
   const cost = [];
-  if (e.cost.ap) cost.push(t('{n} AP', { n: e.cost.ap }));
-  if (e.cost.damage) cost.push(t('{n} {kind} damage to you', { n: e.cost.damage.amount, kind: { t: e.cost.damage.kind === 'true' ? 'True' : cap(e.cost.damage.kind) } }));
-  cost.push(...statusNames(e.cost.statuses, t));
-  if (e.cost.item) cost.push(t('{n} uses of {item}', { n: e.cost.item.uses, item: items.find((i) => i.id === e.cost.item.itemId)?.name ?? '?' }));
+  if (!c) return cost;
+  if (c.ap) cost.push(t('{n} AP', { n: c.ap }));
+  if (c.damage) cost.push(t('{n} {kind} damage to you', { n: c.damage.amount, kind: { t: c.damage.kind === 'true' ? 'True' : cap(c.damage.kind) } }));
+  cost.push(...statusNames(c.statuses, t));
+  if (c.item) cost.push(t('{n} uses of {item}', { n: c.item.uses, item: items.find((i) => i.id === c.item.itemId)?.name ?? '?' }));
+  return cost;
+}
+
+export function enhancementSummary(e, items, t) {
+  const cost = costParts(e.cost, t, items);
   const fx = [];
   if (e.effect.damage) fx.push(t('Damage {n}', { n: signed(e.effect.damage) }));
   if (e.effect.range) fx.push(t('Range {n}', { n: signed(e.effect.range) }));

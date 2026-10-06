@@ -9,6 +9,7 @@ import { useHelpPrompt } from '../HelpDice.jsx';
 import { useTargets } from '../sheet/TargetPicker.jsx';
 import { HELP_SIDES } from '../../../../shared/help.js';
 import { StatusSetup } from '../StatusSetup.jsx';
+import { effectCatalog, useEffectLibrary } from '../effects/useEffectLibrary.js';
 import { statusSave } from '../../../../shared/statuses.js';
 import * as D from '../../../../shared/rules-data.js';
 import { T } from '../../../../shared/localization.js';
@@ -32,7 +33,11 @@ export default function Spontaneous({ s, onClose }) {
   const info = useTargets(s.characterId);
   const selected = info?.targets.length ?? 0;
   const [ap, setAp] = useState(1);
-  const [on, setOn] = useState({ damage: false, help: false, status: false, temp: false });
+  const [on, setOn] = useState({ damage: false, help: false, status: false, temp: false, effect: false });
+  const globals = useEffectLibrary();
+  const library = effectCatalog(globals, s.sheet);
+  const [effectId, setEffectId] = useState('');
+  const [effectTo, setEffectTo] = useState('target');
   const [damage, setDamage] = useState('1');
   const [kind, setKind] = useState('true');
   const [sides, setSides] = useState(6);
@@ -47,7 +52,7 @@ export default function Spontaneous({ s, onClose }) {
   const status = D.STATUSES.find((x) => x.key === statusKey);
   const rolled = on.damage || on.status;
   const any = Object.values(on).some(Boolean);
-  const valid = any && (!on.damage || isNum(damage, 0, 999)) && (!on.temp || isNum(temp, 1, 9999)) && s.sheet.ap.current >= ap;
+  const valid = any && (!on.effect || library.length > 0) && (!on.damage || isNum(damage, 0, 999)) && (!on.temp || isNum(temp, 1, 9999)) && s.sheet.ap.current >= ap;
   const flag = (k) => (e) => setOn({ ...on, [k]: e.target.checked });
 
   async function run() {
@@ -61,6 +66,7 @@ export default function Spontaneous({ s, onClose }) {
     if (on.help) effects.help = { sides };
     if (on.status) effects.status = { key: statusKey, stacks: status?.stackable ? stacks : 1, duration, dc };
     if (on.temp) effects.temp = { value: Number(temp) };
+    if (on.effect) effects.effect = { id: effectId || library[0]?.id, to: effectTo };
     return call('spontaneous:do', { characterId: s.characterId, ap, effects, roll, defence, help });
   }
 
@@ -145,6 +151,28 @@ export default function Spontaneous({ s, onClose }) {
             {t('Temp HP')}
           </label>
           {on.temp && <IntInput label={t('Temp HP value')} value={temp} onChange={setTemp} />}
+        </div>
+
+        <div className={box}>
+          <label className="flex min-h-9 items-center gap-2 text-sm">
+            <input type="checkbox" className="h-5 w-5" data-testid="spont-effect" checked={on.effect} onChange={flag('effect')} />
+            {t('Effect')}
+          </label>
+          {on.effect && (
+            <div className="grid grid-cols-2 gap-2">
+              <select className={input} aria-label={t('Effect')} data-testid="spont-effect-id" value={effectId || library[0]?.id || ''} onChange={(e) => setEffectId(e.target.value)}>
+                {library.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className={btn} data-testid="spont-effect-to" onClick={() => setEffectTo(effectTo === 'self' ? 'target' : 'self')}>
+                {effectTo === 'self' ? t('On the user') : t('On the targets')}
+              </button>
+              {library.length === 0 && <p className="col-span-2 text-xs opacity-60">{t('No Effects exist yet. Make some in the Effects section of the General tab.')}</p>}
+            </div>
+          )}
         </div>
 
         {rolled && (

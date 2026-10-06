@@ -34,6 +34,8 @@ export function buildRoll(sheet, request, rng = rollD20) {
     total,
     expression: plan.expression,
     flags,
+    // The Effects with Uses this roll took one use from (the caller spends them, see effectRuntime.js).
+    effectsUsed: plan.used,
   };
 }
 

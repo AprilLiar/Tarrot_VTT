@@ -6,11 +6,12 @@ import * as D from '../../../../shared/rules-data.js';
 import { DICE_SIDES, MAX_LIST, MAX_AP_COST } from '../../../../shared/arcane.js';
 import { useT } from '../../i18n.jsx';
 import { StatusSetup } from '../StatusSetup.jsx';
+import { EffectRefs } from '../effects/EffectRefs.jsx';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const select = 'min-h-11 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-base';
-const label = 'flex flex-col gap-1 text-sm';
-const box = 'flex flex-col gap-2 rounded-lg border border-white/10 p-2';
+export const select = 'min-h-11 w-full rounded-lg border border-white/20 bg-black/30 px-2 text-base';
+export const label = 'flex flex-col gap-1 text-sm';
+export const box = 'flex flex-col gap-2 rounded-lg border border-white/10 p-2';
 
 export const isNum = (v, min, max) => isWholeNumber(v) && Number(v) >= min && Number(v) <= max;
 
@@ -151,7 +152,7 @@ export function UniqueList({ value, onChange, title }) {
 
 // ---- Weapon --------------------------------------------------------------------------------------------
 
-export const weaponToForm = (w) => ({ base: String(w.base), kind: w.kind, defence: w.defence, ap: String(w.ap), range: w.range == null ? '' : String(w.range), statuses: w.statuses, dice: w.dice, unique: w.unique });
+export const weaponToForm = (w) => ({ base: String(w.base), kind: w.kind, defence: w.defence, ap: String(w.ap), range: w.range == null ? '' : String(w.range), statuses: w.statuses, dice: w.dice, unique: w.unique, effects: w.effects ?? [] });
 export const weaponValid = (f) => isNum(f.base, 0, 999) && isNum(f.ap, 0, MAX_AP_COST) && (f.range.trim() === '' || isNum(f.range, 0, 999));
 export const formToWeapon = (f) => ({
   base: Number(f.base),
@@ -162,6 +163,7 @@ export const formToWeapon = (f) => ({
   statuses: f.statuses,
   dice: f.dice,
   unique: f.unique.filter((u) => u.name.trim()),
+  effects: f.effects,
 });
 
 // The fields of a weapon: damage, type, Defence, AP, Range and what it adds on top.
@@ -198,42 +200,53 @@ export function WeaponFields({ form, setForm }) {
       <StatusList value={form.statuses} onChange={(v) => up({ statuses: v })} title={t('Adds these statuses to targets that are hit')} />
       <DiceList value={form.dice} onChange={(v) => up({ dice: v })} title={t('Dice Roll Bonuses')} />
       <UniqueList value={form.unique} onChange={(v) => up({ unique: v })} title={t('Unique Effects')} />
+      <EffectRefs value={form.effects} onChange={(v) => up({ effects: v })} title={t('Effects it puts on (whether or not it hits)')} />
     </div>
   );
 }
 
 // ---- Enhancement -----------------------------------------------------------------------------------------
 
+// The Cost of an Enhancement or a Stance as form fields, and back.
+export const costToForm = (cost, items = []) => ({
+  ap: String(cost?.ap ?? 0),
+  dmgOn: !!cost?.damage,
+  dmgAmount: String(cost?.damage?.amount ?? 1),
+  dmgKind: cost?.damage?.kind ?? 'true',
+  costStatuses: cost?.statuses ?? [],
+  itemOn: !!cost?.item,
+  itemId: cost?.item?.itemId ?? items[0]?.id ?? '',
+  itemUses: String(cost?.item?.uses ?? 1),
+});
+
+export const formToCost = (f) => ({
+  ap: Number(f.ap),
+  damage: f.dmgOn ? { amount: Number(f.dmgAmount), kind: f.dmgKind } : null,
+  statuses: f.costStatuses,
+  item: f.itemOn && f.itemId ? { itemId: f.itemId, uses: Number(f.itemUses) } : null,
+});
+
+export const costValid = (f) => isNum(f.ap, 0, MAX_AP_COST) && isNum(f.dmgAmount, 1, 999) && isNum(f.itemUses, 1, D.ITEM_USES_MAX);
+
 export const enhancementToForm = (e, items) => ({
   name: e?.name ?? '',
   description: e?.description ?? '',
   repeatable: e?.repeatable ?? false,
-  ap: String(e?.cost.ap ?? 0),
-  dmgOn: !!e?.cost.damage,
-  dmgAmount: String(e?.cost.damage?.amount ?? 1),
-  dmgKind: e?.cost.damage?.kind ?? 'true',
-  costStatuses: e?.cost.statuses ?? [],
-  itemOn: !!e?.cost.item,
-  itemId: e?.cost.item?.itemId ?? items[0]?.id ?? '',
-  itemUses: String(e?.cost.item?.uses ?? 1),
+  ...costToForm(e?.cost, items),
   damage: String(e?.effect.damage ?? 0),
   range: String(e?.effect.range ?? 0),
   advantage: String(e?.effect.advantage ?? 0),
   statuses: e?.effect.statuses ?? [],
   dice: e?.effect.dice ?? [],
   unique: e?.effect.unique ?? [],
+  effects: e?.effect.effects ?? [],
 });
 
 export const formToEnhancement = (f) => ({
   name: f.name.trim(),
   description: f.description,
   repeatable: f.repeatable,
-  cost: {
-    ap: Number(f.ap),
-    damage: f.dmgOn ? { amount: Number(f.dmgAmount), kind: f.dmgKind } : null,
-    statuses: f.costStatuses,
-    item: f.itemOn && f.itemId ? { itemId: f.itemId, uses: Number(f.itemUses) } : null,
-  },
+  cost: formToCost(f),
   effect: {
     damage: Number(f.damage),
     range: Number(f.range),
@@ -241,17 +254,62 @@ export const formToEnhancement = (f) => ({
     statuses: f.statuses,
     dice: f.dice,
     unique: f.unique.filter((u) => u.name.trim()),
+    effects: f.effects,
   },
 });
 
 export const enhancementValid = (f) =>
   f.name.trim().length > 0 &&
-  isNum(f.ap, 0, MAX_AP_COST) &&
-  isNum(f.dmgAmount, 1, 999) &&
-  isNum(f.itemUses, 1, D.ITEM_USES_MAX) &&
+  costValid(f) &&
   isNum(f.damage, -99, 99) &&
   isNum(f.range, -99, 99) &&
   isNum(f.advantage, -10, 10);
+
+// The Cost fields (AP, damage taken, statuses gained, item uses). `items` are the items of the character it belongs to; a global
+// Enhancement or a Stance has none, so no item cost is offered there.
+export function CostFields({ f, up, items }) {
+  const t = useT();
+  return (
+    <div className={box}>
+      <div className="text-xs uppercase tracking-wide opacity-60">{t('Cost')}</div>
+      <label className={label}>
+        {t('AP')}
+        <IntInput label={t('AP')} value={f.ap} onChange={(v) => up({ ap: v })} />
+      </label>
+      <label className="flex min-h-10 items-center gap-2 text-sm">
+        <input type="checkbox" className="h-5 w-5" checked={f.dmgOn} onChange={(e) => up({ dmgOn: e.target.checked })} />
+        {t('You take damage')}
+      </label>
+      {f.dmgOn && (
+        <div className="grid grid-cols-2 gap-2">
+          <IntInput label={t('Damage taken')} value={f.dmgAmount} onChange={(v) => up({ dmgAmount: v })} />
+          <DamageKindSelect value={f.dmgKind} onChange={(v) => up({ dmgKind: v })} withTrue aria={t('Damage type')} />
+        </div>
+      )}
+      <StatusList plain value={f.costStatuses} onChange={(v) => up({ costStatuses: v })} title={t('You gain these statuses')} />
+      {items.length > 0 && (
+        <>
+          <label className="flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" className="h-5 w-5" checked={f.itemOn} onChange={(e) => up({ itemOn: e.target.checked })} />
+            {t('It spends uses of an item')}
+          </label>
+          {f.itemOn && (
+            <div className="grid grid-cols-2 gap-2">
+              <select className={select} aria-label={t('Item')} value={f.itemId} onChange={(e) => up({ itemId: e.target.value })}>
+                {items.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+              <IntInput label={t('Uses spent')} value={f.itemUses} onChange={(v) => up({ itemUses: v })} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 // The fields of an Enhancement (a spell whose effect is an Enhancement uses them too). `items` are the items
 // of the character it belongs to (for the Item cost); a global Enhancement has none.
@@ -276,44 +334,7 @@ export function EnhancementFields({ f, setF, items, withName = true }) {
         <input type="checkbox" className="h-5 w-5" data-testid="enh-repeatable" checked={f.repeatable} onChange={(e) => up({ repeatable: e.target.checked })} />
         {t('Repeatable (can be used several times in one attack)')}
       </label>
-      <div className={box}>
-        <div className="text-xs uppercase tracking-wide opacity-60">{t('Cost')}</div>
-        <label className={label}>
-          {t('AP')}
-          <IntInput label={t('AP')} value={f.ap} onChange={(v) => up({ ap: v })} />
-        </label>
-        <label className="flex min-h-10 items-center gap-2 text-sm">
-          <input type="checkbox" className="h-5 w-5" checked={f.dmgOn} onChange={(e) => up({ dmgOn: e.target.checked })} />
-          {t('You take damage')}
-        </label>
-        {f.dmgOn && (
-          <div className="grid grid-cols-2 gap-2">
-            <IntInput label={t('Damage taken')} value={f.dmgAmount} onChange={(v) => up({ dmgAmount: v })} />
-            <DamageKindSelect value={f.dmgKind} onChange={(v) => up({ dmgKind: v })} withTrue aria={t('Damage type')} />
-          </div>
-        )}
-        <StatusList plain value={f.costStatuses} onChange={(v) => up({ costStatuses: v })} title={t('You gain these statuses')} />
-        {items.length > 0 && (
-          <>
-            <label className="flex min-h-10 items-center gap-2 text-sm">
-              <input type="checkbox" className="h-5 w-5" checked={f.itemOn} onChange={(e) => up({ itemOn: e.target.checked })} />
-              {t('It spends uses of an item')}
-            </label>
-            {f.itemOn && (
-              <div className="grid grid-cols-2 gap-2">
-                <select className={select} aria-label={t('Item')} value={f.itemId} onChange={(e) => up({ itemId: e.target.value })}>
-                  {items.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-                <IntInput label={t('Uses spent')} value={f.itemUses} onChange={(v) => up({ itemUses: v })} />
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <CostFields f={f} up={up} items={items} />
 
       <div className={box}>
         <div className="text-xs uppercase tracking-wide opacity-60">{t('Effect')}</div>
@@ -335,6 +356,7 @@ export function EnhancementFields({ f, setF, items, withName = true }) {
         <StatusList value={f.statuses} onChange={(v) => up({ statuses: v })} title={t('Adds these statuses to targets that are hit')} />
         <DiceList value={f.dice} onChange={(v) => up({ dice: v })} title={t('Dice Roll Bonuses')} />
         <UniqueList value={f.unique} onChange={(v) => up({ unique: v })} title={t('Unique Effects')} />
+        <EffectRefs value={f.effects} onChange={(v) => up({ effects: v })} title={t('Effects it puts on (whether or not it hits)')} />
       </div>
     </>
   );

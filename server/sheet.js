@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import * as D from '../shared/rules-data.js';
 import { T } from '../shared/localization.js';
 import { AppError } from './errors.js';
-import { normalizeWeapon, normalizeEnhancement, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
+import { normalizeWeapon, normalizeEnhancement, normalizeEffectRefs, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
 import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../shared/manifest.js';
 import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
 import { reconcileGroups, DURATIONS, MINUTE_ROUNDS, statusInfo } from '../shared/statuses.js';
+import { normalizeInstances, normalizeDefinition, statMods, MAX_EFFECTS_LIBRARY } from '../shared/effects.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
 
 // The character sheet lives as one JSON document per character
@@ -19,7 +20,8 @@ const MAX_STATES = 20;
 
 const bad = (message, code = 'bad_value', params) => new AppError(code, message, params);
 
-export const apMax = (sheet) => (sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX);
+// Maximum AP: 4 (2 for a Minion), changed by the running Effects.
+export const apMax = (sheet) => Math.max(0, (sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX) + statMods(sheet).maxAp);
 
 const isInt = (v) => Number.isInteger(v);
 const clampInt = (v, min, max, fallback) =>
@@ -66,6 +68,8 @@ function normalizeItem(raw) {
     state: states.includes(r.state) ? r.state : '',
     // A Weapon item shows up in the Arcane tab (General); null for an ordinary item.
     weapon: r.weapon && typeof r.weapon === 'object' ? normalizeWeapon(r.weapon) : null,
+    // Effects (shared/effects.js) the item puts on its user when it is used.
+    effects: normalizeEffectRefs(r.effects).map((e) => ({ id: e.id, to: 'self' })),
   };
 }
 
@@ -138,6 +142,9 @@ export function normalizeSheet(raw) {
     resistances: {},
     statuses: {},
     statusGroups: [],
+    // Effects: the ones running (shared/effects.js) and the character's own library of them.
+    effects: normalizeInstances(r.effects, randomUUID),
+    effectDefs: (Array.isArray(r.effectDefs) ? r.effectDefs : []).slice(0, MAX_EFFECTS_LIBRARY).map((e) => normalizeDefinition(e, randomUUID())),
   };
   for (const sign of SIGNS) sheet.stones[sign] = clampInt(r.stones?.[sign], 0, MAX_STONE_COUNT, 0);
   sheet.ap.current = clampInt(r.ap?.current, 0, apMax(sheet), apMax(sheet));
@@ -304,6 +311,7 @@ export function applyList(sheet, list, action, p = {}) {
         states: [],
         state: '',
         weapon: p.weapon ? normalizeWeapon(p.weapon) : null,
+        effects: normalizeEffectRefs(p.effects).map((e) => ({ id: e.id, to: 'self' })),
       });
     } else if (action === 'update') {
       const it = arr[find(arr, p.id)];
@@ -323,6 +331,7 @@ export function applyList(sheet, list, action, p = {}) {
         it.state = p.state;
       }
       if (p.weapon !== undefined) it.weapon = p.weapon ? normalizeWeapon(p.weapon) : null;
+      if (p.effects !== undefined) it.effects = normalizeEffectRefs(p.effects).map((e) => ({ id: e.id, to: 'self' }));
     } else if (action === 'use') {
       const it = arr[find(arr, p.id)];
       if (it.uses.current <= 0) throw bad('No uses left.', 'no_uses');
@@ -346,6 +355,22 @@ export function applyList(sheet, list, action, p = {}) {
     } else if (action === 'update') {
       const i = find(arr, p.id);
       arr[i] = { ...normalizeEnhancement(p.enhancement, p.id), id: p.id };
+    } else if (action === 'remove') {
+      arr.splice(find(arr, p.id), 1);
+    } else throw bad('Unknown action.', 'bad_action');
+    return normalizeSheet(next);
+  }
+
+  if (list === 'effectDefs') {
+    const arr = next.effectDefs;
+    if (action === 'add') {
+      if (arr.length >= MAX_EFFECTS_LIBRARY) throw bad('Too many Effects.', 'limit');
+      const e = normalizeDefinition(p.effect, randomUUID());
+      e.id = randomUUID();
+      arr.push(e);
+    } else if (action === 'update') {
+      const i = find(arr, p.id);
+      arr[i] = { ...normalizeDefinition(p.effect, p.id), id: p.id };
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

@@ -7,6 +7,8 @@ import { helpDiceFor, spendHelp } from './help.js';
 import { createJournal } from './journal.js';
 import { statusMsg } from './saves.js';
 import { tickGroups, totalsOf } from '../shared/statuses.js';
+import { tickEnd } from '../shared/effects.js';
+import { spendRollUses } from './effectRuntime.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
@@ -442,6 +444,10 @@ export function registerSceneHandlers(ctx) {
       for (const g of ended) rows.push({ key: '{status} ends.', params: { status: statusMsg({ key: g.key, stacks: g.stacks, duration: g.duration }) } });
       next.statusGroups = groups;
       next.statuses = totalsOf(groups);
+      // Effects: "until end of turn" ones end, 1 Minute ones lose a round.
+      const fx = tickEnd(next.effects ?? []);
+      next.effects = fx.effects;
+      for (const e of fx.ended) rows.push({ key: '{effect} ends.', params: { effect: { t: e.name, c: 'effect' } } });
       return sheets.normalizeSheet(next);
     });
     emitSheet(entry.ownerId, out);
@@ -483,8 +489,9 @@ export function registerSceneHandlers(ctx) {
     const token = await battle.getToken(db, entry.tokenId);
     if (entry.ownerKind === 'character') {
       const sheet = await sheets.getSheet(db, entry.ownerId);
-      const roll = buildRoll(sheet, { ...combat.SPEED_ROLL, dice: helpDiceFor(sheet, help) });
+      const roll = buildRoll(sheet, { ...combat.SPEED_ROLL, initiative: true, dice: helpDiceFor(sheet, help) });
       await spendHelp(db, entry.ownerId, help, emitSheet);
+      await spendRollUses(db, entry.ownerId, roll, emitSheet);
       combat.setInitiative(c, entry.tokenId, roll.total);
       if (!token.hidden) {
         const message = shared.chat.add({

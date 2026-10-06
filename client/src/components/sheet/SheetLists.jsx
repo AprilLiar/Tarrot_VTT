@@ -4,6 +4,8 @@ import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { NumField } from './fields.jsx';
 import * as D from '../../../../shared/rules-data.js';
 import { WeaponFields, weaponToForm, weaponValid, formToWeapon } from '../arcane/editors.jsx';
+import { EffectRefs } from '../effects/EffectRefs.jsx';
+import { OwnEffectsContext } from '../effects/ownEffects.js';
 import { defaultWeapon } from '../../../../shared/arcane.js';
 import { useT } from '../../i18n.jsx';
 
@@ -146,6 +148,7 @@ function ItemDialog({ s, item, onClose }) {
   const [states, setStates] = useState(item?.states ?? []);
   const [newState, setNewState] = useState('');
   const [weapon, setWeapon] = useState(() => (item?.weapon ? weaponToForm(item.weapon) : null)); // null: not a weapon
+  const [effects, setEffects] = useState(item?.effects ?? []);
   const max = Number(maxUses);
   const validMax = Number.isInteger(max) && max >= 1 && max <= D.ITEM_USES_MAX;
 
@@ -163,8 +166,8 @@ function ItemDialog({ s, item, onClose }) {
       canSubmit={name.trim().length > 0 && validMax && (!weapon || weaponValid(weapon))}
       run={() =>
         item
-          ? s.list('items', 'update', { id: item.id, name, description, usesMax: max, states, weapon: weapon ? formToWeapon(weapon) : null })
-          : s.list('items', 'add', { name, description, usesMax: max, weapon: weapon ? formToWeapon(weapon) : null })
+          ? s.list('items', 'update', { id: item.id, name, description, usesMax: max, states, weapon: weapon ? formToWeapon(weapon) : null, effects })
+          : s.list('items', 'add', { name, description, usesMax: max, weapon: weapon ? formToWeapon(weapon) : null, effects })
       }
     >
       <TextInputs name={name} setName={setName} description={description} setDescription={setDescription} />
@@ -177,6 +180,9 @@ function ItemDialog({ s, item, onClose }) {
         {t('Weapon (shown in the Arcane tab)')}
       </label>
       {weapon && <WeaponFields form={weapon} setForm={setWeapon} />}
+      <OwnEffectsContext.Provider value={s.sheet.effectDefs ?? []}>
+        <EffectRefs selfOnly value={effects} onChange={setEffects} title={t('Effects it puts on its user when used')} />
+      </OwnEffectsContext.Provider>
       {item && (
         <div className="flex flex-col gap-2 text-sm">
           {t('State options')}

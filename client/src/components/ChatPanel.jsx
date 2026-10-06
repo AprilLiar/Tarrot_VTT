@@ -123,6 +123,7 @@ const KEYWORD = {
   resist: 'text-teal-300',
   item: 'text-orange-300',
   spell: 'text-fuchsia-300',
+  effect: 'text-lime-300',
   num: 'text-white',
 };
 

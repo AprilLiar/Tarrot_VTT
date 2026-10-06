@@ -3,6 +3,7 @@ import { tokensInTemplate } from '../shared/templates.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
+import { effectiveMovement } from '../shared/effects.js';
 
 // Battle mode: tokens on a square grid over the scene's battle picture, shared
 // drawings and spell templates, and the movement rules.
@@ -61,6 +62,15 @@ export function tokenStatuses(json) {
   }
 }
 
+// The Effects a character has, as the icons on its token show them: [{ id, name, icon }] in the order they were put on.
+export function tokenEffects(json) {
+  try {
+    return (JSON.parse(json ?? '{}').effects ?? []).map((e) => ({ id: e.id, name: e.name, icon: e.icon ?? '' }));
+  } catch {
+    return [];
+  }
+}
+
 const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
                           c.name AS cname, c.type AS ctype, c.sheet AS csheet,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
@@ -91,6 +101,7 @@ function toToken(r, targets) {
     // Spaces the character is in the air (shown above the token).
     height: Number(r.height ?? 0),
     statuses: isChar ? tokenStatuses(r.csheet) : [],
+    effects: isChar ? tokenEffects(r.csheet) : [],
     // Characters that currently have this token targeted (set from the remote).
     targetedBy: targets ? [...targets.entries()].filter(([, set]) => set.has(Number(r.id))).map(([who]) => who) : [],
   };
@@ -255,7 +266,7 @@ export async function moveStep(db, { token, dc, dr, freeChecked, confirmAp, isOw
 
   return sheets.withLock(token.ownerId, async () => {
     const sheet = await sheets.getSheet(db, token.ownerId);
-    const plan = planMove({ bank: token.bank, diagonals: token.diagonals, movement: sheet.movement, ap: sheet.ap.current }, { dc, dr, free: false, confirmAp });
+    const plan = planMove({ bank: token.bank, diagonals: token.diagonals, movement: effectiveMovement(sheet), ap: sheet.ap.current }, { dc, dr, free: false, confirmAp });
     if (plan.needsConfirm) return { moved: false, needsConfirm: { aps: plan.aps, movement: plan.movement } };
     if (plan.apSpent > 0) {
       const next = structuredClone(sheet);

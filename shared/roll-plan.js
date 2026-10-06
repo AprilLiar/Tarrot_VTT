@@ -1,5 +1,6 @@
 import * as D from './rules-data.js';
 import { resolveStat, statusEffects } from './status-effects.js';
+import { rollMods } from './effects.js';
 import { T } from './localization.js';
 
 // Works out what a roll will be, before any die is thrown: its title, every
@@ -82,9 +83,14 @@ export function planRoll(sheet, request) {
     if (Number.isInteger(b?.value) && b.value !== 0) terms.push({ label: String(b.label), value: b.value });
   }
 
-  const bonusDice = Array.isArray(request.dice) ? request.dice : [];
+  // The running Effects of the roller change this roll, and so do the Effects of the attack's targets (`request.against`: what all
+  // targets share, worked out by the caller).
+  const em = rollMods(sheet, request);
+  for (const m of em.terms) terms.push(m);
+  for (const m of request.against?.terms ?? []) terms.push(m);
+  const bonusDice = [...(Array.isArray(request.dice) ? request.dice : []), ...em.dice];
 
-  const sources = [...fx.levels];
+  const sources = [...fx.levels, ...em.levels.map(({ label, levels }) => ({ label, levels })), ...(request.against?.levels ?? [])];
   if (manual !== 0) sources.push({ label: T('Manual'), levels: manual });
   const net = Math.max(-MAX_NET_LEVELS, Math.min(MAX_NET_LEVELS, sources.reduce((sum, s) => sum + s.levels, 0)));
   const mode = net > 0 ? 'advantage' : net < 0 ? 'disadvantage' : 'normal';
@@ -98,6 +104,7 @@ export function planRoll(sheet, request) {
     mode,
     diceCount: 1 + Math.abs(net),
     bonusDice,
+    used: em.used, // the Effects with Uses that touched this roll
     expression: [formatExpression(terms), ...bonusDice.map((d) => `${d.sign < 0 ? '-' : '+'} 1d${d.sides}(${d.source})`)].join(' '),
   };
 }

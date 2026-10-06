@@ -68,7 +68,7 @@ export function applyResistance(res, raw) {
 }
 
 // One target of an attack.
-// input: { total, natural, critThreshold?, defence, base, kind, resistance?, override? }
+// input: { total, natural, critThreshold?, defence, base, kind, resistance?, taken?, override? }
 // `override` (a number) replaces the final damage; the rest is still worked out for the record.
 // -> { ...hitResult, raw, damage, heal, steps, overridden }
 export function computeTarget(input) {
@@ -76,6 +76,12 @@ export function computeTarget(input) {
   if (!hit.hit) return { ...hit, raw: 0, damage: 0, heal: 0, steps: [], overridden: false };
   const raw = Math.max(0, input.base + hit.bonus);
   const res = input.kind === 'true' ? { damage: raw, heal: 0, steps: [] } : applyResistance(input.resistance, raw);
+  // The target's Effects change the damage it takes by a flat amount (after its resistances, never below 0).
+  if (input.taken && res.damage > 0) {
+    const v = Math.max(0, res.damage + input.taken);
+    res.steps = [...res.steps, { key: 'Effects {n}: {v}', params: { n: input.taken, v } }];
+    res.damage = v;
+  }
   if (Number.isInteger(input.override)) return { ...hit, raw, damage: input.override, heal: 0, steps: res.steps, overridden: true };
   return { ...hit, raw, damage: res.damage, heal: res.heal, steps: res.steps, overridden: false };
 }

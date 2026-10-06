@@ -14,10 +14,14 @@ import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapo
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
 import { weaponSummary, enhancementSummary } from './summaries.js';
 import { enhancementCatalog, planAttack, MAX_COUNT } from '../../../../shared/arcane.js';
+import { blankEffect } from '../../../../shared/stances.js';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
 import { setChatSlot } from '../../lib/chatSlot.js';
 import { useHelpPrompt } from '../HelpDice.jsx';
+import { EffectsLibrary } from '../effects/EffectsLibrary.jsx';
+import { BasicActions } from '../effects/BasicActions.jsx';
+import { OwnEffectsContext } from '../effects/ownEffects.js';
 import { useT } from '../../i18n.jsx';
 
 // The Arcane tab: everything a character attacks with. This part has the General sub-tab (weapons and
@@ -41,11 +45,15 @@ const TABS = [
 
 export const emptyDraft = () => ({ weapon: 'unarmed', counts: {}, stance: null, advantage: 0, modifier: '0' });
 
+const NO_EFFECTS = [];
+
 export default function ArcanePage({ s, draft, setDraft }) {
   const [locking, setLocking] = useState(false); // the GM's locking mode (only in the general tab, without a character)
   return (
     <LockProvider locking={locking && !s}>
-      <Arcane s={s} draft={draft} setDraft={setDraft} locking={locking} setLocking={setLocking} />
+      <OwnEffectsContext.Provider value={s?.sheet.effectDefs ?? NO_EFFECTS}>
+        <Arcane s={s} draft={draft} setDraft={setDraft} locking={locking} setLocking={setLocking} />
+      </OwnEffectsContext.Provider>
     </LockProvider>
   );
 }
@@ -205,6 +213,8 @@ function General({ s, draft, setDraft }) {
         </section>
       )}
 
+      <BasicActions s={s} />
+
       <section aria-label={t('Weapons')}>
         <h3 className={heading}>{t('Weapons')}</h3>
         <p className="mb-2 text-xs opacity-50">{t('Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet).')}</p>
@@ -235,6 +245,8 @@ function General({ s, draft, setDraft }) {
           </button>
         </div>
       </section>
+
+      <EffectsLibrary s={s} />
 
       {info && (
         <section aria-label={t('Targets')} className={card}>
@@ -289,11 +301,11 @@ function AttackFooter({ s, draft, setDraft }) {
     weapon: weaponChoice(draft),
     enhancements: Object.entries(draft.counts).filter(([, n]) => n > 0).map(([id, count]) => ({ id, count })),
   };
-  const plan = planAttack(sheet, catalog, choice);
+  const plan = planAttack(sheet, catalog, choice, stance ? [{ name: stance.name, effect: blankEffect(), cost: stance.cost }] : []);
   const modifierOk = isWholeNumber(draft.modifier) && Math.abs(Number(draft.modifier)) <= 99;
   const manual = plan.ok ? Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, draft.advantage + plan.advantage)) : draft.advantage;
   // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
-  const request = plan.ok && plan.weapon.mastery ? { kind: 'mastery', key: plan.weapon.mastery } : { kind: 'weapon', key: 'prime' };
+  const request = plan.ok && plan.weapon.mastery ? { kind: 'mastery', key: plan.weapon.mastery, attack: plan.weapon.mastery } : { kind: 'weapon', key: 'prime', attack: 'weapon' };
   const rp = planRoll(sheet, { ...request, advantage: manual, modifier: modifierOk ? Number(draft.modifier) : 0, dice: plan.ok ? plan.dice : [] });
   const totalMod = rp.ok ? rp.terms.reduce((n, x) => n + x.value, 0) : 0;
   const targets = info?.targets ?? [];
@@ -460,6 +472,12 @@ function GlobalGeneral() {
           <p className="text-sm">{t('Delete {name}? This cannot be undone.', { name: dialog.remove.name })}</p>
         </FormDialog>
       )}
+      <div className="mt-6">
+        <EffectsLibrary />
+      </div>
+      <div className="mt-6">
+        <BasicActions />
+      </div>
     </section>
   );
 }

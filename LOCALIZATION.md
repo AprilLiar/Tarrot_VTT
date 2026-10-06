@@ -15,6 +15,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Connecting... | Подключение... |
+| on the user | на пользователя |
+| on the targets | на цели |
 | Base damage | Базовый урон |
 | Damage type | Тип урона |
 | True (ignores resistances) | Чистый (игнорирует сопротивления) |
@@ -245,6 +247,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stacks | Накопления |
 | Temp HP | Врем. ОЗ |
 | Temp HP value | Значение врем. ОЗ |
+| On the user | На пользователя |
+| On the targets | На цели |
+| No Effects exist yet. Make some in the Effects section of the General tab. | Эффектов пока нет. Создайте их в разделе «Эффекты» вкладки «Общее». |
 | Against | Против |
 | Defence it is rolled against | Защита, против которой бросок |
 | vs Physical Defence | против физической защиты |
@@ -258,6 +263,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Known, not learned | Известна, не изучена |
 | Known by characters | Известна персонажам |
 | Hidden from players | Скрыта от игроков |
+| Cost: {list} | Цена: {list} |
 | Chosen for the attack | Выбрана для атаки |
 | Use in attack | Использовать в атаке |
 | Add variation | Добавить вариацию |
@@ -274,6 +280,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Character-Known (characters have seen it and can read it) | Известна персонажам (они видели её и могут читать) |
 | Learned by (can use it in attacks) | Изучили (могут использовать в атаках) |
 | Nobody found. | Никого не найдено. |
+| This Stance's Cost is paid with the attack, like an Enhancement's (not for the whole Zodiac). | Цена этой стойки оплачивается вместе с атакой, как цена усиления (задаётся для каждой стойки, а не для всего знака зодиака). |
 | What each Stance roll does | Что делает каждый бросок Стойки |
 | Same as the band above (-) | Как в диапазоне выше (-) |
 | Roll bonus | Бонус к броску |
@@ -281,6 +288,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Adds these statuses to targets that are hit | Накладывает эти статусы на поражённые цели |
 | Dice Roll Bonuses | Бонусы кубиков |
 | Unique Effects | Уникальные эффекты |
+| Effects it puts on (whether or not it hits) | Накладываемые эффекты (независимо от попадания) |
 | Remove die | Убрать кость |
 | Add or subtract | Прибавить или вычесть |
 | Die size | Размер кости |
@@ -291,7 +299,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add Unique Effect | Добавить уникальный эффект |
 | Attacks | Атакует |
 | Range in Spaces (empty for no range check) | Дальность в клетках (пусто — без проверки дальности) |
-| Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Cost | Цена |
 | AP | ОД |
 | You take damage | Вы получаете урон |
@@ -300,6 +307,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | It spends uses of an item | Тратит использования предмета |
 | Item | Предмет |
 | Uses spent | Потрачено использований |
+| Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
 | Edit Enhancement | Изменить усиление |
 | {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
@@ -307,9 +315,75 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {n} {kind} damage to you | {n} урона ({kind}) вам |
 | {n} uses of {item} | {n} исп. предмета {item} |
 | Damage {n} | Урон {n} |
-| Cost: {list} | Цена: {list} |
 | Effect: {list} | Эффект: {list} |
 | Roll {n} | Бросок {n} |
+| Effects | Эффекты |
+| No Effects running. | Действующих эффектов нет. |
+| {n} rounds left | осталось раундов: {n} |
+| Edit Basic Action | Изменить базовое действие |
+| New Basic Action | Новое базовое действие |
+| No roll | Без броска |
+| An Attribute | Характеристика |
+| A Skill | Навык |
+| A Combat Mastery | Боевое мастерство |
+| Which one | Какой именно |
+| Effects it puts on | Накладываемые эффекты |
+| Gives a Help Die to the selected targets | Даёт выбранным целям кубик помощи |
+| (missing Effect) | (эффект удалён) |
+| Basic Actions | Базовые действия |
+| Using an action spends its AP and does what it says. Actions that aim at others use the selected targets. | Использование действия тратит его ОД и делает то, что в нём сказано. Действия, направленные на других, используют выбранные цели. |
+| The Basic Actions every character has (from DC20). Edit them, delete them or add your own. | Базовые действия, доступные каждому персонажу (из DC20). Меняйте их, удаляйте или добавляйте свои. |
+| Help Die d{n} | Кубик помощи d{n} |
+| Use | Использовать |
+| Delete Basic Action | Удалить базовое действие |
+| Remove part | Убрать часть |
+| Which rolls | Какие броски |
+| Changes the attack rolls made AGAINST the one who has the Effect. | Меняет броски атаки, сделанные ПРОТИВ того, у кого есть эффект. |
+| Kind | Вид |
+| Flat (X) | Постоянное (X) |
+| Half | Половина |
+| Double | Двойной |
+| Immunity | Иммунитет |
+| Statuses put on when it starts (they last as the Effect does) | Состояния, накладываемые в начале (длятся столько же, сколько эффект) |
+| A note for the table (not automated) | Заметка для стола (не автоматизируется) |
+| Edit Effect | Изменить эффект |
+| New Effect | Новый эффект |
+| How long it lasts | Сколько длится |
+| It ends after a number of attacks (Uses) | Заканчивается после нескольких атак (использования) |
+| Uses | Использования |
+| Icon on the token | Значок на фишке |
+| What it does | Что делает |
+| Part to add | Какую часть добавить |
+| Add part | Добавить часть |
+| Remove | Убрать |
+| Add Effect | Добавить эффект |
+| Effects for everyone | Эффекты для всех |
+| Effects are modifiers a character has for a while. Put one on this character here; Basic Actions, Enhancements, Stances and weapons can put them on too. | Эффекты — это модификаторы, действующие на персонажа какое-то время. Наложите эффект на этого персонажа здесь; базовые действия, усиления, стойки и оружие тоже могут накладывать их. |
+| These are available to every PC and NPC. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИ. Чтобы создать эффект для одного персонажа, откройте его вкладку «Тайное». |
+| Put on | Наложить |
+| Delete Effect | Удалить эффект |
+| {stat} (Attribute) | {stat} (характеристика) |
+| {save} Save | Спасбросок: {save} |
+| {stat} Save | Спасбросок: {stat} |
+| {mastery} (Combat Mastery) | {mastery} (боевое мастерство) |
+| {scope}: {what} | {scope}: {what} |
+| Attacks against: {what} | Атаки против: {what} |
+| Physical Defence {n} | Физическая защита {n} |
+| Mental Defence {n} | Ментальная защита {n} |
+| Movement {n} | Движение {n} |
+| Max AP {n} | Макс. ОД {n} |
+| Max HP {n} | Макс. ОЗ {n} |
+| Damage dealt {n} | Наносимый урон {n} |
+| Damage taken {n} | Получаемый урон {n} |
+| Critical Hit on {n} | Критическое попадание на {n} |
+| Save DC {n} | Сложность спасбросков {n} |
+| Resistance ({n}) to {kind} | Сопротивление ({n}): {kind} |
+| Resistance (Half) to {kind} | Сопротивление (половина): {kind} |
+| Resistance (Double) to {kind} | Сопротивление (двойной): {kind} |
+| Immunity to {kind} | Иммунитет: {kind} |
+| Starts with {status} | В начале накладывает {status} |
+| Starts with {n} Temp HP | В начале даёт {n} врем. ОЗ |
+| {n} uses | использований: {n} |
 | Circle | Круг |
 | Cone | Конус |
 | Arc | Дуга |
@@ -384,7 +458,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
 | Yes | Да |
 | Height (Spaces in the air, shown above the token) | Высота (клеток над землёй, показывается над фишкой) |
-| Immunity | Иммунитет |
 | Consumption | Поглощение |
 | Resistance ({n}) | Сопротивление ({n}) |
 | Resistance (Half) | Сопротивление (половина) |
@@ -409,7 +482,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No statuses. | Состояний нет. |
 | Decrease {name} | Уменьшить: {name} |
 | Increase {name} | Увеличить: {name} |
-| {n} rounds left | осталось раундов: {n} |
 | DC {n} | Сл {n} |
 | Toggle full text of {name} | Показать или скрыть полный текст: {name} |
 | Edit feature | Изменить особенность |
@@ -421,6 +493,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | New item | Новый предмет |
 | Max uses (1 to {max}) | Максимум использований (от 1 до {max}) |
 | Weapon (shown in the Arcane tab) | Оружие (показывается во вкладке Аркана) |
+| Effects it puts on its user when used | Эффекты, которые предмет накладывает на владельца при использовании |
 | State options | Варианты состояния |
 | New state | Новое состояние |
 | Give {name} | Передать: {name} |
@@ -428,8 +501,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Send offer | Отправить предложение |
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
 | (empty) | (пусто) |
-| Use | Использовать |
-| Uses | Использования |
 | {name} uses | Использования: {name} |
 | State | Состояние |
 | (none) | (нет) |
@@ -437,6 +508,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Delete item | Удалить предмет |
 | Inventory | Инвентарь |
 | Add item | Добавить предмет |
+| With Effects: {n} | С эффектами: {n} |
 | Could not load the sheet. | Не удалось загрузить лист. |
 | That change was not saved. | Изменение не сохранено. |
 | The roll failed. | Бросок не удался. |
@@ -521,6 +593,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | a d{sides} Help Die | кубик помощи d{sides} |
 | {n} Temp HP | {n} врем. ОЗ |
 | Stance {name}: rolled {total}, band {band} | Стойка «{name}»: выпало {total}, диапазон {band} |
+| Effects: {list} | Эффекты: {list} |
 | Advantage (+) or Disadvantage (-) | Преимущество (+) или помеха (-) |
 | Advantage levels | Уровни преимущества |
 | Roll with Disadvantage | Бросить с помехой |
@@ -589,7 +662,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Reveal | Показать |
 | Hide | Скрыть |
 | Set Height | Высота |
-| Remove | Убрать |
 | Start combat | Начать бой |
 | Round {n} | Раунд {n} |
 | Rolling Initiative | Бросок инициативы |
@@ -1044,6 +1116,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Choose Physical or Mental Defence. | Выберите физическую или ментальную защиту. |
 | Choose the roll to make. | Выберите бросок. |
 | That card cannot be edited. | Эту карточку нельзя изменить. |
+| {effect} on {name} is not added to the roll: the targets differ. Use Edit on the card if it should count. | Эффект «{effect}» у цели {name} не учтён в броске: у целей он разный. Если он должен учитываться, используйте «Изменить» на карточке. |
 | {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
 | {name} uses a Spontaneous Action ({ap} AP). | {name} использует спонтанное действие ({ap} ОД). |
 | Invalid track. | Неверный трек. |
@@ -1057,6 +1130,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Shuffle must be on or off. | Перемешивание должно быть включено или выключено. |
 | Only the GM and the Display play music. | Музыку воспроизводят только мастер и экран стола. |
 | Invalid position. | Неверное положение. |
+| Too many Basic Actions. | Слишком много базовых действий. |
+| That Basic Action no longer exists. | Этого базового действия больше нет. |
+| Not enough AP: this action costs {cost} and you have {have}. | Недостаточно ОД: это действие стоит {cost}, а у вас {have}. |
+| {name} uses {action}. | {name} использует: {action}. |
 | Invalid token. | Неверная фишка. |
 | That token is no longer on the map. | Этой фишки больше нет на карте. |
 | There is no active scene. | Нет активной сцены. |
@@ -1093,11 +1170,21 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Props cannot fight. | Объекты не могут сражаться. |
 | That character is already in the combat. | Этот персонаж уже в бою. |
 | Surprised 2 | Застигнут врасплох 2 |
+| {effect} ends. | Эффект «{effect}» заканчивается. |
 | {name} takes {amount} damage from {source} ({detail}). HP {from} to {to}. | {name} получает урон {amount} от источника: {source} ({detail}). ОЗ {from} → {to}. |
 | true damage | чистый урон |
 | {name} is healed {n} by {source} ({detail}). HP {from} to {to}. | {name} исцеляется на {n} от источника: {source} ({detail}). ОЗ {from} → {to}. |
 | {name} takes no damage from {source} ({detail}). | {name} не получает урона от источника: {source} ({detail}). |
 | {name} starts with {ap} AP instead of {max} ({reasons}). | {name} начинает ход с {ap} ОД вместо {max} ({reasons}). |
+| That Effect no longer exists. | Этого эффекта больше нет. |
+| That Effect is no longer running. | Этот эффект уже не действует. |
+| Too many Effects. | Слишком много эффектов. |
+| Refreshes | Обновляет |
+| Adds | Добавляет |
+| {label} {effect} (started again). | {label} {effect} (начат заново). |
+| {label} {effect}. | {label} {effect}. |
+| {label} {list}. | {label} {list}. |
+| {effect} ends (no uses left). | Эффект «{effect}» заканчивается (использования закончились). |
 | That card can no longer be reverted. | Эту карточку больше нельзя отменить. |
 | That card has already been reverted. | Эта карточка уже отменена. |
 | Invalid folder. | Неверная папка. |
@@ -1136,11 +1223,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Type the exact name to confirm deletion. | Введите точное имя для подтверждения удаления. |
 | Resisted | Устоял |
 | Failed | Провал |
-| Adds | Добавляет |
 | Ends | Заканчивается |
 | {status} ({duration}) | {status} ({duration}) |
 | {save} against {status}: {total} vs DC {dc}, {result}. | {save} против {status}: {total} против Сл {dc}, {result}. |
-| {label} {list}. | {label} {list}. |
 | {status}: {save} against DC {dc}, waiting for {name}. | {status}: {save} против Сл {dc}, ждём {name}. |
 | {name}: {status} | {name}: {status} |
 | GM only. | Только для мастера. |
@@ -1231,12 +1316,88 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | An item this Enhancement needs is no longer on the sheet. | Предмета, который нужен этому усилению, больше нет на листе. |
 | {name} has {have} uses left and this attack needs {need}. | У предмета {name} осталось {have} исп., а атаке нужно {need}. |
 | That is too much AP for one attack. | Это слишком много ОД для одной атаки. |
+| Dodge | Уклонение |
+| The next attack made against you before your next turn starts has Disadvantage. | Следующая атака против вас до начала вашего следующего хода совершается с помехой. |
+| Full Dodge | Полное уклонение |
+| Every attack made against you until your next turn starts has Disadvantage. | Каждая атака против вас до начала вашего следующего хода совершается с помехой. |
+| Disengage | Отход |
+| Opportunity Attacks against you have Disadvantage until your next turn starts. | Атаки по возможности против вас совершаются с помехой до начала вашего следующего хода. |
+| Opportunity Attacks against you have Disadvantage. | Атаки по возможности против вас совершаются с помехой. |
+| Full Disengage | Полный отход |
+| You are immune to Opportunity Attacks until your next turn starts. | Вы неуязвимы для атак по возможности до начала вашего следующего хода. |
+| Immune to Opportunity Attacks. | Неуязвим для атак по возможности. |
+| Make an attack from the footer of the Arcane tab. Its AP is the cost of the weapon and the Enhancements you choose. | Совершите атаку из нижней панели вкладки «Тайное». Её ОД — это цена оружия и выбранных усилений. |
+| Spend 1 AP to move up to your Movement in Spaces. Use the D-pad or drag your token; the AP is spent for you. | Потратьте 1 ОД, чтобы переместиться на расстояние до вашего Движения в клетках. Используйте крестовину или перетащите фишку; ОД тратится само. |
+| Spell | Заклинание |
+| Spend AP to cast a crafted spell: choose it as the weapon in the Magic tab and attack. | Потратьте ОД, чтобы применить созданное заклинание: выберите его оружием во вкладке «Магия» и атакуйте. |
+| Spend 1 AP: the next attack made against you before the start of your next turn has Disadvantage. | Потратьте 1 ОД: следующая атака против вас до начала вашего следующего хода совершается с помехой. |
+| Spend 2 AP: all attacks made against you until the start of your next turn have Disadvantage. | Потратьте 2 ОД: все атаки против вас до начала вашего следующего хода совершаются с помехой. |
+| Spend 1 AP: Opportunity Attacks against you have Disadvantage until the start of your next turn. | Потратьте 1 ОД: атаки по возможности против вас совершаются с помехой до начала вашего следующего хода. |
+| Spend 2 AP: you are immune to Opportunity Attacks until the start of your next turn. | Потратьте 2 ОД: вы неуязвимы для атак по возможности до начала вашего следующего хода. |
+| Spend 1 AP to hide from creatures that cannot see you. Roll against their Awareness; on a success you become Hidden (add the status). | Потратьте 1 ОД, чтобы скрыться от существ, которые вас не видят. Бросьте против их Внимательности; при успехе вы Скрыты (добавьте состояние). |
+| Help | Помощь |
+| Spend 1 AP to give another creature a d8 Help Die until the start of your next turn. Select the creature first. | Потратьте 1 ОД, чтобы дать другому существу кубик помощи d8 до начала вашего следующего хода. Сначала выберите существо. |
+| Object | Предмет |
+| Spend 1 AP to drink or give a potion, work a lock or a mechanism, or hand an item to another creature. | Потратьте 1 ОД, чтобы выпить или дать зелье, открыть замок или механизм либо передать предмет другому существу. |
+| Feint | Финт |
+| Spend 1 AP and roll against the target's Awareness. On a success the next attack against the target before the start of your next turn has Advantage and +1 damage. | Потратьте 1 ОД и бросьте против Внимательности цели. При успехе следующая атака по цели до начала вашего следующего хода совершается с преимуществом и наносит +1 урона. |
+| Taunt | Провокация |
+| Spend 1 AP to taunt a creature that can see or hear you within 10 Spaces. Roll against its Mental Save; on a success it is Taunted for 1 Round. | Потратьте 1 ОД, чтобы спровоцировать существо, которое видит или слышит вас, в пределах 10 клеток. Бросьте против его ментального спасброска; при успехе оно Спровоцировано на 1 раунд. |
+| Intimidate | Запугивание |
+| Spend 1 AP to intimidate a creature that can see or hear you within 10 Spaces. Roll against its Mental Save; on a success it is Intimidated until the end of your next turn. | Потратьте 1 ОД, чтобы запугать существо, которое видит или слышит вас, в пределах 10 клеток. Бросьте против его ментального спасброска; при успехе оно Запугано до конца вашего следующего хода. |
+| Grapple | Захват |
+| With a free hand, spend 1 AP to grab a creature within 1 Space. Roll against its Body Movement or Weight Manipulation; on a success it is Grappled. | Свободной рукой потратьте 1 ОД, чтобы схватить существо в пределах 1 клетки. Бросьте против его Движения тела или Управления весом; при успехе оно Схвачено. |
+| Shove | Толчок |
+| Spend 1 AP to push a creature within 1 Space. Roll against its Body Movement or Weight Manipulation; on a success it is pushed 1 Space (1 more for every 5 over), or knocked Prone instead. | Потратьте 1 ОД, чтобы толкнуть существо в пределах 1 клетки. Бросьте против его Движения тела или Управления весом; при успехе оно отброшено на 1 клетку (на 1 больше за каждые 5 сверх) или сбито с ног. |
+| Tackle | Бросок в ноги |
+| After moving at least 2 Spaces in a straight line, spend 1 AP to tackle a creature your size or smaller. Roll against its Body Movement or Weight Manipulation; on a success you Grapple it and you both fall Prone. | Пройдя не менее 2 клеток по прямой, потратьте 1 ОД, чтобы сбить существо вашего размера или меньше. Бросьте против его Движения тела или Управления весом; при успехе вы схватываете его, и вы оба падаете. |
+| Throw | Бросок предмета |
+| Spend 1 AP to throw an object, or a creature you have Grappled. The distance depends on your Strength; a throw at a target is a ranged attack. | Потратьте 1 ОД, чтобы бросить предмет или схваченное вами существо. Дальность зависит от вашей Силы; бросок в цель — дальняя атака. |
+| Disarm | Обезоруживание |
+| Spend 1 AP to make an attack roll against a creature's Body Movement, Weight Manipulation or Fine Motor Skills (its choice). On a success the object it holds falls within 1 Space. | Потратьте 1 ОД и совершите бросок атаки против Движения тела, Управления весом или Мелкой моторики существа (на его выбор). При успехе предмет в его руках падает в пределах 1 клетки. |
+| Analyze Creature | Изучить существо |
+| Spend 1 AP to recall or discern information about a creature you can see or hear. Roll a DC 10 Symbolism check; each 5 over teaches one more statistic. | Потратьте 1 ОД, чтобы вспомнить или разглядеть сведения о существе, которое вы видите или слышите. Бросьте проверку Символизма со сложностью 10; каждые 5 сверх открывают ещё один показатель. |
+| Calm Animal | Успокоить животное |
+| Spend 1 AP to beguile a beast that can see or hear you. Roll against its Mental Save; on a success it is Taunted by you for 1 minute. | Потратьте 1 ОД, чтобы очаровать зверя, который видит или слышит вас. Бросьте против его ментального спасброска; при успехе он Спровоцирован вами на 1 минуту. |
+| Combat Insight | Боевая проницательность |
+| Spend 1 AP to discern what a creature will do on its next turn. Roll against its Likability or Fine Motor Skills; on a success you learn whether it attacks, casts or flees. | Потратьте 1 ОД, чтобы угадать, что существо сделает в свой следующий ход. Бросьте против его Обаяния или Мелкой моторики; при успехе вы узнаёте, будет ли оно атаковать, колдовать или бежать. |
+| Conceal | Спрятать предмет |
+| Spend 1 AP to hide an object on yourself or nearby. Roll Fine Motor Skills against the Awareness of creatures that can see you; on a success it is Hidden from those you beat. | Потратьте 1 ОД, чтобы спрятать предмет на себе или рядом. Бросьте Мелкую моторику против Внимательности существ, которые вас видят; при успехе предмет Скрыт от тех, кого вы превзошли. |
+| Investigate | Исследовать |
+| Spend 1 AP to uncover a concealed object, a secret compartment or the function of a mechanism within 1 Space. Roll Awareness against the concealing roll or a DC. | Потратьте 1 ОД, чтобы найти спрятанный предмет, тайник или понять действие механизма в пределах 1 клетки. Бросьте Внимательность против броска сокрытия или сложности. |
+| Spend 1 AP to locate hidden creatures and concealed objects in your line of sight. Roll Awareness against their hiding roll. | Потратьте 1 ОД, чтобы найти скрытых существ и спрятанные предметы в поле зрения. Бросьте Внимательность против их броска сокрытия. |
+| Medicine | Медицина |
+| Spend 1 AP to tend to a creature you touch. Roll a DC 10 Symbolism check. Success: you stop its Bleeding or stabilize it; each 5 over gives it 1 Temp HP. | Потратьте 1 ОД, чтобы помочь существу, которого вы касаетесь. Бросьте проверку Символизма со сложностью 10. При успехе вы останавливаете его Кровотечение или стабилизируете его; каждые 5 сверх дают ему 1 врем. ОЗ. |
+| Pass Through | Пройти сквозь |
+| Spend 1 AP to move through the Space of a hostile creature within 1 size of you. Roll against it; on a success its Space is difficult terrain for you (no penalty if you beat it by 5). | Потратьте 1 ОД, чтобы пройти через клетку враждебного существа, отличающегося от вас не более чем на 1 размер. Бросьте против него; при успехе его клетка для вас — труднопроходимая местность (без штрафа, если вы превзошли его на 5). |
+| Extend Jump | Дальний прыжок |
+| When you jump, spend 1 AP to increase the distance. Roll a DC 10 Body Movement check: on a failure +1, on a success +2, and +1 more for every 5 over. | Прыгая, потратьте 1 ОД, чтобы увеличить дальность. Бросьте проверку Движения тела со сложностью 10: при провале +1, при успехе +2 и ещё +1 за каждые 5 сверх. |
 | Critical Hit ({severity}) | Критическое попадание ({severity}) |
 | Consumption: heals {n} | Поглощение: лечит на {n} |
 | Immune | Иммунитет |
 | Resistance {flat}: {v} | Сопротивление {flat}: {v} |
 | Half: {v} | Половина: {v} |
 | Double: {v} | Двойной: {v} |
+| Effects {n}: {v} | Эффекты {n}: {v} |
+| Until end of turn | До конца хода |
+| Until start of next turn | До начала следующего хода |
+| 1 Minute | 1 минута |
+| Long | Долгий |
+| Rolls | Броски |
+| Against the bearer | Против носителя |
+| Movement, AP and HP | Движение, ОД и ОЗ |
+| Damage, Crit and DC | Урон, крит и сложность |
+| Starts with | В начале |
+| All rolls | Все броски |
+| All Attribute rolls | Все проверки характеристик |
+| All Saves | Все спасброски |
+| All Skill rolls | Все проверки навыков |
+| All Combat Mastery rolls | Все проверки боевого мастерства |
+| All attacks | Все атаки |
+| Weapon attacks | Атаки оружием |
+| Magic attacks | Магические атаки |
+| Manifest attacks | Атаки проявления |
+| Initiative | Инициатива |
 | Custom | Свой |
 | Unknown stat. | Неизвестная характеристика. |
 | That stat has no Save. | У этой характеристики нет спасброска. |
@@ -1244,8 +1405,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Unknown Combat Mastery. | Неизвестное боевое мастерство. |
 | Unknown roll type. | Неизвестный вид броска. |
 | 1 Round | 1 раунд |
-| 1 Minute | 1 минута |
-| Long | Долгий |
 | Repeated | Повторяющийся |
 
 ## Unused (no longer in the app)

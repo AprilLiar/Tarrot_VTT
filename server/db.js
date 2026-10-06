@@ -6,6 +6,8 @@ import { AUDIO_SCHEMA } from './audio.js';
 import { BATTLE_SCHEMA } from './battle.js';
 import { ARCANE_SCHEMA } from './arcane.js';
 import { STANCE_SCHEMA } from './stances.js';
+import { EFFECT_SCHEMA } from './effectRuntime.js';
+import { ACTION_SCHEMA } from './basicActions.js';
 import { LOCK_SCHEMA } from './locks.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
@@ -31,6 +33,8 @@ const SCHEMA = [
   ...BATTLE_SCHEMA,
   ...ARCANE_SCHEMA,
   ...STANCE_SCHEMA,
+  ...EFFECT_SCHEMA,
+  ...ACTION_SCHEMA,
   ...LOCK_SCHEMA,
 ];
 

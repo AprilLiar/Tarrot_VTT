@@ -1,4 +1,4 @@
-import { normalizeStatuses, normalizeDice, normalizeUnique } from './arcane.js';
+import { normalizeStatuses, normalizeDice, normalizeUnique, normalizeCost, normalizeEffectRefs } from './arcane.js';
 import { SIGNS, stoneInfo } from './spells.js';
 import * as D from './rules-data.js';
 
@@ -40,7 +40,7 @@ const clampInt = (v, min, max, fallback) => (isInt(v) ? Math.min(max, Math.max(m
 const text = (v, max, fallback = '') => (typeof v === 'string' ? v.slice(0, max) : fallback);
 
 // The effect of one band: a roll bonus, Advantage levels, Range, extra Damage, statuses, Dice Roll Bonuses and Unique Effects.
-export const blankEffect = () => ({ bonus: 0, advantage: 0, range: 0, damage: 0, statuses: [], dice: [], unique: [] });
+export const blankEffect = () => ({ bonus: 0, advantage: 0, range: 0, damage: 0, statuses: [], dice: [], unique: [], effects: [] });
 
 export function normalizeBandEffect(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -52,6 +52,7 @@ export function normalizeBandEffect(raw) {
     statuses: normalizeStatuses(r.statuses),
     dice: normalizeDice(r.dice),
     unique: normalizeUnique(r.unique),
+    effects: normalizeEffectRefs(r.effects),
   };
 }
 
@@ -78,12 +79,14 @@ export function normalizeStance(raw, fallback) {
     color: typeof r.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(r.color) ? r.color.toLowerCase() : fallback.color,
     known: r.known === undefined ? fallback.known : r.known === true,
     learned: r.learned === undefined ? fallback.learned : learned,
+    // What using this Stance costs (set by the GM for each unique Stance, not for the whole Zodiac), like an Enhancement's cost.
+    cost: r.cost === undefined ? fallback.cost : normalizeCost(r.cost),
     table: r.table === undefined ? fallback.table : normalizeTable(r.table),
   };
 }
 
 // What a base Stance is until the GM changes it.
-export const defaultBase = (sign) => ({ id: baseId(sign), sign, parentId: null, name: stoneInfo(sign).name, description: '', color: '#ffffff', known: true, learned: [], table: defaultTable() });
+export const defaultBase = (sign) => ({ id: baseId(sign), sign, parentId: null, name: stoneInfo(sign).name, description: '', color: '#ffffff', known: true, learned: [], cost: normalizeCost(null), table: defaultTable() });
 
 // The band a Stance roll total falls in, and the row whose effect applies (a "-" row follows the one above).
 // -> { band: index, source: index, effect }

@@ -6,6 +6,8 @@ import * as D from '../../../../shared/rules-data.js';
 import { NumField, RollButton } from './fields.jsx';
 import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
+import { ActiveEffects } from '../effects/ActiveEffects.jsx';
+import { effectiveDefence, effectiveMaxHp, effectiveMovement, statMods } from '../../../../shared/effects.js';
 import { PicturesSection, StageSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
@@ -27,6 +29,17 @@ const MASTERY_GLOW = {
   stances: '0 0 22px 4px rgba(239,68,68,0.65)',
   manifestation: '0 0 22px 4px rgba(234,179,8,0.65)',
 };
+
+// Under a number the sheet holds: what the running Effects make of it, when that differs.
+function FxHint({ now, base }) {
+  const t = useT();
+  if (now === base) return null;
+  return (
+    <div className="relative text-xs text-lime-300" data-testid="fx-hint">
+      {t('With Effects: {n}', { n: now })}
+    </div>
+  );
+}
 
 export default function SheetPage({ characterId }) {
   const t = useT();
@@ -97,8 +110,11 @@ export default function SheetPage({ characterId }) {
 
   const { character, sheet } = data;
   const s = { sheet, character, set, list, roll, characterId };
-  const apMax = sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX;
-  const hpFill = sheet.hp.max > 0 ? Math.max(0, Math.min(1, sheet.hp.current / sheet.hp.max)) : 0;
+  const apMax = Math.max(0, (sheet.ap.minion ? D.AP_MAX_MINION : D.AP_MAX) + statMods(sheet).maxAp);
+  const maxHp = effectiveMaxHp(sheet);
+  const hpFill = maxHp > 0 ? Math.max(0, Math.min(1, sheet.hp.current / maxHp)) : 0;
+  // What the running Effects make of the numbers the sheet holds (shown under them when they differ).
+  const withFx = { physical: effectiveDefence(sheet).physical, mental: effectiveDefence(sheet).mental, movement: effectiveMovement(sheet), maxHp };
 
   return (
     <main className="mx-auto flex w-full max-w-[2000px] flex-col gap-3 p-3 pb-24" data-testid="sheet">
@@ -158,6 +174,11 @@ export default function SheetPage({ characterId }) {
                       <NumField label={t('Max HP')} testId="hp-max" value={sheet.hp.max} min={0} max={9999} onCommit={(n) => set('hp.max', n)} className="text-xl" />
                     </div>
                   </div>
+                  {maxHp !== sheet.hp.max && (
+                    <span className="absolute bottom-0 right-1 text-[10px] text-lime-300" data-testid="fx-hint">
+                      {t('With Effects: {n}', { n: maxHp })}
+                    </span>
+                  )}
                 </div>
                 <div className="relative h-11 overflow-hidden rounded-lg bg-sky-950/40" data-testid="temp-bar" data-active={sheet.hp.temp > 0 ? 'true' : 'false'} title={t('Temp HP: takes damage before HP. It does not stack.')}>
                   {sheet.hp.temp > 0 && <div className="absolute inset-0 bg-sky-400/30" />}
@@ -177,6 +198,7 @@ export default function SheetPage({ characterId }) {
               <div className="relative w-16 text-2xl">
                 <NumField label={t('Physical Defence')} value={sheet.defence.physical} min={0} max={99} onCommit={(n) => set('defence.physical', n)} />
               </div>
+              <FxHint now={withFx.physical} base={sheet.defence.physical} />
             </div>
             <div className={`${tile} relative overflow-hidden`}>
               <BrainIcon />
@@ -184,6 +206,7 @@ export default function SheetPage({ characterId }) {
               <div className="relative w-16 text-2xl">
                 <NumField label={t('Mental Defence')} value={sheet.defence.mental} min={0} max={99} onCommit={(n) => set('defence.mental', n)} />
               </div>
+              <FxHint now={withFx.mental} base={sheet.defence.mental} />
             </div>
             <div className={`${tile} relative overflow-hidden`}>
               <MovementIcon />
@@ -191,6 +214,7 @@ export default function SheetPage({ characterId }) {
               <div className="relative w-16 text-xl">
                 <NumField label={t('Movement')} testId="movement-value" value={sheet.movement} min={0} max={D.MOVEMENT_MAX} onCommit={(n) => set('movement', n)} />
               </div>
+              <FxHint now={withFx.movement} base={sheet.movement} />
             </div>
             <div className={`${tile} relative overflow-hidden`}>
               <SizeIcon />
@@ -232,6 +256,7 @@ export default function SheetPage({ characterId }) {
           <Inventory s={s} />
           <Resistances s={s} />
           <Statuses s={s} />
+          <ActiveEffects s={s} />
           <StageSection s={s} />
           <PicturesSection s={s} />
         </div>
