@@ -22,9 +22,15 @@ test('Effects: the GM builds one from parts, puts it on a character, a Basic Act
   // The general Arcane tab: the shipped Effects and Basic Actions are there, and the GM adds an Effect made of parts.
   await gm.getByTestId('nav-arcane').click();
   await expect(gm.locator('[data-testid="effect-card"][data-name="Full Dodge"]')).toBeVisible();
+  await expect(gm.getByTestId('basic-actions')).toHaveCount(0); // the list is closed until its button is tapped
+  await gm.getByTestId('basic-actions-toggle').click();
   await expect(gm.locator('[data-testid="basic-action"][data-name="Grapple"]')).toBeVisible();
   await gm.getByTestId('add-effect').click();
   await gm.getByTestId('effect-name').fill(effect);
+  // A tap outside the dialog does not close it (nothing typed is lost).
+  await gm.mouse.click(5, 5);
+  await expect(gm.getByRole('dialog')).toBeVisible();
+  await expect(gm.getByTestId('effect-name')).toHaveValue(effect);
   await gm.getByTestId('effect-duration-minute').click();
   await gm.getByTestId('effect-add-part').click(); // a Rolls part (all rolls)
   await gm.getByRole('textbox', { name: 'Advantage (negative: Disadvantage)' }).fill('2');
@@ -43,6 +49,7 @@ test('Effects: the GM builds one from parts, puts it on a character, a Basic Act
   await gm.getByTestId('open-sheet').click();
   await gm.getByTestId('view-arcane').click();
   await gm.locator(`[data-testid="effect-card"][data-name="${effect}"]`).getByTestId('effect-give').click();
+  await gm.getByTestId('basic-actions-toggle').click();
   await gm.locator('[data-testid="basic-action"][data-name="Dodge"]').getByTestId('action-use').click();
   await gm.getByTestId('view-sheet').click();
   await expect(gm.getByTestId('active-effect')).toHaveCount(2);
