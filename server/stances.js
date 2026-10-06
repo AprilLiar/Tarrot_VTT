@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from './errors.js';
+import { normalizeCost } from '../shared/arcane.js';
 import { SIGNS } from '../shared/spells.js';
 import { baseId, isBaseId, defaultBase, defaultTable, normalizeStance, MAX_VARIATIONS } from '../shared/stances.js';
 
-const variationDefaults = () => ({ name: 'Stance', description: '', color: '#ffffff', known: false, learned: [], table: defaultTable() });
+const variationDefaults = () => ({ name: 'Stance', description: '', color: '#ffffff', known: false, learned: [], cost: normalizeCost(null), table: defaultTable() });
 
 // Stances live in the database for everyone (the GM configures them). A base Stance exists for every sign
 // without a stored row (its defaults); it is stored once the GM changes it.
@@ -59,7 +60,7 @@ export async function setVibe(db, sign, vibe) {
   else await db.execute({ sql: 'INSERT INTO stance_vibes (sign, vibe) VALUES (?, ?) ON CONFLICT(sign) DO UPDATE SET vibe = excluded.vibe', args: [sign, v] });
 }
 
-const store = (row) => JSON.stringify({ name: row.name, description: row.description, color: row.color, known: row.known, learned: row.learned, table: row.table });
+const store = (row) => JSON.stringify({ name: row.name, description: row.description, color: row.color, known: row.known, learned: row.learned, cost: row.cost, table: row.table });
 
 // Changes a Stance (a base one is created on the first change) or adds a variation under `parentId`.
 export async function saveStance(db, { id, sign, parentId, stance }) {

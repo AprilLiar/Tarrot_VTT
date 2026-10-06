@@ -15,7 +15,7 @@ import { planAttack, enhancementCatalog, tokenDistance } from '../shared/arcane.
 import { HELP_SIDES } from '../shared/help.js';
 import { DAMAGE_KINDS } from '../shared/damage.js';
 import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
-import { resolveBand, BANDS } from '../shared/stances.js';
+import { resolveBand, BANDS, blankEffect } from '../shared/stances.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
 import { T } from '../shared/localization.js';
@@ -67,7 +67,9 @@ export function registerAttackHandlers(ctx) {
     const sheet = await sheets.getSheet(db, c.id);
     const catalog = enhancementCatalog(await arcane.listGlobal(db), sheet);
     const choice = { weapon: p.weapon, enhancements: p.enhancements };
-    let plan = planAttack(sheet, catalog, choice);
+    // A Stance must be learned by this character (a base Stance too); its Cost is part of the attack from the start.
+    const stance = p.stance == null ? null : await stances.getStance(db, p.stance);
+    let plan = planAttack(sheet, catalog, choice, stance ? [{ name: stance.name, effect: blankEffect(), cost: stance.cost }] : []);
     if (!plan.ok) throw new AppError('bad_value', plan.error, plan.params);
     // A player cannot use what the GM has locked (Magic, a Zodiac's Stances, Manifestations).
     const locks = isGm() ? [] : await listLocks(db);
@@ -85,8 +87,6 @@ export function registerAttackHandlers(ctx) {
     }
     if (!infos.length) throw new AppError('no_target', 'Select at least one target first.');
 
-    // A Stance must be learned by this character (a base Stance too).
-    const stance = p.stance == null ? null : await stances.getStance(db, p.stance);
     if (stance && stancesLocked(locks, stance.sign)) throw lockedError();
     if (stance && !stance.learned.includes(c.id)) throw new AppError('forbidden', 'That Stance is not learned by this character.');
 
@@ -110,7 +110,7 @@ export function registerAttackHandlers(ctx) {
       stanceRoll = buildRoll(sheet, { kind: 'mastery', key: 'stances' });
       stanceRoll.title = T('Stance roll');
       const hit = resolveBand(stance.table, stanceRoll.total);
-      plan = planAttack(sheet, catalog, choice, [{ name: stance.name, effect: hit.effect }]);
+      plan = planAttack(sheet, catalog, choice, [{ name: stance.name, effect: hit.effect, cost: stance.cost }]);
       if (!plan.ok) throw new AppError('bad_value', plan.error, plan.params);
       stanceEntry = { name: stance.name, band: BANDS[hit.band].label, total: stanceRoll.total };
     }

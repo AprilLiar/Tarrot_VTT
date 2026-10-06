@@ -1,4 +1,4 @@
-import { normalizeStatuses, normalizeDice, normalizeUnique } from './arcane.js';
+import { normalizeStatuses, normalizeDice, normalizeUnique, normalizeCost } from './arcane.js';
 import { SIGNS, stoneInfo } from './spells.js';
 import * as D from './rules-data.js';
 
@@ -78,12 +78,14 @@ export function normalizeStance(raw, fallback) {
     color: typeof r.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(r.color) ? r.color.toLowerCase() : fallback.color,
     known: r.known === undefined ? fallback.known : r.known === true,
     learned: r.learned === undefined ? fallback.learned : learned,
+    // What using this Stance costs (set by the GM for each unique Stance, not for the whole Zodiac), like an Enhancement's cost.
+    cost: r.cost === undefined ? fallback.cost : normalizeCost(r.cost),
     table: r.table === undefined ? fallback.table : normalizeTable(r.table),
   };
 }
 
 // What a base Stance is until the GM changes it.
-export const defaultBase = (sign) => ({ id: baseId(sign), sign, parentId: null, name: stoneInfo(sign).name, description: '', color: '#ffffff', known: true, learned: [], table: defaultTable() });
+export const defaultBase = (sign) => ({ id: baseId(sign), sign, parentId: null, name: stoneInfo(sign).name, description: '', color: '#ffffff', known: true, learned: [], cost: normalizeCost(null), table: defaultTable() });
 
 // The band a Stance roll total falls in, and the row whose effect applies (a "-" row follows the one above).
 // -> { band: index, source: index, effect }

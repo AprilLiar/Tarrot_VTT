@@ -14,6 +14,7 @@ import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapo
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
 import { weaponSummary, enhancementSummary } from './summaries.js';
 import { enhancementCatalog, planAttack, MAX_COUNT } from '../../../../shared/arcane.js';
+import { blankEffect } from '../../../../shared/stances.js';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
 import { setChatSlot } from '../../lib/chatSlot.js';
@@ -289,7 +290,7 @@ function AttackFooter({ s, draft, setDraft }) {
     weapon: weaponChoice(draft),
     enhancements: Object.entries(draft.counts).filter(([, n]) => n > 0).map(([id, count]) => ({ id, count })),
   };
-  const plan = planAttack(sheet, catalog, choice);
+  const plan = planAttack(sheet, catalog, choice, stance ? [{ name: stance.name, effect: blankEffect(), cost: stance.cost }] : []);
   const modifierOk = isWholeNumber(draft.modifier) && Math.abs(Number(draft.modifier)) <= 99;
   const manual = plan.ok ? Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, draft.advantage + plan.advantage)) : draft.advantage;
   // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.

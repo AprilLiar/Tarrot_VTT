@@ -1037,10 +1037,16 @@ Stones, Spell Combinations, Spell Fine Tuning.
   Advantage, Range, extra Damage, statuses (added to targets that are hit), Dice Roll Bonuses and Unique Effects, like an
   Enhancement. A band can be "-": the band above still applies, drawn as one merged cell. A base Stance starts with a
   cumulative +1 roll bonus per band (+1 to +6); the GM edits every table.
+- **Cost (decided):** every Stance has its own **Cost**, set by the GM **per unique Stance** (a base Stance and each
+  variation separately), never for a whole Zodiac. It is the same pool as an Enhancement's cost: **AP**, **damage taken**
+  by the user, **statuses gained** by the user (an item cost is not offered, because a Stance is global and an item belongs
+  to one character). The default is no cost. The Cost is part of the attack from the start: it is added to the AP total
+  (so the attack is blocked without the AP), shown in the Stance's card, and **paid when the attack is applied**, exactly
+  like Enhancement costs (journal and Revert included). `Stance.cost` has the Enhancement's `cost` shape.
 - **Using it:** **Use in attack** (a tap again removes it) puts it in the footer; only one Stance per attack. When Done is
   pressed the Stance roll (d20 + Stances Mastery + Experience Modifier) is made first, as its own roll card, then the
   band's effect joins the attack (its roll bonus is a term of the attack roll) and the GM's card shows the Stance and
-  the band. A Stance costs no AP of its own (my default). The out-of-range warning ignores what the band adds to
+  the band. A Stance costs only what its Cost says. The out-of-range warning ignores what the band adds to
   the range, and the Stance is only rolled once the attack is sure to go ahead.
 **How the Manifest tab is built (answers and my defaults):**
 - **Look:** a gold background. Two sub-sections, **Tarot Cards** and **Manifestations**. Nothing is editable by a
@@ -1257,7 +1263,7 @@ Battle (Phase 5a):
   those their character knows or has learned, each with `usable`, and no `learned` list). GM only: `stance:save`
   `{ id, stance }` (change; a base Stance is stored on its first change) or `{ sign, parentId, stance }` (add a
   variation), `stance:delete` `{ id }` (a variation and everything hanging from it) and `stance:vibe` `{ sign, vibe }`.
-  A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], table: [6 rows] }`; a
+  A Stance is `{ id, sign, parentId, name, description, color, known, learned: [characterId], cost: { ap, damage, statuses, item }, table: [6 rows] }`; a
   row is `{ same: true }` or `{ same: false, effect: { bonus, advantage, range, damage, statuses, dice, unique } }`.
   Every change is followed by `stances:changed` to all clients. Stored in the tables `stances` and `stance_vibes`.
 - Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.

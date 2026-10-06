@@ -2,7 +2,30 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { io as connect } from 'socket.io-client';
 import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
-import { BANDS, defaultTable, groupTable, normalizeTable, resolveBand, visibleStances, defaultBase } from '../../shared/stances.js';
+import { BANDS, defaultTable, groupTable, normalizeTable, resolveBand, visibleStances, defaultBase, normalizeStance, blankEffect } from '../../shared/stances.js';
+import { planAttack, enhancementCatalog } from '../../shared/arcane.js';
+import { defaultSheet } from '../sheet.js';
+
+describe('a Stance\'s Cost', () => {
+  it('is set per Stance, defaults to nothing and is cleaned like an Enhancement cost', () => {
+    const base = defaultBase('aries');
+    expect(base.cost).toEqual({ ap: 0, damage: null, statuses: [], item: null });
+    const next = normalizeStance({ cost: { ap: 2, damage: { amount: 3, kind: 'fire' }, statuses: [{ key: 'bleeding', stacks: 1 }] } }, base);
+    expect(next.cost).toMatchObject({ ap: 2, damage: { amount: 3, kind: 'fire' }, statuses: [{ key: 'bleeding', stacks: 1 }] });
+    expect(normalizeStance({ name: 'X' }, next).cost.ap).toBe(2); // untouched when not sent
+  });
+
+  it('joins the attack like an Enhancement cost: AP, damage and statuses', () => {
+    const sheet = defaultSheet();
+    const catalog = enhancementCatalog([], sheet);
+    const cost = normalizeStance({ cost: { ap: 2, damage: { amount: 1, kind: 'true' }, statuses: [{ key: 'bleeding', stacks: 1 }] } }, defaultBase('aries')).cost;
+    const plan = planAttack(sheet, catalog, { weapon: { kind: 'unarmed' }, enhancements: [] }, [{ name: 'Aries', effect: blankEffect(), cost }]);
+    expect(plan.ok).toBe(true);
+    expect(plan.ap).toBe(3); // the Unarmed Attack's 1 AP and the Stance's 2
+    expect(plan.costs.damage).toEqual([{ amount: 1, kind: 'true' }]);
+    expect(plan.costs.statuses).toEqual([{ key: 'bleeding', stacks: 1 }]);
+  });
+});
 
 describe('the band tables', () => {
   it('has six bands and starts as a cumulative +1 per band', () => {

@@ -3,8 +3,8 @@ import { call, useApp } from '../../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
 import { IntInput } from '../sheet/fields.jsx';
-import { DiceList, StatusList, UniqueList, isNum } from './editors.jsx';
-import { bandParts } from './summaries.js';
+import { CostFields, DiceList, StatusList, UniqueList, costToForm, costValid, formToCost, isNum } from './editors.jsx';
+import { bandParts, costParts } from './summaries.js';
 import { useStances } from './useStances.js';
 import { Blurred, LockIcon, useLocks } from './Locks.jsx';
 import { BANDS, SIGN_VIBES, blankEffect, groupTable } from '../../../../shared/stances.js';
@@ -177,6 +177,11 @@ function Tree({ sign, all, vibes, s, draft, setDraft, gm, onBack }) {
               </div>
             </div>
             {current.description && <p className="mt-2 whitespace-pre-wrap text-sm opacity-80">{current.description}</p>}
+            {costParts(current.cost, t).length > 0 && (
+              <p className="mt-2 text-sm" data-testid="stance-cost">
+                {t('Cost: {list}', { list: costParts(current.cost, t).join(', ') })}
+              </p>
+            )}
             <BandTable table={current.table} />
             <div className="mt-3 flex flex-wrap gap-2">
               {s && learned(current) && (
@@ -304,13 +309,14 @@ function StanceDialog({ sign, stance, parent, onClose, onDone }) {
   const [known, setKnown] = useState(stance?.known ?? false);
   const [learned, setLearned] = useState(stance?.learned ?? []);
   const [find, setFind] = useState('');
+  const [cost, setCost] = useState(() => costToForm(stance?.cost));
   const [rows, setRows] = useState(() => (stance?.table ?? BANDS.map(() => ({ same: false, effect: blankEffect() }))).map(rowToForm));
   const people = (roster?.characters ?? []).filter((c) => !find.trim() || c.name.toLowerCase().includes(find.trim().toLowerCase()));
   const setRow = (i, patch) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-  const valid = name.trim() && rows.every(rowValid);
+  const valid = name.trim() && costValid(cost) && rows.every(rowValid);
 
   async function run() {
-    const body = { name: name.trim(), description, color, known, learned: known ? learned : [], table: rows.map(formToRow) };
+    const body = { name: name.trim(), description, color, known, learned: known ? learned : [], cost: formToCost(cost), table: rows.map(formToRow) };
     const r = stance ? await call('stance:save', { id: stance.id, stance: body }) : await call('stance:save', { sign, parentId: parent.id, stance: body });
     if (r.ok && !stance) onDone?.(r.stance);
     return r;
@@ -350,6 +356,9 @@ function StanceDialog({ sign, stance, parent, onClose, onDone }) {
           </div>
         </div>
       )}
+
+      <CostFields f={cost} up={(patch) => setCost({ ...cost, ...patch })} items={[]} />
+      <p className="text-xs opacity-50">{t('This Stance\'s Cost is paid with the attack, like an Enhancement\'s (not for the whole Zodiac).')}</p>
 
       <div className="text-sm">{t('What each Stance roll does')}</div>
       {rows.map((r, i) => (

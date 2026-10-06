@@ -67,6 +67,19 @@ export function normalizeWeapon(raw, fallback = defaultWeapon()) {
   };
 }
 
+// What using something costs: AP, damage taken by the user, statuses put on the user, uses spent from an item. Shared by
+// Enhancements and Stances.
+export function normalizeCost(raw) {
+  const cost = raw && typeof raw === 'object' ? raw : {};
+  const damage = cost.damage && typeof cost.damage === 'object' && isInt(cost.damage.amount) && cost.damage.amount > 0
+    ? { amount: clampInt(cost.damage.amount, 1, 999, 1), kind: D.DAMAGE_TYPES.includes(cost.damage.kind) || cost.damage.kind === 'true' ? cost.damage.kind : 'true' }
+    : null;
+  const item = cost.item && typeof cost.item === 'object' && typeof cost.item.itemId === 'string' && cost.item.itemId
+    ? { itemId: cost.item.itemId, uses: clampInt(cost.item.uses, 1, D.ITEM_USES_MAX, 1) }
+    : null;
+  return { ap: clampInt(cost.ap, 0, MAX_AP_COST, 0), damage, statuses: normalizeStatuses(cost.statuses, { plain: true }), item };
+}
+
 const blankEffect = () => ({ damage: 0, range: 0, advantage: 0, statuses: [], dice: [], unique: [] });
 
 // An Enhancement: an augmentation of an attack with a cost and an effect.
@@ -75,20 +88,13 @@ const blankEffect = () => ({ damage: 0, range: 0, advantage: 0, statuses: [], di
 //           statuses, dice (Dice Roll Bonuses), unique (Unique Effects)
 export function normalizeEnhancement(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
-  const cost = r.cost && typeof r.cost === 'object' ? r.cost : {};
   const eff = r.effect && typeof r.effect === 'object' ? r.effect : {};
-  const damage = cost.damage && typeof cost.damage === 'object' && isInt(cost.damage.amount) && cost.damage.amount > 0
-    ? { amount: clampInt(cost.damage.amount, 1, 999, 1), kind: D.DAMAGE_TYPES.includes(cost.damage.kind) || cost.damage.kind === 'true' ? cost.damage.kind : 'true' }
-    : null;
-  const item = cost.item && typeof cost.item === 'object' && typeof cost.item.itemId === 'string' && cost.item.itemId
-    ? { itemId: cost.item.itemId, uses: clampInt(cost.item.uses, 1, D.ITEM_USES_MAX, 1) }
-    : null;
   return {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX, 'Enhancement').trim() || 'Enhancement',
     description: text(r.description, D.TEXT_MAX),
     repeatable: r.repeatable === true,
-    cost: { ap: clampInt(cost.ap, 0, MAX_AP_COST, 0), damage, statuses: normalizeStatuses(cost.statuses, { plain: true }), item },
+    cost: normalizeCost(r.cost),
     effect: {
       ...blankEffect(),
       damage: clampInt(eff.damage, -99, 99, 0),
@@ -181,8 +187,8 @@ export function findWeapon(sheet, weapon) {
 // choice: { weapon: { kind: 'unarmed' } | { kind: 'item', itemId } | { kind: 'spell', spellId }, enhancements: [{ id, count }] }
 // -> { ok: true, weapon, ap, base, kind, defence, range, advantage, statuses, dice, unique, costs, chosen }
 //  | { ok: false, error, params }
-// `extras` are effects that join the attack without being chosen from the list: [{ name, effect }], such as the
-// band a Stance roll landed in (its effect may also carry a roll `bonus`).
+// `extras` are effects that join the attack without being chosen from the list: [{ name, effect, cost? }], such as the
+// band a Stance roll landed in (its effect may also carry a roll `bonus`) and the Stance's own Cost.
 export function planAttack(sheet, catalog, choice, extras = []) {
   const fail = (error, params) => ({ ok: false, error, params });
   const w = findWeapon(sheet, choice?.weapon);
@@ -226,6 +232,13 @@ export function planAttack(sheet, catalog, choice, extras = []) {
   }
 
   for (const x of extras) {
+    // A Stance's own Cost, paid like an Enhancement's.
+    if (x.cost) {
+      ap += x.cost.ap;
+      if (x.cost.damage) costs.damage.push({ ...x.cost.damage });
+      for (const s of x.cost.statuses) costs.statuses.push({ ...s });
+      if (x.cost.item) costs.items.push({ ...x.cost.item });
+    }
     base += x.effect.damage ?? 0;
     if (range != null) range += x.effect.range ?? 0;
     advantage += x.effect.advantage ?? 0;

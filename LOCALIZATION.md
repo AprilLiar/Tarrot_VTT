@@ -258,6 +258,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Known, not learned | Известна, не изучена |
 | Known by characters | Известна персонажам |
 | Hidden from players | Скрыта от игроков |
+| Cost: {list} | Цена: {list} |
 | Chosen for the attack | Выбрана для атаки |
 | Use in attack | Использовать в атаке |
 | Add variation | Добавить вариацию |
@@ -274,6 +275,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Character-Known (characters have seen it and can read it) | Известна персонажам (они видели её и могут читать) |
 | Learned by (can use it in attacks) | Изучили (могут использовать в атаках) |
 | Nobody found. | Никого не найдено. |
+| This Stance's Cost is paid with the attack, like an Enhancement's (not for the whole Zodiac). | Цена этой стойки оплачивается вместе с атакой, как цена усиления (задаётся для каждой стойки, а не для всего знака зодиака). |
 | What each Stance roll does | Что делает каждый бросок Стойки |
 | Same as the band above (-) | Как в диапазоне выше (-) |
 | Roll bonus | Бонус к броску |
@@ -291,7 +293,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add Unique Effect | Добавить уникальный эффект |
 | Attacks | Атакует |
 | Range in Spaces (empty for no range check) | Дальность в клетках (пусто — без проверки дальности) |
-| Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Cost | Цена |
 | AP | ОД |
 | You take damage | Вы получаете урон |
@@ -300,6 +301,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | It spends uses of an item | Тратит использования предмета |
 | Item | Предмет |
 | Uses spent | Потрачено использований |
+| Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
 | Edit Enhancement | Изменить усиление |
 | {base} {kind}, {defence}, {ap} AP | {base} ({kind}), {defence}, {ap} ОД |
@@ -307,7 +309,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {n} {kind} damage to you | {n} урона ({kind}) вам |
 | {n} uses of {item} | {n} исп. предмета {item} |
 | Damage {n} | Урон {n} |
-| Cost: {list} | Цена: {list} |
 | Effect: {list} | Эффект: {list} |
 | Roll {n} | Бросок {n} |
 | Circle | Круг |
