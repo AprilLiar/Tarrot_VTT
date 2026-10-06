@@ -12,6 +12,7 @@ import { HeightControl } from './HeightControl.jsx';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
+import { TokenStatuses } from './StatusIcon.jsx';
 import { areaName } from '../../lib/areaName.js';
 import { tokensInTemplate } from '../../../../shared/templates.js';
 
@@ -207,6 +208,7 @@ export default function BattleView() {
   const editRef = useRef(null);
   const editTimer = useRef(null);
   const moveDrag = useRef(null); // { id, offX, offY }
+  const [iconPct] = useSetting('statusIconSize'); // status icons on tokens, % of one square (setting)
   const [deadzone] = useSetting('deadzone'); // times the area's size from where the drag began (setting)
   const [natural, setNatural] = useState({ w: 0, h: 0 }); // the battle picture's own size in pixels
   const [gridOpen, setGridOpen] = useState(false);
@@ -666,6 +668,7 @@ export default function BattleView() {
                     {t('+{n} sp.', { n: tk.height })}
                   </div>
                 )}
+                <TokenStatuses statuses={tk.statuses} size={(iconPct / 100) / tk.size} />
                 <div
                   data-testid="token-name"
                   className="pointer-events-none absolute left-1/2 top-full mt-px -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 text-white"

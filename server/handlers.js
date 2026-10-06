@@ -15,6 +15,7 @@ import { registerLockHandlers } from './lockHandlers.js';
 import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
+import { tokenStatuses } from './battle.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
 import { createSaves, putStatus } from './saves.js';
@@ -67,6 +68,12 @@ export function registerHandlers(io, socket, db, shared) {
   const emitSheet = async (characterId, sheet) => {
     io.to(GM_ROOM).emit('sheet:updated', { characterId, sheet });
     io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
+    // The statuses are shown on the character's token, so the stage is sent again when they change.
+    const seen = (shared.statusSeen ??= new Map());
+    const sig = JSON.stringify(tokenStatuses(JSON.stringify(sheet)));
+    const was = seen.get(characterId) ?? '[]';
+    seen.set(characterId, sig);
+    if (sig !== was) await stage.broadcast();
   };
 
   const effects = createEffects({ io, db, shared, emitSheet, chatRoom: CHAT_ROOM });

@@ -340,6 +340,18 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 | Unseen | no | Advantage on your attacks; attackers have Disadvantage. |
 | Weakened | yes | Disadvantage X on physical saves (Strength, Dexterity). |
 
+### Status icons on tokens (decided)
+Every status has an icon, drawn black with a white outline (`client/src/components/scene/statusIconData.js`; the glyphs are from
+[game-icons.net](https://game-icons.net), licence CC BY 3.0, authors Lorc, Delapouite and others, so this credit must stay).
+In Battle a character's token shows **icons only** for all the statuses it has, **no text**: filled from the **top-left going down**,
+then the next column to the right, in the order the statuses were **first applied** (the order of the sheet's groups). A status that
+**stacks** shows its total as a small **red number with a black outline** in the bottom-right quarter of its icon (also at 1). An
+icon's side is the **Status icon size** setting (a share of one grid square, so a 2x2 token has the same icons in a bigger space).
+Icons never leave the token's square: the column holds as many whole icons as fit, then the next column starts; when they cannot
+all fit, **only the first applied that fit are shown** (nothing is cut). Everyone who sees the token sees its icons (hidden tokens
+are not sent to players at all); temporary NPCs have no statuses. The server adds `statuses: [{ key, stacks }]` to each token
+and sends the stage again whenever a character's statuses change.
+
 ### Status Saves and Durations (decided)
 **Which Save a status asks for.** A status needs a **Mental Save** when it is Dazed, Charmed, Disoriented, Doomed,
 Frightened, Intimidated, Taunted or Terrified; **no Save** when it is Blood Oxidization (renamed from "Oxydization"
@@ -511,13 +523,14 @@ Decided:
 - **Settings** are local to the device (browser storage, like the remembered identity) and reached with
   a **Settings** button on the picker (the login screen), before anyone is chosen. On the Display the
   way there is Switch, then Settings. The GM also has a **Settings** button in the top bar (a dialog with the same
-  settings). They hold two settings: the **language** and the **Deadzone** of the Area tool (below).
+  settings). They hold three settings: the **language**, the **Deadzone** of the Area tool and the **Status icon size** in Battle (below).
 - **Apply to everyone (decided):** next to every setting the GM (and only the GM, never on the picker) has an **Apply to
   everyone** button: a **one-time push** of the GM's current value to every connected device (the server relays it,
   `settings:force`; it is validated). Each device stores it like a value it had chosen itself and can change it again
   afterwards; devices that are offline do not get it. Every setting, now and later, is wrapped in the same row component
   (`SettingRow`), which carries the button; `shared/settings.js` lists the settings the server accepts.
 - **Deadzone of the Area tool:** 1.1x to 3x in steps of 0.1, default 1.5x (`tarrot.deadzone`).
+- **Status icon size in Battle (decided):** 10% to 50% of one grid square, default 25% (`tarrot.statusIconSize`); see Status icons on tokens.
 - **Languages:** English and Russian. A first visit uses the browser's language (Russian if it starts
   with "ru", otherwise English); the choice is then remembered (`tarrot.lang`). Everything a person
   reads is translated: the interface, the game terms (stats, skills, statuses and their rule text,

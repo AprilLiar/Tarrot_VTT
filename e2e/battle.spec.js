@@ -176,6 +176,52 @@ test('token size follows the character sheet, from 1x1 up to 6x6', async ({ brow
   await gmCtx.close();
 });
 
+test('a token shows its statuses as icons: the first applied that fit, with the stacks as a red number', async ({ browser }) => {
+  const npc = `Husk-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Marsh-${uid()}`);
+  await placeToken(gm, npc);
+  await expect(token(gm, npc).getByTestId('token-status')).toHaveCount(0);
+
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: npc }).click();
+  await gm.getByTestId('open-sheet').click();
+  for (const name of ['Bleeding', 'Blinded', 'Prone', 'Hidden', 'Slowed']) {
+    await gm.getByTestId('add-status').click();
+    await gm.getByPlaceholder('Search').fill(name);
+    await gm.getByTestId('status-option').first().click();
+    await gm.getByRole('dialog').getByRole('button', { name: 'Add status', exact: true }).click();
+    await expect(gm.getByRole('dialog')).toBeHidden();
+  }
+  await gm.getByRole('button', { name: 'Increase Bleeding' }).click();
+  await gm.getByTestId('nav-scene').click();
+
+  const icons = token(gm, npc).getByTestId('token-status');
+  await expect(icons).toHaveCount(5);
+  await expect(icons.first()).toHaveAttribute('data-status', 'bleeding'); // first applied, top-left
+  await expect(icons.first()).toHaveAttribute('data-stacks', '2');
+  await expect(icons.first().getByTestId('token-status-stacks')).toHaveText('2');
+  await expect(icons.nth(1).getByTestId('token-status-stacks')).toHaveCount(0); // Blinded does not stack
+  const box = await token(gm, npc).boundingBox();
+  for (let i = 0; i < 5; i++) {
+    const b = await icons.nth(i).boundingBox();
+    expect(b.x).toBeGreaterThanOrEqual(box.x - 1);
+    expect(b.y).toBeGreaterThanOrEqual(box.y - 1);
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
+    expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height + 1);
+  }
+
+  // A bigger icon fits fewer: at 50% a 1x1 token holds a 2 x 2 block, the first four applied.
+  await gm.evaluate(() => localStorage.setItem('tarrot.statusIconSize', '50'));
+  await gm.reload();
+  await expect(token(gm, npc).getByTestId('token-status')).toHaveCount(4);
+  await expect(token(gm, npc).getByTestId('token-statuses')).toHaveAttribute('data-shown', '4');
+
+  await gmCtx.close();
+});
+
 test('a phone player moves with the D-pad, sees their Movement, and picks a target', async ({ browser }) => {
   const pc = `Mover-${uid()}`;
   const npc = `Goblin-${uid()}`;

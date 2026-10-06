@@ -61,6 +61,23 @@ function DeadzoneSetting() {
   );
 }
 
+function StatusIconSetting() {
+  const t = useT();
+  const [value, setValue] = useSetting('statusIconSize');
+  const { min, max, step } = SETTINGS.statusIconSize;
+  return (
+    <SettingRow settingKey="statusIconSize" title={t('Status icon size in Battle')} value={value}>
+      <p className="mb-2 text-sm opacity-70">{t('The size of the status icons on tokens, as a share of one grid square. A token shows as many icons as fit inside its square, the first applied.')}</p>
+      <div className="flex items-center gap-3">
+        <input type="range" className="flex-1" min={min} max={max} step={step} value={value} aria-label={t('Status icon size in Battle')} data-testid="status-icon-range" onChange={(e) => setValue(Number(e.target.value))} />
+        <span className="w-12 text-right font-semibold" data-testid="status-icon-value">
+          {value}%
+        </span>
+      </div>
+    </SettingRow>
+  );
+}
+
 // The settings themselves: used on the page of the picker and in the dialog the GM opens from the top bar.
 export function SettingsBody() {
   const t = useT();
@@ -69,6 +86,7 @@ export function SettingsBody() {
       <p className="text-sm opacity-70">{t('These settings are saved on this device only.')}</p>
       <LanguageSetting />
       <DeadzoneSetting />
+      <StatusIconSetting />
     </div>
   );
 }

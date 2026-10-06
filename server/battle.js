@@ -46,6 +46,21 @@ function sheetSize(json) {
   }
 }
 
+// The statuses a character has, as the icons on its token show them: [{ key, stacks }], in the order they were first applied
+// (the order of the sheet's groups). Temporary NPCs have none.
+export function tokenStatuses(json) {
+  try {
+    const sheet = JSON.parse(json ?? '{}');
+    const totals = sheet.statuses ?? {};
+    const keys = [];
+    for (const g of sheet.statusGroups ?? []) if (totals[g.key] > 0 && !keys.includes(g.key)) keys.push(g.key);
+    for (const k of Object.keys(totals)) if (totals[k] > 0 && !keys.includes(k)) keys.push(k);
+    return keys.map((key) => ({ key, stacks: totals[key] }));
+  } catch {
+    return [];
+  }
+}
+
 const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
                           c.name AS cname, c.type AS ctype, c.sheet AS csheet,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
@@ -75,6 +90,7 @@ function toToken(r, targets) {
     diagonals: Number(r.diagonals),
     // Spaces the character is in the air (shown above the token).
     height: Number(r.height ?? 0),
+    statuses: isChar ? tokenStatuses(r.csheet) : [],
     // Characters that currently have this token targeted (set from the remote).
     targetedBy: targets ? [...targets.entries()].filter(([, set]) => set.has(Number(r.id))).map(([who]) => who) : [],
   };
