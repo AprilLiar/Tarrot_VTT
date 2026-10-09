@@ -14,7 +14,7 @@ import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
 import { TokenStatuses } from './StatusIcon.jsx';
 import { areaName } from '../../lib/areaName.js';
-import { tokensInTemplate } from '../../../../shared/templates.js';
+import { membersOf } from '../../../../shared/templates.js';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -202,6 +202,11 @@ export default function BattleView() {
   const [width, setWidth] = useState(0.004);
   const [shape, setShape] = useState('cone');
   const [tsize, setTsize] = useState(4);
+  // Area tool toggles (only here, on the Battle screen): make the area from the token the press starts on, include that token (its "self")
+  // among the area's characters, and let the area follow that token when it moves.
+  const [fromToken, setFromToken] = useState(true);
+  const [includeSelf, setIncludeSelf] = useState(false);
+  const [follow, setFollow] = useState(false);
   const [moveMode, setMoveMode] = useState(false); // Area tool: "Move" (drag areas around, turn the selected one with the wheel)
   const [selArea, setSelArea] = useState(null); // the area selected in Move mode
   const [edit, setEdit] = useState(null); // { id, x, y, angle }: an area being moved or turned, until the server has it
@@ -323,6 +328,9 @@ export default function BattleView() {
     return () => window.removeEventListener('wheel', onWheel, { capture: true });
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The size of the area being made: the number of squares, plus (size - 1) when it is made from a token (at most 60).
+  const draftSize = (d) => Math.min(60, tsize + (d?.bonus ?? 0));
+
   function surfaceDown(e) {
     if (tools && tool === 'template' && moveMode) {
       // A press on the empty map in Move mode only drops the selection.
@@ -347,9 +355,23 @@ export default function BattleView() {
       const c = cellAt(f.u, f.v, battle.grid, aspect);
       setDraft({ kind: 'ruler', a: c, b: c });
     } else if (tool === 'template') {
-      const cx = Math.round(((f.u - battle.grid.ox) / battle.grid.cell) * 2) / 2;
-      const cy = Math.round(((f.v - battle.grid.oy) / (battle.grid.cell * aspect)) * 2) / 2;
-      setDraft({ kind: 'template', x: cx, y: cy, angle: 0, sx: e.clientX, sy: e.clientY });
+      let cx = Math.round(((f.u - battle.grid.ox) / battle.grid.cell) * 2) / 2;
+      let cy = Math.round(((f.v - battle.grid.oy) / (battle.grid.cell * aspect)) * 2) / 2;
+      // From Token: a press inside the bounds of any token locks the area to that token: its start is the token's centre, the token is
+      // the area's "self", and the area is bigger by (size - 1) squares so a big token reaches as far past its edge as a small one.
+      let self = null;
+      let bonus = 0;
+      if (fromToken) {
+        const c = cellAt(f.u, f.v, battle.grid, aspect);
+        const tk = battle.tokens.find((x) => c.col >= x.col && c.col < x.col + x.size && c.row >= x.row && c.row < x.row + x.size);
+        if (tk) {
+          cx = tk.col + tk.size / 2;
+          cy = tk.row + tk.size / 2;
+          self = tk.id;
+          bonus = tk.size - 1;
+        }
+      }
+      setDraft({ kind: 'template', x: cx, y: cy, angle: 0, sx: e.clientX, sy: e.clientY, self, bonus });
     }
   }
   function surfaceMove(e) {
@@ -386,8 +408,10 @@ export default function BattleView() {
       // The Deadzone: farther than `deadzone` times the area's size from where it began. Letting go there cancels it.
       const o = cellToUnits(draft.x, draft.y, battle.grid, aspect);
       const p = toUnits(f.u, f.v, aspect);
-      const dead = Math.hypot(p.x - o.x, p.y - o.y) > deadzone * tsize * unit;
-      setDraft({ ...draft, dead, ...(Math.hypot(dx, dy) > 8 ? { angle: (Math.atan2(dy, dx) * 180) / Math.PI } : {}) });
+      const dead = Math.hypot(p.x - o.x, p.y - o.y) > deadzone * draftSize(draft) * unit;
+      // The direction: from where the press began, or from the token's centre for an area locked to a token.
+      const aim = draft.self != null ? (Math.hypot(p.x - o.x, p.y - o.y) > unit * 0.3 ? (Math.atan2(p.y - o.y, p.x - o.x) * 180) / Math.PI : null) : Math.hypot(dx, dy) > 8 ? (Math.atan2(dy, dx) * 180) / Math.PI : null;
+      setDraft({ ...draft, dead, ...(aim != null ? { angle: aim } : {}) });
     }
   }
   async function surfaceUp() {
@@ -406,7 +430,7 @@ export default function BattleView() {
       if (!r.ok) toast(r.error);
     } else if (d.kind === 'template') {
       if (d.dead) return; // released in the Deadzone: the area is not created
-      const r = await call('mark:add', { kind: 'template', data: { shape, x: d.x, y: d.y, size: tsize, angle: d.angle, color } });
+      const r = await call('mark:add', { kind: 'template', data: { shape, x: d.x, y: d.y, size: draftSize(d), angle: d.angle, color, selfTokenId: d.self, includeSelf, follow: follow && d.self != null } });
       if (!r.ok) toast(r.error);
     }
   }
@@ -471,7 +495,7 @@ export default function BattleView() {
   // While an area is being drawn, the characters that would be inside it are lit up (gone again once it is created).
   const inDraft =
     draft?.kind === 'template' && !draft.dead && battle
-      ? new Set(tokensInTemplate({ shape, x: draft.x, y: draft.y, size: tsize, angle: draft.angle }, battle.tokens.filter((tk) => tk.kind !== 'prop'), battle.grid, aspect).map((tk) => tk.id))
+      ? new Set(membersOf({ shape, x: draft.x, y: draft.y, size: draftSize(draft), angle: draft.angle, selfTokenId: draft.self, includeSelf }, battle.tokens, battle.grid, aspect).map((tk) => tk.id))
       : null;
 
   return (
@@ -579,10 +603,10 @@ export default function BattleView() {
               )}
               {draft?.kind === 'template' &&
                 (() => {
-                  const sh = templateShape({ shape, x: draft.x, y: draft.y, size: tsize, angle: draft.angle }, battle.grid, aspect);
+                  const sh = templateShape({ shape, x: draft.x, y: draft.y, size: draftSize(draft), angle: draft.angle }, battle.grid, aspect);
                   const c = { fill: color, fillOpacity: draft.dead ? 0.08 : 0.25, stroke: color, strokeOpacity: draft.dead ? 0.4 : 1, strokeWidth: unit * 0.06, strokeDasharray: `${unit * 0.2}` };
                   const o = cellToUnits(draft.x, draft.y, battle.grid, aspect);
-                  const R = deadzone * tsize * unit;
+                  const R = deadzone * draftSize(draft) * unit;
                   return (
                     <g>
                       {/* The Deadzone: striped and half transparent, everything farther than R from where the drag began. */}
@@ -862,7 +886,22 @@ export default function BattleView() {
                   <button type="button" aria-pressed={moveMode} className={`min-h-9 rounded-lg px-3 text-sm ${moveMode ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`} data-testid="template-move" onClick={() => { setMoveMode(!moveMode); setSelArea(null); }}>
                     {t('Move')}
                   </button>
-                  <span className="opacity-70">{moveMode ? t('Drag an area to move it. With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15.') : t('Press for the start, drag for the direction.')}</span>
+                  {!moveMode && (
+                    <>
+                      {[
+                        ['from-token', t('From Token'), fromToken, setFromToken],
+                        ['include-self', t('Include Self'), includeSelf, setIncludeSelf],
+                        ['follow', t('Follow Token'), follow, setFollow],
+                      ].map(([id, text, on, set]) => (
+                        <button key={id} type="button" role="switch" aria-checked={on} className={`min-h-9 rounded-lg px-3 text-sm ${on ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`} data-testid={`template-${id}`} onClick={() => set(!on)}>
+                          {text}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  <span className="opacity-70">
+                    {moveMode ? t('Drag an area to move it. With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15.') : fromToken ? t('Press on a token to make the area from it, drag for the direction. Press elsewhere to start it there.') : t('Press for the start, drag for the direction.')}
+                  </span>
                   <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="clear-templates" onClick={() => call('mark:clear', { kind: 'template' })}>
                     {t('Clean')}
                   </button>

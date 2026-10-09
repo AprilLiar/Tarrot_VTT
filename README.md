@@ -443,7 +443,7 @@ removed (including spent uses). A card line shows "Gains / Refreshes {effect}" a
 An **item** can carry Effects too (`item.effects`, on its user only): using the item (the Use button) puts them on, as one card with Revert.
 
 ### Basic Actions (decided)
-The things anybody can do on their turn, from DC20's Basic Actions, in the **General tab**: a **Basic Actions** button opens a small, compact list (**closed at first**, so it does not take room; tap a name to read its text, **Use** beside it) (`shared/basicActions.js`).
+The things anybody can do on their turn, from DC20's Basic Actions, in the **General tab**: a **Basic Actions** button opens a small, compact list (**closed at first**, so it does not take room; tap a name to read its text, **Use** beside it; on a PC the list breaks into **three columns** like the other sections, two on a tablet and one on a phone) (`shared/basicActions.js`).
 Shipped with the app (the GM can edit, delete and add actions; a deleted one stays deleted): Attack, Move, Spell (text only: they
 point to the footer attack, the D-pad and the Magic tab), Dodge (1 AP: Effect *Dodge*, Disadvantage on the next attack against
 you, Until start of next turn, 1 use), Full Dodge (2 AP, all attacks), Disengage, Full Disengage, Hide, Help (1 AP: a d8 Help
@@ -744,6 +744,17 @@ Decided:
     the selection. **With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15**
     (Ctrl is the fine one, Shift the fast one; wheel down turns clockwise); the wheel does not zoom the map then. The
     GM and the Display can do it; the name never changes. Turning has no touch control. (`mark:update`)
+  - **From Token, Include Self and Follow Token (decided):** three toggles in the Area tool's options, **only on the Battle screen**
+    (nowhere else). **From Token** is **on** by default: when the press that starts an area is **inside the bounds of any token**, the
+    area is **locked to that token**: it starts exactly at the **centre of the token**, the token becomes that area's **self** (for this
+    area only), and the area is **bigger by (token size - 1) squares** (nothing for a 1x1 token, +1 for 2x2, and so on; at most 60).
+    **Cone, Arc and Line** start at the token's centre and protrude from there in the dragged direction (measured from the token's
+    centre); **Circle and Square** are **auras** centred on the token. A press that is not on a token makes an area as before; with From
+    Token off every area is made as before. The Deadzone works as before, measured from the token's centre. **Include Self** is **off** by
+    default: the area's self (the token it was made from) is **not among the area's characters**, so it is not lit while drawing, not listed
+    in the picker and not picked with the area; on, it counts like anybody else. It is saved with the area (`includeSelf`) and means nothing
+    for an area with no self. **Follow Token** is **off** by default: on, the area **moves with its token** whenever the token moves
+    (dragging, the D-pad, the grid being changed), always staying at the token's centre (`follow`); off, it stays where it was made.
   - **Highlight while drawing (decided):** while an area is being dragged, the characters that would be inside it get a
     noticeable cyan glow; it disappears when the area is created (or cancelled).
   - **Erase:** click any drawing or area to remove it whole.
@@ -813,13 +824,14 @@ Decided:
   character picker is shown (the Battle remote, the Targets of the Arcane tab) it has a **two-halved switch,
   Individual | Area**: pressing anywhere on it switches; the chosen half is in the interface colour, the other half is
   white. **Individual** works as described above. **Area** lists the areas drawn on the map by name, each with the names
-  of the characters inside it (for information); tapping an area selects it, tapping again deselects it. **Picking an
-  area is, in the backend, exactly picking every character in it, worked out live when the attack is made** (so whoever
-  is inside at that moment is hit); several areas and individual picks can be mixed and a character counts once. A
+  of the characters inside it now. **Pressing an area is a one-time pick (decided):** it selects, as individual targets, everyone inside it
+  **at that moment** (an area is not a standing target any more: someone walking in later is not added). Those targets can then be added or
+  removed by hand in the Individual tab. **Pressing the same area again refreshes its part:** whoever it added last time is taken off,
+  whoever is inside now is added; picks made by hand stay (one removed by hand comes back if it is still inside). Several areas and
+  individual picks can be mixed and a character counts once. A
   character is in an area when the **centre of its token** is inside it, with a small bias towards including more:
   the centre may be up to **0.25 of a square outside the edge** (`shared/templates.js`). Hidden tokens are never listed
-  for players but the server includes them. Props are not characters. The rings on the map show the characters of
-  picked areas as targeted. A temp NPC has no sheet, so
+  for players but the server includes them. Props are not characters. The rings on the map show the selected targets. A temp NPC has no sheet, so
   its Defence is a fixed **10** (my default, open to change).
 - **The roll card in the chat** shows a roll made against something as two large numbers: the
   **Attack Value** and the **Target Value** (the Defence being rolled against; with several
@@ -1363,9 +1375,9 @@ Battle (Phase 5a):
 - `battle:move` `{ tokenId, dc, dr, free?, confirmAp? }`: one D-pad step by the GM or the
   player who owns the token; replies with the new position, or asks for confirmation when the step
   needs AP. `battle:target` `{ characterId, tokenId | null }`: toggles a token in the selected targets of a PC
-  (the GM or that PC's player), or clears all targets (tokens and areas) with `null`; `mark:update` `{ id, x?, y?, angle? }` (GM and Display) moves or turns an area. `battle:target_area` `{ characterId,
-  markId | null }` toggles an area the same way (`null` clears the area picks). Area marks in `stage.battle.marks` carry
-  `n` (their number) and `targetedBy` (the characters that picked them). `settings:force` `{ key, value }` (GM only) is
+  (the GM or that PC's player), or clears all targets with `null`; `mark:update` `{ id, x?, y?, angle? }` (GM and Display) moves or turns an area. `battle:target_area` `{ characterId,
+  markId | null }` adds the characters inside an area, now, to the character's targets (pressing it again refreshes its part, see Targets; `null` only
+  forgets what areas added). Area marks in `stage.battle.marks` carry `n` (their number), `selfTokenId`, `includeSelf` and `follow` (see From Token). `settings:force` `{ key, value }` (GM only) is
   relayed to every socket as `setting:forced` `{ key, value }`. Statuses: `status:add` `{ characterId, key, stacks?, duration?, dc? }`
   adds a status by hand (no Save; Repeated needs a Save and a number `dc`) and returns `{ sheet }`. A status that needs a Save
   asks the player with `save:ask` `{ id, characterId, name, kind: 'apply' | 'repeated', apply: { key, stacks, duration }, save, dc,

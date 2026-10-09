@@ -45,3 +45,9 @@ export function tokenInTemplate(template, token, grid, aspect, margin = AREA_MAR
 }
 
 export const tokensInTemplate = (template, tokens, grid, aspect, margin = AREA_MARGIN) => tokens.filter((t) => tokenInTemplate(template, t, grid, aspect, margin));
+
+// The characters an area stands for (props are not characters). An area made from a token ("From Token") knows that token as its
+// "self": with Include Self off (`includeSelf === false`) it is not among the area's characters. Areas without a self, and older
+// ones, include everybody inside.
+export const membersOf = (mark, tokens, grid, aspect) =>
+  tokensInTemplate(mark, tokens.filter((t) => t.kind !== 'prop' && !(mark.includeSelf === false && mark.selfTokenId != null && t.id === mark.selfTokenId)), grid, aspect);

@@ -151,13 +151,13 @@ export function BasicActions({ s = null }) {
         </span>
       </button>
       {open && (
-        <div className="mt-2 divide-y divide-white/10 rounded-xl border border-white/10 bg-white/5" data-testid="basic-actions">
-          {!s && <p className="p-2 text-xs opacity-50">{t('The Basic Actions every character has (from DC20). Edit them, delete them or add your own.')}</p>}
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="basic-actions">
+          {!s && <p className="col-span-full text-xs opacity-50">{t('The Basic Actions every character has (from DC20). Edit them, delete them or add your own.')}</p>}
           {actions.map((a) => {
             const isDefault = a.id.startsWith(DEFAULT_ACTION_PREFIX);
             const extra = gives(a);
             return (
-              <div key={a.id} className="px-2 py-1" data-testid="basic-action" data-name={a.name}>
+              <div key={a.id} className="self-start rounded-xl border border-white/10 bg-white/5 px-2 py-1" data-testid="basic-action" data-name={a.name}>
                 <div className="flex min-h-9 items-center gap-2">
                   <button className="min-w-0 flex-1 truncate text-left text-sm font-medium" aria-expanded={shown === a.id} data-testid="action-name-toggle" onClick={() => setShown(shown === a.id ? null : a.id)}>
                     {isDefault ? t(a.name) : a.name}
@@ -189,7 +189,7 @@ export function BasicActions({ s = null }) {
             );
           })}
           {!s && gm && (
-            <div className="p-2">
+            <div className="col-span-full">
               <button className={`${btn} w-full`} data-testid="add-action" onClick={() => setDialog({ action: null })}>
                 {t('New Basic Action')}
               </button>

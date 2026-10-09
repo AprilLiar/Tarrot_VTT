@@ -1,5 +1,5 @@
 import { AppError } from './errors.js';
-import { tokensInTemplate } from '../shared/templates.js';
+import { membersOf } from '../shared/templates.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
@@ -182,6 +182,17 @@ export async function placeToken(db, id, col, row) {
   const scene = await scenes.getScene(db, token.sceneId);
   if (!inBounds(scene, token.size, col, row)) throw new AppError('out_of_bounds', 'That is off the map.');
   await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, id] });
+  await followTemplates(db, { ...token, col, row });
+}
+
+// Areas made from a token with "Follow Token" move with it: their origin is the token's centre.
+async function followTemplates(db, token) {
+  for (const m of await listMarks(db, token.sceneId)) {
+    if (m.kind !== 'template' || !m.follow || m.selfTokenId !== token.id) continue;
+    const x = token.col + token.size / 2;
+    const y = token.row + token.size / 2;
+    if (x !== m.x || y !== m.y) await updateTemplate(db, m.id, { x, y });
+  }
 }
 
 export const HEIGHT_MAX = 99;
@@ -218,6 +229,7 @@ export async function clampTokens(db, sceneId) {
     const row = Math.max(0, Math.min(t.row, Math.max(0, rows - t.size)));
     if (col !== t.col || row !== t.row) {
       await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, t.id] });
+      await followTemplates(db, { ...t, col, row });
     }
   }
 }
@@ -261,6 +273,7 @@ export async function moveStep(db, { token, dc, dr, freeChecked, confirmAp, isOw
   const free = freeChecked === true || !isOwnTurn || token.ownerKind !== 'character';
   if (free) {
     await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, token.id] });
+    await followTemplates(db, { ...token, col, row });
     return { moved: true, free: true };
   }
 
@@ -277,6 +290,7 @@ export async function moveStep(db, { token, dc, dr, freeChecked, confirmAp, isOw
       sql: 'UPDATE battle_tokens SET col = ?, row = ?, bank = ?, diagonals = ? WHERE id = ?',
       args: [col, row, plan.bank, plan.diagonals, token.id],
     });
+    await followTemplates(db, { ...token, col, row });
     return { moved: true, free: false, apSpent: plan.apSpent, sheetChanged: plan.apSpent > 0 };
   });
 }
@@ -303,12 +317,24 @@ export function cleanMark(kind, data) {
   }
   if (kind === 'template') {
     const { shape, x, y, size, angle, color } = data;
+    // "From Token": the token the area was made from (its "self"), whether the area includes it, and whether the area follows it.
+    const selfTokenId = Number.isInteger(data.selfTokenId) && data.selfTokenId > 0 ? data.selfTokenId : null;
     if (!SHAPES.includes(shape)) throw bad('Unknown shape.');
     if (!HEX.test(color ?? '')) throw bad('Invalid colour.');
     if (!(Number.isInteger(size) && size >= 1 && size <= 60)) throw bad('Size must be 1 to 60 squares.');
     if (![x, y].every((v) => typeof v === 'number' && Number.isFinite(v) && v >= -1 && v <= 500)) throw bad('Invalid position.');
     if (!(typeof angle === 'number' && Number.isFinite(angle))) throw bad('Invalid direction.');
-    return { shape, x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, size, angle: ((Math.round(angle) % 360) + 360) % 360, color };
+    return {
+      shape,
+      x: Math.round(x * 2) / 2,
+      y: Math.round(y * 2) / 2,
+      size,
+      angle: ((Math.round(angle) % 360) + 360) % 360,
+      color,
+      selfTokenId,
+      includeSelf: data.includeSelf !== false,
+      follow: selfTokenId != null && data.follow === true,
+    };
   }
   throw bad('Unknown kind of mark.');
 }
@@ -421,43 +447,23 @@ export async function clearMarks(db, kind) {
 // ---- What clients see ----------------------------------------------------------------
 
 // The characters (not props) standing in an area, by the rule of shared/templates.js.
-export const tokensInArea = (mark, tokens, grid, aspect) => tokensInTemplate(mark, tokens.filter((t) => t.kind !== 'prop'), grid, aspect);
+export const tokensInArea = membersOf;
 
-// Everything a character has selected as targets: the tokens picked one by one plus whoever stands in the areas picked,
-// worked out now (so the area is live: it hits whoever is inside when the attack is made). Hidden tokens are included.
+// Everything a character has selected as targets: the tokens picked one by one (picking an area adds the characters inside it at that
+// moment, see `battle:target_area`). Hidden tokens are included.
 export async function effectiveTargets(db, shared, characterId) {
-  const ids = new Set(shared.targets.get(characterId) ?? []);
-  const areas = shared.areaTargets?.get(characterId);
-  if (areas?.size) {
-    const sceneId = await scenes.getActiveSceneId(db);
-    const scene = sceneId == null ? null : await scenes.getScene(db, sceneId).catch(() => null);
-    if (scene) {
-      const [marks, tokens] = await Promise.all([listMarks(db, sceneId), listTokens(db, sceneId, { forGm: true })]);
-      for (const m of marks) {
-        if (m.kind === 'template' && areas.has(m.id)) for (const tk of tokensInArea(m, tokens, scene.grid, scene.battleAspect)) ids.add(tk.id);
-      }
-    }
-  }
-  return [...ids];
+  return [...(shared.targets.get(characterId) ?? [])];
 }
 
 // The battle part of the stage. Hidden tokens are left out for everyone but the GM.
-export async function buildBattle(db, { forGm, targets, areaTargets = null, combat = null }) {
+export async function buildBattle(db, { forGm, targets, combat = null }) {
   const sceneId = await scenes.getActiveSceneId(db);
   if (sceneId == null) return null;
   const scene = await scenes.getScene(db, sceneId).catch(() => null);
   if (!scene) return null;
   const { cols, rows } = scenes.gridSize(scene);
   const [tokens, rawMarks] = await Promise.all([listTokens(db, sceneId, { forGm, targets }), listMarks(db, sceneId)]);
-  // An area a character has picked: who picked it, and its characters count as targeted too (the rings on the map).
-  const marks = rawMarks.map((m) => {
-    if (m.kind !== 'template') return m;
-    const by = areaTargets ? [...areaTargets.entries()].filter(([, set]) => set.has(m.id)).map(([who]) => who) : [];
-    for (const who of by) {
-      for (const tk of tokensInArea(m, tokens, scene.grid, scene.battleAspect)) if (!tk.targetedBy.includes(who)) tk.targetedBy.push(who);
-    }
-    return { ...m, targetedBy: by };
-  });
+  const marks = rawMarks;
   return {
     imageId: scene.battleImageId,
     aspect: scene.battleAspect,

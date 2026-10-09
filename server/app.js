@@ -71,7 +71,7 @@ export function createServer({ db, fetchTitle } = {}) {
 
   // Per-instance state that is deliberately not in the database: the chat log
   // (clears on restart), pending trade offers and what is playing (stops on restart).
-  const shared = { chat: createChat(), offers: new Map(), audio: createPlayer(), fetchTitle, targets: new Map(), areaTargets: new Map(), attacks: new Map() };
+  const shared = { chat: createChat(), offers: new Map(), audio: createPlayer(), fetchTitle, targets: new Map(), areaPicks: new Map(), attacks: new Map() };
   io.on('connection', (socket) => registerHandlers(io, socket, db, shared));
 
   return { app, httpServer, io, shared };

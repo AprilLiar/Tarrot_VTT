@@ -94,7 +94,7 @@ beforeEach(async () => {
     'write',
   );
   server.shared.targets.clear();
-  server.shared.areaTargets.clear();
+  server.shared.areaPicks.clear();
   server.shared.combat = null;
 });
 
@@ -578,7 +578,7 @@ describe('named areas and area targeting', () => {
     expect(await g.call('mark:update', { id: drawing.id, x: 1 })).toMatchObject({ ok: false, code: 'not_found' });
   });
 
-  it('picking an area picks everyone inside it, live, and the tokens show as targeted', async () => {
+  it('picking an area adds the characters inside it once; pressing it again refreshes its part', async () => {
     const g = await gm();
     await battleScene(g);
     const make = async (name, type) => {
@@ -589,35 +589,82 @@ describe('named areas and area targeting', () => {
     const aria = await make('Aria', 'pc');
     const orc = await make('Orc', 'npc');
     const imp = await make('Imp', 'npc');
+    const elf = await make('Elf', 'npc');
     const p = await player(aria.id);
     const place = (who, col, row) => g.call('battle:place', { id: who.token, col, row });
     await place(aria, 0, 0);
     await place(orc, 4, 2);
     await place(imp, 9, 4);
+    await place(elf, 7, 0);
     await g.call('mark:add', area('circle', 4.5, 2.5, 2)); // centred on the Orc's square, two squares around
     const mark = (await stageOf(g)).battle.marks[0];
+    expect(mark.targetedBy).toBeUndefined(); // an area is not a standing target any more
     expect(await p.call('battle:target_area', { characterId: aria.id, markId: 9999 })).toMatchObject({ ok: false, code: 'not_found' });
     expect((await p.call('battle:target_area', { characterId: aria.id, markId: mark.id })).ok).toBe(true);
-    const stage = (await stageOf(p)).battle;
-    expect(stage.marks[0].targetedBy).toEqual([aria.id]);
-    expect(stage.tokens.filter((t) => t.targetedBy.includes(aria.id)).map((t) => t.name)).toEqual(['Orc']);
     expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([orc.token]);
-    // Someone walks in: the area is live, no new pick is needed.
+    // It is a one-time pick: someone walking in later is not added by itself.
     await place(imp, 5, 3);
-    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, imp.token].sort());
-    // Picking the Orc by hand as well changes nothing (each target counts once); a second tap on the area drops it.
-    await p.call('battle:target', { characterId: aria.id, tokenId: orc.token });
-    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, imp.token].sort());
-    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
     expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([orc.token]);
-    // Clear targets clears both kinds; erasing an area drops it from every pick.
+    // Pick someone else by hand, drop the Orc by hand: both stay as they are.
+    await p.call('battle:target', { characterId: aria.id, tokenId: elf.token });
+    await p.call('battle:target', { characterId: aria.id, tokenId: orc.token });
+    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([elf.token]);
+    // Pressing the area again refreshes its part: the Orc is back, the Imp (inside now) joins, the Elf stays.
     await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
+    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, imp.token, elf.token].sort());
+    // The Imp walks out: pressing again takes it off (the area added it), and the hand-picked Elf stays.
+    await place(imp, 9, 4);
+    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
+    expect((await battleLib.effectiveTargets(db, server.shared, aria.id)).sort()).toEqual([orc.token, elf.token].sort());
+    // Clear targets clears everything; a null pick only forgets what areas added.
     await p.call('battle:target', { characterId: aria.id, tokenId: null });
     expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([]);
-    await p.call('battle:target_area', { characterId: aria.id, markId: mark.id });
-    await g.call('mark:remove', { id: mark.id });
-    expect(await battleLib.effectiveTargets(db, server.shared, aria.id)).toEqual([]);
     expect(await p.call('battle:target_area', { characterId: aria.id, markId: null })).toMatchObject({ ok: true });
+  });
+
+  it('an area made from a token knows it as its self, and leaves it out unless Include Self is on', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const make = async (name, col, row) => {
+      const id = (await g.call('character:create', { name, type: 'pc' })).id;
+      await g.call('picture:add', { characterId: id, data: png() });
+      const token = (await g.call('battle:add', { characterId: id })).id;
+      await g.call('battle:place', { id: token, col, row });
+      return { id, token };
+    };
+    const caster = await make('Caster', 4, 2);
+    const near = await make('Near', 5, 2);
+    const a = (await make('Aria', 0, 0)).id;
+    const p = await player(a);
+    await g.call('mark:add', { kind: 'template', data: { shape: 'circle', x: 4.5, y: 2.5, size: 2, angle: 0, color: '#00aaff', selfTokenId: caster.token, includeSelf: false } });
+    const mark = (await stageOf(g)).battle.marks[0];
+    expect(mark).toMatchObject({ selfTokenId: caster.token, includeSelf: false, follow: false });
+    await p.call('battle:target_area', { characterId: a, markId: mark.id });
+    expect(await battleLib.effectiveTargets(db, server.shared, a)).toEqual([near.token]);
+    // With Include Self on, the token it was made from counts like anybody else.
+    await g.call('mark:add', { kind: 'template', data: { shape: 'circle', x: 4.5, y: 2.5, size: 2, angle: 0, color: '#00aaff', selfTokenId: caster.token, includeSelf: true } });
+    const second = (await stageOf(g)).battle.marks[1];
+    await p.call('battle:target', { characterId: a, tokenId: null });
+    await p.call('battle:target_area', { characterId: a, markId: second.id });
+    expect((await battleLib.effectiveTargets(db, server.shared, a)).sort()).toEqual([caster.token, near.token].sort());
+  });
+
+  it('an area made with Follow Token moves with its token (and only that token)', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const id = (await g.call('character:create', { name: 'Caster', type: 'pc' })).id;
+    await g.call('picture:add', { characterId: id, data: png() });
+    const token = (await g.call('battle:add', { characterId: id })).id;
+    await g.call('battle:place', { id: token, col: 2, row: 1 });
+    await g.call('mark:add', { kind: 'template', data: { shape: 'cone', x: 2.5, y: 1.5, size: 3, angle: 0, color: '#00aaff', selfTokenId: token, follow: true } });
+    await g.call('mark:add', { kind: 'template', data: { shape: 'cone', x: 2.5, y: 1.5, size: 3, angle: 0, color: '#00aaff', selfTokenId: token } });
+    await g.call('battle:place', { id: token, col: 6, row: 3 });
+    const marks = (await stageOf(g)).battle.marks;
+    expect(marks[0]).toMatchObject({ x: 6.5, y: 3.5, follow: true });
+    expect(marks[1]).toMatchObject({ x: 2.5, y: 1.5, follow: false });
+    // Without a self, follow means nothing.
+    await g.call('mark:add', { kind: 'template', data: { shape: 'cone', x: 1, y: 1, size: 3, angle: 0, color: '#00aaff', follow: true } });
+    expect((await stageOf(g)).battle.marks[2].follow).toBe(false);
   });
 });
 
