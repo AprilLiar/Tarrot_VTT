@@ -761,6 +761,10 @@ test('areas: named, lit up while drawn, cancelled in the Deadzone, and picked as
   await gm.getByTestId('tool-template').click();
   await gm.getByTestId('template-shape').selectOption('circle');
   await gm.getByTestId('template-size').fill('1');
+  // From Token is on and Include Self off: an area started on a token is made from it and leaves that token out.
+  await expect(gm.getByTestId('template-from-token')).toHaveAttribute('aria-checked', 'true');
+  await expect(gm.getByTestId('template-include-self')).toHaveAttribute('aria-checked', 'false');
+  await gm.getByTestId('template-include-self').click();
 
   // While the area is only being dragged, the characters that would be inside it are lit up; the Deadzone is striped.
   await gm.mouse.move(ix, iy);
@@ -796,12 +800,72 @@ test('areas: named, lit up while drawn, cancelled in the Deadzone, and picked as
   const option = p.getByTestId('area-option').filter({ hasText: 'Circle (1)' });
   await expect(option.getByTestId('area-members')).toContainText(npc);
   await option.click();
-  await expect(option).toHaveAttribute('aria-pressed', 'true');
   await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'true');
-  await option.click();
+  // The pick is a one-time fill of the individual targets: deselecting by hand sticks, pressing the area again brings it back.
+  await p.getByTestId('target-mode').click();
+  await p.getByTestId('target-option').filter({ hasText: npc }).click();
   await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'false');
+  await p.getByTestId('target-mode').click();
+  await option.click();
+  await expect(token(gm, npc)).toHaveAttribute('data-targeted', 'true');
 
   await ctx.close();
+  await gmCtx.close();
+});
+
+test('areas From Token: locked to the token pressed on, its self is left out unless Include Self is on, and Follow Token moves the area', async ({ browser }) => {
+  const pc = `Mage-${uid()}`;
+  const npc = `Imp-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Auras-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+  const centre = async (name) => {
+    const b = await token(gm, name).boundingBox();
+    return [b.x + b.width / 2, b.y + b.height / 2];
+  };
+  const [ix, iy] = await centre(npc);
+  await gm.getByTestId('tool-template').click();
+  await gm.getByTestId('template-shape').selectOption('circle');
+  await gm.getByTestId('template-size').fill('3');
+
+  // An aura around the Imp: the Imp is its self and is left out, the neighbour is lit.
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 6, iy, { steps: 2 });
+  await expect(token(gm, npc).getByTestId('token-in-area')).toHaveCount(0);
+  await expect(token(gm, pc).getByTestId('token-in-area')).toHaveCount(1);
+  await gm.mouse.up();
+  await expect(gm.getByTestId('battle-template')).toHaveCount(1);
+
+  // With Include Self on, the Imp counts too while the area is drawn.
+  await gm.getByTestId('template-include-self').click();
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 6, iy, { steps: 2 });
+  await expect(token(gm, npc).getByTestId('token-in-area')).toHaveCount(1);
+  await gm.mouse.up();
+
+  // Follow Token: the area moves with the token when it is dragged to another square.
+  await gm.getByTestId('template-follow').click();
+  await gm.mouse.move(ix, iy);
+  await gm.mouse.down();
+  await gm.mouse.move(ix + 6, iy, { steps: 2 });
+  await gm.mouse.up();
+  const named = gm.getByTestId('battle-template-name').last();
+  const before = await named.boundingBox();
+  await gm.getByTestId('tool-select').click();
+  const [nx, ny] = await centre(npc);
+  const step = (await token(gm, npc).boundingBox()).width;
+  await gm.mouse.move(nx, ny);
+  await gm.mouse.down();
+  await gm.mouse.move(nx, ny + step * 2, { steps: 6 });
+  await gm.mouse.up();
+  await expect.poll(async () => (await named.boundingBox()).y).toBeGreaterThan(before.y + step);
+
   await gmCtx.close();
 });
 

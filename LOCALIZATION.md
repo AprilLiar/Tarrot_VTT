@@ -551,7 +551,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Individual | По одному |
 | Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
 | Nobody else is on the map. | На карте больше никого нет. |
-| Areas (picking one targets everyone inside it) | Области (выбор области выбирает всех внутри неё) |
+| Areas (pressing one selects everyone inside it now; press again to update) | Области (нажатие выбирает всех, кто внутри сейчас; нажмите ещё раз, чтобы обновить) |
 | There are no areas on the map. Draw one with the Area tool. | На карте нет областей. Нарисуйте её инструментом «Область». |
 | Nobody inside | Внутри никого |
 | Clear targets | Снять все цели |
@@ -657,7 +657,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Template size | Размер области |
 | More squares | Больше клеток |
 | Fewer squares | Меньше клеток |
+| From Token | От фишки |
+| Include Self | Включать себя |
+| Follow Token | Следовать за фишкой |
 | Drag an area to move it. With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15. | Перетащите область, чтобы переместить её. Для выбранной области Ctrl + колесо мыши поворачивает её на 1 градус, Shift + колесо на 15. |
+| Press on a token to make the area from it, drag for the direction. Press elsewhere to start it there. | Нажмите на фишку, чтобы создать область от неё, и тяните для выбора направления. Нажмите в другом месте, чтобы начать там. |
 | Press for the start, drag for the direction. | Нажмите для начала, потяните для направления. |
 | Click a drawing or an area to remove it. | Щёлкните по рисунку или области, чтобы убрать их. |
 | Token Settings | Настройки фишки |
@@ -1413,6 +1417,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Areas (picking one targets everyone inside it) | Области (выбор области выбирает всех внутри неё) |
 | Using an action spends its AP and does what it says. Actions that aim at others use the selected targets. | Использование действия тратит его ОД и делает то, что в нём сказано. Действия, направленные на других, используют выбранные цели. |
 | One | Одна |
 | Several | Несколько |

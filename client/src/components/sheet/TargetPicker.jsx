@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { btn } from '../Dialog.jsx';
 import { areaName } from '../../lib/areaName.js';
-import { tokensInTemplate } from '../../../../shared/templates.js';
+import { membersOf } from '../../../../shared/templates.js';
 import { useT } from '../../i18n.jsx';
 
 // The characters on the Battle map a character can target. Tapping one selects it, tapping it again
@@ -69,7 +69,7 @@ export function TargetPicker({ characterId, info }) {
     const r = await call('battle:target_area', { characterId, markId });
     if (!r.ok) toast(r.error);
   }
-  const inside = (m) => tokensInTemplate(m, battle.tokens.filter((tk) => tk.kind !== 'prop'), battle.grid, battle.aspect);
+  const inside = (m) => membersOf(m, battle.tokens, battle.grid, battle.aspect);
 
   return (
     <>
@@ -97,14 +97,13 @@ export function TargetPicker({ characterId, info }) {
         </>
       ) : (
         <>
-          <div className="text-sm opacity-70">{t('Areas (picking one targets everyone inside it)')}</div>
+          <div className="text-sm opacity-70">{t('Areas (pressing one selects everyone inside it now; press again to update)')}</div>
           <div className="mt-1 grid gap-1 sm:grid-cols-3" data-testid="area-list">
             {areas.length === 0 && <p className="col-span-full text-sm opacity-60">{t('There are no areas on the map. Draw one with the Area tool.')}</p>}
             {areas.map((m) => {
-              const picked = (m.targetedBy ?? []).includes(characterId);
               const who = inside(m);
               return (
-                <button key={m.id} data-testid="area-option" data-name={areaName(m, (x) => x)} aria-pressed={picked} className={`${btn} flex flex-col items-start gap-0.5 text-left ${picked ? 'ring-2 ring-amber-400' : ''}`} onClick={() => aimArea(m.id)}>
+                <button key={m.id} data-testid="area-option" data-name={areaName(m, (x) => x)} className={`${btn} flex flex-col items-start gap-0.5 text-left`} onClick={() => aimArea(m.id)}>
                   <span className="font-semibold">{areaName(m, t)}</span>
                   <span className="text-xs opacity-70" data-testid="area-members">
                     {who.length ? who.map((tk) => tk.name).join(', ') : t('Nobody inside')}
@@ -115,7 +114,7 @@ export function TargetPicker({ characterId, info }) {
           </div>
         </>
       )}
-      {(targets.length > 0 || areas.some((m) => (m.targetedBy ?? []).includes(characterId))) && (
+      {targets.length > 0 && (
         <button className={`${btn} mt-1`} data-testid="clear-target" onClick={() => aim(null)}>
           {t('Clear targets')}
         </button>
