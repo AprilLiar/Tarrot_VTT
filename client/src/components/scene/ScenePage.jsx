@@ -8,6 +8,7 @@ import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
 import BattleView from './BattleView.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
+import { TarotStar } from '../TarotStar.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The scene: a fullscreen picture with characters standing on it in the style of a
@@ -116,7 +117,8 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         data-testid="name-plaque"
         className="mb-1 max-w-full shrink-0 truncate rounded bg-black/65 px-3 py-0.5 text-sm text-white"
       >
-        {s.name}
+        <span>{s.name}</span>
+        {s.tarot && <TarotStar characterId={s.ownerId} />}
       </figcaption>
       <img
         src={imageUrl(s.imageId)}

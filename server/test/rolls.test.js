@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildRoll } from '../rolls.js';
-import { defaultSheet, applySet } from '../sheet.js';
+import { defaultSheet, applySet, normalizeSheet } from '../sheet.js';
 
 function sheetWith(sets) {
   return Object.entries(sets).reduce((s, [path, value]) => applySet(s, path, value), defaultSheet());
@@ -24,6 +24,18 @@ describe('attribute rolls', () => {
     const r = buildRoll(sheet, { kind: 'attribute', key: 'luck' }, fixed(10));
     expect(r.total).toBe(8);
     expect(r.expression).toBe('1d20 - 2(Luck)');
+  });
+
+  it('a Luck roll is always pure: no status, Effect, Advantage, modifier or dice changes it', () => {
+    const sheet = normalizeSheet({
+      stats: { luck: 3 },
+      statuses: { exhaustion: 2, dazed: 2 },
+      effects: [{ id: 'e', name: 'Blessing', duration: 'long', parts: [{ type: 'roll', scope: 'all', adv: 3, bonus: 5, dice: [{ sides: 6, sign: 1 }] }] }],
+    });
+    const request = { kind: 'attribute', key: 'luck', advantage: 4, modifier: 7, bonuses: [{ label: 'X', value: 2 }], dice: [{ sides: 8, sign: 1, source: 'Help' }], against: { levels: [{ label: 'Y', levels: 2 }], terms: [] } };
+    const r = buildRoll(sheet, request, fixed(10));
+    expect(r).toMatchObject({ total: 13, mode: 'normal', dice: [10], expression: '1d20 + 3(Luck)', effectsUsed: [] });
+    expect(r.terms).toEqual([{ label: 'Luck', value: 3 }]);
   });
 });
 

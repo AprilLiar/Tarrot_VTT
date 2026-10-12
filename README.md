@@ -185,6 +185,10 @@ The Zodiac and Tarrot card magic system is a placeholder for now; details come l
   is the modifier it adds to rolls.
 - Spirit replaces DC20's Charisma. Luck is a plain stat: it has no Save, no X Defence and no
   Skills. It can be rolled as an Attribute Roll and Arcane abilities may reference it.
+- **A Luck roll is always pure (decided):** d20 plus the Luck stat and nothing else. Statuses, Effects, Advantage or
+  Disadvantage, a custom modifier and Help Dice never change it, and it never spends a Help Die or an Effect use. The
+  Luck button has no roll options (any press rolls at once) and does not ask for Help Dice. `planRoll` returns the pure
+  plan for it, so the server and the preview agree.
 - No class, ancestry or background.
 - **Experience Modifier:** replaces DC20's Combat Modifier. Range 1-10, hand-entered, can be
   improved at any time.
@@ -806,7 +810,8 @@ Decided:
   targets (see Targets), then taps **Attack**, which opens the character's **Arcane tab** (the old
   Mastery / Defence / AP dialog is gone: those choices are now part of the weapon). There the attack
   is drafted and rolled with the footer's **Done** button (see Arcane tab). **AP is checked:** the Attack
-  button is greyed out with no AP or no target, Done is greyed out when the AP cost of the weapon and its
+  button is greyed out with no AP or no target (the only text under it is "No AP left to attack."; there is no
+  "select a target" hint, so choosing a target never shifts the layout), Done is greyed out when the AP cost of the weapon and its
   Enhancements is more than the character has (the server refuses it too). The server rolls it (d20 + the
   Prime stat + Experience Modifier for basic weapons, plus status effects, Advantage and the Dice Roll
   Bonuses) and posts the roll in the chat; a **confirm card** pops up on the GM's screen (desktop or phone).
@@ -1016,10 +1021,11 @@ roll when Done is pressed, before the attack; its band's effects then apply to t
   learned it: full colour, usable in attacks).
 
 **Manifest tab.** Background in the Manifest colour; players can only read and choose. Two sub-sections:
-- **Tarot Cards:** the character's cards (name, effect text); the current card has a golden frame; only
-  one is chosen, and a **Swap Card** button changes it at any time. Text only for now (no mechanics).
+- **Tarot Cards:** the character's cards (name, effect text); the selected card has a golden frame. **Tap a
+  card to select it; tap the selected card to unselect it; a tap on another card while one is selected does nothing**
+  (at most one is selected, nothing is selected at first). Text only for now (no mechanics).
   Cards are created inside a character only by the GM; only the GM sees **Transfer** (moves a card to
-  another character).
+  another character) and the **hide** toggle (see Tarot star).
 - **Manifestations:** granted by gods, created only by the GM (text and description). A Manifestation
   is configured as a Weapon or as an Enhancement with all the rules above.
 
@@ -1108,7 +1114,9 @@ Stones, Spell Combinations, Spell Fine Tuning.
 - **Table:** six bands: Less than 10, 10-14, 15-19, 20-24, 25-29, 30 or more. Each holds an effect: roll bonus,
   Advantage, Range, extra Damage, statuses (added to targets that are hit), Dice Roll Bonuses and Unique Effects, like an
   Enhancement. A band can be "-": the band above still applies, drawn as one merged cell. A base Stance starts with a
-  cumulative +1 roll bonus per band (+1 to +6); the GM edits every table.
+  cumulative +1 roll bonus per band (+1 to +6); the GM edits every table. In a band's cell a Unique Effect's **name** is
+  listed once, with the other pieces of the band, and under them only its **text** is shown (the name is not repeated
+  before the text).
 - **Cost (decided):** every Stance has its own **Cost**, set by the GM **per unique Stance** (a base Stance and each
   variation separately), never for a whole Zodiac. It is the same pool as an Enhancement's cost: **AP**, **damage taken**
   by the user, **statuses gained** by the user (an item cost is not offered, because a Stance is global and an item belongs
@@ -1123,10 +1131,20 @@ Stones, Spell Combinations, Spell Fine Tuning.
 **How the Manifest tab is built (answers and my defaults):**
 - **Look:** a gold background. Two sub-sections, **Tarot Cards** and **Manifestations**. Nothing is editable by a
   player: they read and make the choices below; the GM makes everything.
-- **Tarot Cards:** the character's cards with name and effect text; the active card has a golden frame and glow; only
-  one is active (the first card added becomes active). **Swap Card** (a dialog listing the cards) changes it, for the
-  player too and at any time; a card has no mechanics yet (text only). Only the GM adds, edits, deletes and sees
-  **Transfer** (moves a card to another character; the receiver gets it as a new card, active if it has none).
+- **Tarot Cards:** the character's cards with name and effect text; the selected card has a golden frame and glow. A
+  tap on a card selects it, a tap on the selected one unselects it, a tap on another one while one is selected does
+  nothing (decided); the player may do this too and at any time (unless the Tarot Cards tile is locked). A new or
+  transferred card is never selected by itself. **Swap Card** is gone. A card has no mechanics yet (text only). Only the
+  GM adds, edits, deletes and sees **Transfer** (moves a card to another character; the receiver gets it as a new,
+  unselected card) and the **hide** toggle. Transferring or deleting the selected card leaves nothing selected.
+- **Tarot star (decided):** a character with a **selected** card has a **gold star** next to its name on the maps (the
+  Scene figure's name plaque and the Battle token's name), on the GM's, the players' and the Display's screens. A tap on
+  the star opens a dialog with the card (its name and text), shown to whoever tapped. The star never starts a drag
+  or opens a token menu. The card's text is never put in the stage: the dialog asks the server (`tarot:peek`).
+- **Hiding a card (decided):** the GM can turn on **Hide this card from the other players** for each card of each
+  character (a "Hidden" badge shows for the GM). A hidden selected card is shown only to the GM and the owner (the
+  player of that character); everyone else, the Display included, who taps the star sees "This character has an
+  unknown Tarot Card". A locked Tarot Cards tile also shows as unknown to everyone but the GM.
 - **Manifestations:** a name, a description and an effect that is a **Weapon or an Enhancement**, set up exactly like a
   spell's. A Manifestation weapon rolls the **Manifest Mastery** (d20 + Manifest + Experience Modifier); a Manifestation
   Enhancement joins any attack. They have no uses or durability of their own (decided): only what their Weapon or
@@ -1146,7 +1164,7 @@ Stones, Spell Combinations, Spell Fine Tuning.
 - **Enforced by the server too (decided):** the data sent to players leaves out what is locked (the sheet's stones,
   drafts, spells, Tarot Cards and Manifestations, and a locked Zodiac's Stances), and a player's actions on locked
   things are refused with `locked`: attacks with a locked spell, Manifestation or Stance, crafting, changing stones,
-  drafts or spells, swapping the Tarot Card. The GM is never held back. Changing a lock re-sends the players' sheets.
+  drafts or spells, selecting a Tarot Card. The GM is never held back. Changing a lock re-sends the players' sheets.
 
 **Build order (four PRs, each playtestable):** (1) General tab and the footer attack flow (weapon toggle,
 Unarmed Attack, Enhancements, range check, Stance-less attack from the footer, replaces the sheet's
@@ -1184,7 +1202,7 @@ Implemented:
   `enhancements` (the character's own, see Arcane tab), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
   (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes` (rune ids, at most 99, see `shared/runes.js`; Spell Stone runes are `stone_<sign>`)), `spells`
   (`id, name, description, draftId, runes, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
-  tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description }], active }`), `manifestations` (`id, name,
+  tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description, hidden }], active }`, `active` = the selected card's id or null), `manifestations` (`id, name,
   description, effect` like a spell's), `resistances`
   (per damage type), `statuses` (key to stacks), `effects` (running Effects: `id, defId, name, description, icon, duration, rounds?, uses { current, max } | null, parts, source`) and
   `effectDefs` (the character's own Effect library: `id, name, description, icon, duration, uses, parts`). Every read and write passes through
@@ -1331,7 +1349,10 @@ Battle (Phase 5a):
   `stones`, `combinations`, `fine_tuning`, `tarot`, `manifestations`, `stances:<sign>`. Stored in the table
   `arcane_locks`. Error code `locked`.
 - Manifest (GM only unless noted; `characterId` is the character): `tarot:add` `{ card }`, `tarot:update` `{ id, card }`,
-  `tarot:remove` `{ id }`, `tarot:swap` `{ id }` (the owner may too), `tarot:transfer` `{ fromId, toId, id }`,
+  `tarot:remove` `{ id }`, `tarot:select` `{ id }` (the owner may too, unless the Tarot is locked: selects the card, unselects it if it is the
+  selected one, and does nothing while another card is selected), `tarot:peek` `{ characterId }` (anyone with an identity; replies
+  `{ name, card: { name, description } | null, hidden }`: `hidden` is true when the card is hidden from the asker or the Tarot is locked
+  for a non-GM), `tarot:transfer` `{ fromId, toId, id }`,
   `manifestation:add` `{ manifestation }`, `manifestation:update` `{ id, manifestation }`, `manifestation:remove` `{ id }`.
 - Stances: `stance:list` returns `{ vibes, stances }` (the GM gets every Stance with its `learned` list; a player only
   those their character knows or has learned, each with `usable`, and no `learned` list). GM only: `stance:save`
@@ -1346,7 +1367,8 @@ Battle (Phase 5a):
   `{ characterId, id }` (by hand). The character's own library is edited with `sheet:list` `{ list: 'effectDefs', action, id?, effect? }`.
   A weapon, an Enhancement's `effect`, a band's `effect` and `spontaneous:do`'s `effects.effect` `{ id, to }` carry references to Effects; the
   pending attack has `effectGrants: [{ def, to }]`, `critThreshold` and the damage already changed by the attacker's Effects; tokens in the
-  stage carry `statuses: [{ key, stacks }]` and `effects: [{ id, name, icon }]` for their icons (the stage is sent again when they change).
+  stage carry `statuses: [{ key, stacks }]` and `effects: [{ id, name, icon }]` for their icons, and `tarot: true` when the character has a
+  selected Tarot Card (for the gold star; the stage is sent again when they change).
 - Basic Actions: `basic:list` returns `{ actions }` (`basic:actions` is sent again after every change), GM only `basic:save` `{ id?, action }` and
   `basic:delete` `{ id }`; `basic:use` `{ characterId, actionId }` (the GM, or the player of the character) does the action at once.
 - Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value }, effect?: { id, to } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.

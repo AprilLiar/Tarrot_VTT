@@ -89,8 +89,9 @@ function useCoarsePointer() {
 
 // On a touch screen a tap always opens the roll dialog (long-press was not
 // reliable on iOS). With a mouse a click rolls at once and a right-click opens
-// the dialog, which previews the exact formula (`sheet`, `kind` and `rkey` say what is being rolled).
-export function RollButton({ label, title = label, onRoll, sheet, kind, rkey, className = '', testId, disabled }) {
+// the dialog, which previews the exact formula (`sheet`, `kind` and `rkey` say what is being rolled). A `pure` roll (Luck) has no
+// options at all: any press rolls at once.
+export function RollButton({ label, title = label, onRoll, sheet, kind, rkey, className = '', testId, disabled, pure = false }) {
   const [options, setOptions] = useState(false);
   const coarse = useCoarsePointer();
 
@@ -104,9 +105,9 @@ export function RollButton({ label, title = label, onRoll, sheet, kind, rkey, cl
         style={{ touchAction: 'manipulation', WebkitTouchCallout: 'none' }}
         onContextMenu={(e) => {
           e.preventDefault();
-          setOptions(true);
+          if (!pure) setOptions(true);
         }}
-        onClick={() => (coarse ? setOptions(true) : onRoll({}))}
+        onClick={() => (coarse && !pure ? setOptions(true) : onRoll({}))}
       >
         {label}
       </button>

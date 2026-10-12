@@ -1,5 +1,6 @@
 import { AppError } from './errors.js';
 import { membersOf } from '../shared/templates.js';
+import { hasSelectedCard } from '../shared/manifest.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
@@ -102,6 +103,8 @@ function toToken(r, targets) {
     height: Number(r.height ?? 0),
     statuses: isChar ? tokenStatuses(r.csheet) : [],
     effects: isChar ? tokenEffects(r.csheet) : [],
+    // A selected Tarot Card: a gold star beside the name (what the card says is asked for with `tarot:peek`).
+    tarot: isChar ? hasSelectedCard(r.csheet) : false,
     // Characters that currently have this token targeted (set from the remote).
     targetedBy: targets ? [...targets.entries()].filter(([, set]) => set.has(Number(r.id))).map(([who]) => who) : [],
   };

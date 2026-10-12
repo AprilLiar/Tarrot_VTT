@@ -563,9 +563,9 @@ test('targets can be selected many at once and deselected; attacks are blocked w
   await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
   await expect(p.getByTestId('remote-ap')).toHaveAttribute('data-current', '4');
 
-  // No target yet: the Attack button is greyed out and says why.
+  // No target yet: the Attack button is greyed out (and no hint appears, so selecting something shifts nothing).
   await expect(p.getByTestId('attack-open')).toBeDisabled();
-  await expect(p.getByTestId('attack-blocked')).toContainText('Select a target');
+  await expect(p.getByTestId('attack-blocked')).toHaveCount(0);
 
   const option = (name) => p.getByTestId('target-option').filter({ hasText: name });
   await option(wolf).click();
@@ -866,6 +866,65 @@ test('areas From Token: locked to the token pressed on, its self is left out unl
   await gm.mouse.up();
   await expect.poll(async () => (await named.boundingBox()).y).toBeGreaterThan(before.y + step);
 
+  await gmCtx.close();
+});
+
+test('a character with a selected Tarot Card has a gold star on the map; the star opens the card, or says it is unknown when the GM hid it', async ({ browser }) => {
+  const pc = `Seer-${uid()}`;
+  const card = `Star-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await battleScene(gm, `Fate-${uid()}`);
+  await placeToken(gm, pc);
+  await expect(token(gm, pc).getByTestId('tarot-star')).toHaveCount(0);
+
+  // The GM gives the character a card and selects it: the star appears.
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: pc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await gm.getByTestId('view-arcane').click();
+  await gm.getByTestId('arcane-tab-manifest').click();
+  await gm.getByTestId('tarot-add').click();
+  await gm.getByTestId('tarot-name').fill(card);
+  await gm.getByTestId('tarot-text').fill('A new road.');
+  await gm.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(gm.getByTestId('tarot-card').filter({ hasText: card })).toHaveAttribute('data-active', 'false');
+  await gm.getByTestId('nav-scene').click();
+  await expect(token(gm, pc).getByTestId('tarot-star')).toHaveCount(0); // a card that is not selected shows nothing
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: pc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await gm.getByTestId('view-arcane').click();
+  await gm.getByTestId('arcane-tab-manifest').click();
+  await gm.getByTestId('tarot-card').filter({ hasText: card }).getByTestId('tarot-tap').click();
+  await gm.getByTestId('nav-scene').click();
+  await expect(token(gm, pc).getByTestId('tarot-star')).toHaveCount(1);
+
+  // The Display taps the star: the card is shown.
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await token(tv, pc).getByTestId('tarot-star').click();
+  await expect(tv.getByTestId('tarot-info-name')).toHaveText(card);
+  await tv.getByTestId('tarot-info-close').click();
+  await expect(tv.getByTestId('tarot-info')).toHaveCount(0);
+
+  // The GM hides the card: the Display is only told it is unknown, the GM still sees it.
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: pc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await gm.getByTestId('view-arcane').click();
+  await gm.getByTestId('arcane-tab-manifest').click();
+  await gm.getByTestId('tarot-card').filter({ hasText: card }).getByTestId('tarot-hide').click();
+  await expect(gm.getByTestId('tarot-card').filter({ hasText: card })).toHaveAttribute('data-hidden', 'true');
+  await token(tv, pc).getByTestId('tarot-star').click();
+  await expect(tv.getByTestId('tarot-info-hidden')).toHaveText('This character has an unknown Tarot Card');
+  await tv.getByTestId('tarot-info-close').click();
+  await gm.getByTestId('nav-scene').click();
+  await token(gm, pc).getByTestId('tarot-star').click();
+  await expect(gm.getByTestId('tarot-info-name')).toHaveText(card);
+
+  await tvCtx.close();
   await gmCtx.close();
 });
 

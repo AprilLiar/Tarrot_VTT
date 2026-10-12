@@ -166,21 +166,21 @@ describe('spending Help Dice', () => {
 
   it('the chosen dice are rolled as bonuses and used up; no choice uses none', async () => {
     const ctx = await withDice([6, 4, 10]);
-    const r = await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'luck', help: [0, 2] });
+    const r = await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'strength', help: [0, 2] });
     expect(r.ok).toBe(true);
     const labels = r.message.roll.terms.map((t) => t.label);
     expect(labels).toContain('Help Die (d6)');
     expect(labels).toContain('Help Die (d10)');
     expect(labels).not.toContain('Help Die (d4)');
     expect((await sheetOf(ctx.p, ctx.a)).helpDice).toEqual([4]);
-    expect((await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'luck', help: [] })).ok).toBe(true);
+    expect((await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'strength', help: [] })).ok).toBe(true);
     expect((await sheetOf(ctx.p, ctx.a)).helpDice).toEqual([4]);
   });
 
   it('refuses dice that are not there, or a die chosen twice, and uses nothing then', async () => {
     const ctx = await withDice([6]);
-    expect(await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'luck', help: [1] })).toMatchObject({ ok: false, code: 'bad_value' });
-    expect(await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'luck', help: [0, 0] })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'strength', help: [1] })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await ctx.p.call('roll:make', { characterId: ctx.a, kind: 'attribute', key: 'strength', help: [0, 0] })).toMatchObject({ ok: false, code: 'bad_value' });
     expect((await sheetOf(ctx.p, ctx.a)).helpDice).toEqual([6]);
   });
 

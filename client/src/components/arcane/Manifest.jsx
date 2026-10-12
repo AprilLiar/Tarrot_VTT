@@ -44,13 +44,21 @@ export default function Manifest({ s, draft, setDraft }) {
 
 // ---- Tarot Cards -----------------------------------------------------------------------------------------
 
+// Cards: a tap selects one (golden frame), a tap on the selected one unselects it, and a tap on another card while one is selected does
+// nothing. A character with a selected card gets a gold star beside its name on the maps. The GM can hide a card from the other players.
 function Tarot({ s }) {
   const t = useT();
   const { identity, toast } = useApp();
   const gm = identity.role === 'gm';
   const { cards, active } = s.sheet.tarot;
-  const [dialog, setDialog] = useState(null); // { swap } | { edit: card | null } | { transfer: card } | { remove: card }
+  const [dialog, setDialog] = useState(null); // { edit: card | null } | { transfer: card } | { remove: card }
   const send = (event, payload) => call(event, { characterId: s.characterId, ...payload });
+
+  async function tap(c) {
+    if (active != null && active !== c.id) return; // another card is selected: nothing happens
+    const r = await send('tarot:select', { id: c.id });
+    if (!r.ok) toast(r.error);
+  }
 
   return (
     <section aria-label={t('Tarot Cards')} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -64,13 +72,22 @@ function Tarot({ s }) {
           data-testid="tarot-card"
           data-name={c.name}
           data-active={active === c.id ? 'true' : 'false'}
+          data-hidden={c.hidden ? 'true' : 'false'}
         >
-          <div className="font-medium">{c.name}</div>
-          {c.description && <p className="whitespace-pre-wrap text-sm opacity-80">{c.description}</p>}
+          <button type="button" className="block w-full text-left" aria-pressed={active === c.id} data-testid="tarot-tap" onClick={() => tap(c)}>
+            <div className="font-medium">
+              {c.name}
+              {gm && c.hidden && <span className="ml-2 rounded bg-white/10 px-1.5 text-xs opacity-80">{t('Hidden')}</span>}
+            </div>
+            {c.description && <p className="whitespace-pre-wrap text-sm opacity-80">{c.description}</p>}
+          </button>
           {gm && (
             <div className="mt-2 flex flex-wrap gap-2">
               <button className={btn} data-testid="tarot-edit" onClick={() => setDialog({ edit: c })}>
                 {t('Edit')}
+              </button>
+              <button className={`${btn} ${c.hidden ? 'ring-2 ring-yellow-400' : ''}`} aria-pressed={c.hidden} data-testid="tarot-hide" title={t('Hide this card from the other players')} onClick={() => send('tarot:update', { id: c.id, card: { ...c, hidden: !c.hidden } })}>
+                {c.hidden ? t('Show') : t('Hide')}
               </button>
               <button className={btn} data-testid="tarot-transfer" onClick={() => setDialog({ transfer: c })}>
                 {t('Transfer')}
@@ -82,43 +99,12 @@ function Tarot({ s }) {
           )}
         </div>
       ))}
-      <div className="col-span-full flex flex-wrap gap-2">
-        {cards.length > 1 && (
-          <button className={btnPrimary} data-testid="tarot-swap" onClick={() => setDialog({ swap: true })}>
-            {t('Swap Card')}
-          </button>
-        )}
-        {gm && (
+      {gm && (
+        <div className="col-span-full flex flex-wrap gap-2">
           <button className={btn} data-testid="tarot-add" onClick={() => setDialog({ edit: null })}>
             {t('Add Tarot Card')}
           </button>
-        )}
-      </div>
-
-      {dialog?.swap && (
-        <FormDialog title={t('Swap Card')} submitLabel={t('Close')} onClose={() => setDialog(null)} run={async () => ({ ok: true })}>
-          <p className="text-sm opacity-70">{t('Choose the card that becomes active.')}</p>
-          <div className="flex flex-col gap-2" role="radiogroup" aria-label={t('Tarot Cards')}>
-            {cards.map((c) => (
-              <button
-                type="button"
-                key={c.id}
-                role="radio"
-                aria-checked={active === c.id}
-                data-testid="tarot-choose"
-                data-name={c.name}
-                className={`${btn} text-left ${active === c.id ? 'ring-2 ring-yellow-400' : ''}`}
-                onClick={async () => {
-                  const r = await send('tarot:swap', { id: c.id });
-                  if (!r.ok) toast(r.error);
-                  else setDialog(null);
-                }}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </FormDialog>
+        </div>
       )}
       {dialog && 'edit' in dialog && <CardDialog card={dialog.edit} onClose={() => setDialog(null)} onSave={(body) => (dialog.edit ? send('tarot:update', { id: dialog.edit.id, card: body }) : send('tarot:add', { card: body }))} />}
       {dialog?.transfer && <TransferDialog s={s} card={dialog.transfer} onClose={() => setDialog(null)} />}
@@ -135,8 +121,9 @@ function CardDialog({ card: existing, onClose, onSave }) {
   const t = useT();
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
+  const [hidden, setHidden] = useState(existing?.hidden ?? false);
   return (
-    <FormDialog title={existing ? t('Edit Tarot Card') : t('Add Tarot Card')} submitLabel={existing ? t('Save') : t('Add')} onClose={onClose} canSubmit={name.trim().length > 0} run={() => onSave({ name: name.trim(), description })}>
+    <FormDialog title={existing ? t('Edit Tarot Card') : t('Add Tarot Card')} submitLabel={existing ? t('Save') : t('Add')} onClose={onClose} canSubmit={name.trim().length > 0} run={() => onSave({ name: name.trim(), description, hidden })}>
       <label className={label}>
         {t('Name')}
         <input className={input} data-testid="tarot-name" value={name} maxLength={D.NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} />
@@ -144,6 +131,10 @@ function CardDialog({ card: existing, onClose, onSave }) {
       <label className={label}>
         {t('Effect')}
         <textarea className={`${input} min-h-24`} data-testid="tarot-text" value={description} maxLength={D.TEXT_MAX} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+      <label className="flex min-h-10 items-center gap-2 text-sm">
+        <input type="checkbox" className="h-5 w-5" data-testid="tarot-hidden" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+        {t('Hide this card from the other players (they only see that the character has an unknown card)')}
       </label>
     </FormDialog>
   );

@@ -14,7 +14,21 @@ export function normalizeCard(raw, id) {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX).trim() || 'Card',
     description: text(r.description, D.TEXT_MAX),
+    // The GM can hide the card from every player but its owner: the others are told only that the character has an unknown card.
+    hidden: r.hidden === true,
   };
+}
+
+// The card a character has selected, or null.
+export const selectedCard = (tarot) => tarot?.cards?.find((c) => c.id === tarot.active) ?? null;
+
+// Whether a stored sheet (JSON text) has a card selected: the gold star beside the character's name on the maps.
+export function hasSelectedCard(sheetJson) {
+  try {
+    return selectedCard(JSON.parse(sheetJson ?? '{}').tarot) != null;
+  } catch {
+    return false;
+  }
 }
 
 // { cards: [{ id, name, description }], active: cardId | null }

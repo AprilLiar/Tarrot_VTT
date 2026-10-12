@@ -154,9 +154,9 @@ export function BattleRemote({ s, onAttack }) {
         >
           {t('Attack')}
         </button>
-        {(s.sheet.ap.current < 1 || targets.length === 0) && (
+        {s.sheet.ap.current < 1 && (
           <p className="mt-1 text-center text-xs opacity-60" data-testid="attack-blocked">
-            {s.sheet.ap.current < 1 ? t('No AP left to attack.') : t('Select a target below first.')}
+            {t('No AP left to attack.')}
           </p>
         )}
 

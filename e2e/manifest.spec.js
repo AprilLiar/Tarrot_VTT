@@ -39,20 +39,29 @@ test('Manifest: the GM makes Tarot Cards and a Manifestation; the player swaps t
   await gm.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
   await expect(gm.getByTestId('manifestation').filter({ hasText: gift })).toBeVisible();
 
-  // The player: the first card is active (golden), Swap Card changes it, the gift can be the weapon.
+  // The player: nothing is selected at first; a tap selects a card (golden), a tap on another one does nothing, a tap on the selected one unselects it.
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const p = await ctx.newPage();
   await p.goto('/');
   await p.getByTestId('pick-pc').filter({ hasText: name }).click();
   await p.getByTestId('view-arcane').click();
   await p.getByTestId('arcane-tab-manifest').click();
-  await expect(p.getByTestId('tarot-card').filter({ hasText: fool })).toHaveAttribute('data-active', 'true');
+  const cardOf = (who, text) => who.getByTestId('tarot-card').filter({ hasText: text });
+  await expect(cardOf(p, fool)).toHaveAttribute('data-active', 'false');
   await expect(p.getByTestId('tarot-add')).toHaveCount(0); // players cannot make cards
   await expect(p.getByTestId('tarot-transfer')).toHaveCount(0);
-  await p.getByTestId('tarot-swap').click();
-  await p.getByTestId('tarot-choose').filter({ hasText: tower }).click();
-  await expect(p.getByTestId('tarot-card').filter({ hasText: tower })).toHaveAttribute('data-active', 'true');
-  await expect(p.getByTestId('tarot-card').filter({ hasText: fool })).toHaveAttribute('data-active', 'false');
+  await expect(p.getByTestId('tarot-hide')).toHaveCount(0);
+  await expect(p.getByTestId('tarot-swap')).toHaveCount(0);
+  await cardOf(p, fool).getByTestId('tarot-tap').click();
+  await expect(cardOf(p, fool)).toHaveAttribute('data-active', 'true');
+  await cardOf(p, tower).getByTestId('tarot-tap').click(); // another card is selected: nothing happens
+  await expect(cardOf(p, tower)).toHaveAttribute('data-active', 'false');
+  await expect(cardOf(p, fool)).toHaveAttribute('data-active', 'true');
+  await cardOf(p, fool).getByTestId('tarot-tap').click(); // a tap on the selected card unselects it
+  await expect(cardOf(p, fool)).toHaveAttribute('data-active', 'false');
+  await cardOf(p, tower).getByTestId('tarot-tap').click();
+  await expect(cardOf(p, tower)).toHaveAttribute('data-active', 'true');
+  await expect(cardOf(p, fool)).toHaveAttribute('data-active', 'false');
   await p.getByTestId('manifest-manifestations').click();
   await expect(p.getByTestId('manifestation-add')).toHaveCount(0);
   await p.getByTestId('manifestation').filter({ hasText: gift }).getByTestId('manifestation-use').click();

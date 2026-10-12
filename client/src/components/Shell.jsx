@@ -3,6 +3,7 @@ import { useApp } from '../AppContext.jsx';
 import { useIsDesktop } from '../lib/useMedia.js';
 import { Initial } from './Picker.jsx';
 import ChatPanel from './ChatPanel.jsx';
+import { TarotInfo } from './TarotStar.jsx';
 import { AttackInbox } from './AttackCard.jsx';
 import { SaveInbox } from './SavePrompt.jsx';
 import MusicBar from '../music/MusicBar.jsx';
@@ -98,6 +99,7 @@ export default function Shell({ children }) {
       )}
 
       <ChatPanel />
+      <TarotInfo />
       {isGm && <AttackInbox />}
       <SaveInbox />
 
