@@ -96,7 +96,8 @@ export default function SheetPage({ characterId }) {
   const askHelp = helpPrompt.ask;
   const roll = useCallback(
     async (kind, key, opts = {}) => {
-      const help = await askHelp();
+      // Luck is a pure roll: no Help Dice are offered.
+      const help = kind === 'attribute' && key === 'luck' ? [] : await askHelp();
       if (help === null) return; // cancelled: no roll
       const r = await call('roll:make', { characterId, kind, key, ...opts, help });
       if (r.ok) setChatOpen(true);
@@ -299,6 +300,7 @@ function Stats({ s }) {
                   testId={`roll-attr-${stat}`}
                   className="min-h-9 w-1/2"
                   sheet={sheet} kind="attribute" rkey={stat}
+                  pure={stat === 'luck'}
                   onRoll={(o) => roll('attribute', stat, o)}
                 />
                 {hasSave ? (

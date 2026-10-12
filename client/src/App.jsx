@@ -5,6 +5,7 @@ import Picker from './components/Picker.jsx';
 import Settings from './components/Settings.jsx';
 import { useT } from './i18n.jsx';
 import Shell from './components/Shell.jsx';
+import { TarotInfo } from './components/TarotStar.jsx';
 import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
 import ScenePage from './components/scene/ScenePage.jsx';
@@ -48,6 +49,7 @@ function Screen() {
     return (
       <div className="h-[100dvh]">
         <ScenePage chrome={false} onExit={switchIdentity} />
+        <TarotInfo />
         {/* Top right, and see-through everywhere else so it never blocks the scene. */}
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-end p-2">
           <MusicBar />

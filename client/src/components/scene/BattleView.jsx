@@ -13,6 +13,7 @@ import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
 import { TokenStatuses } from './StatusIcon.jsx';
+import { TarotStar } from '../TarotStar.jsx';
 import { areaName } from '../../lib/areaName.js';
 import { membersOf } from '../../../../shared/templates.js';
 
@@ -698,7 +699,8 @@ export default function BattleView() {
                   className="pointer-events-none absolute left-1/2 top-full mt-px -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 text-white"
                   style={{ fontSize: `calc(var(--map-w) * ${unit * 0.32})` }}
                 >
-                  {tk.name}
+                  <span>{tk.name}</span>
+                  {tk.tarot && tk.ownerKind === 'character' && <TarotStar characterId={tk.ownerId} />}
                 </div>
               </div>
             ))}

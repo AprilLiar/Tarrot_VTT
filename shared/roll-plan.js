@@ -36,6 +36,12 @@ export function planRoll(sheet, request) {
     return fail('The custom modifier must be a whole number from -99 to 99.');
   }
 
+  // A Luck roll is always a pure d20 plus the Luck stat: no status, Effect, Help Die, Advantage, custom modifier or anything else touches it.
+  if (kind === 'attribute' && key === 'luck') {
+    const luck = [{ label: D.STAT_LABELS.luck, value: sheet.stats.luck }];
+    return { ok: true, title: `${D.STAT_LABELS.luck} Attribute Roll`, terms: luck, sources: [], net: 0, mode: 'normal', diceCount: 1, bonusDice: [], used: [], expression: formatExpression(luck) };
+  }
+
   let title;
   const terms = [];
 

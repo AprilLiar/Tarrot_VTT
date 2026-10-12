@@ -261,11 +261,13 @@ function BandTable({ table }) {
                 {k === 0 && (
                   <td className="border-l border-white/10 py-1 pl-2 align-middle" rowSpan={g.span} data-testid="band-effect" data-span={g.span}>
                     {parts.length ? parts.join('; ') : <span className="opacity-50">{t('No effect')}</span>}
-                    {g.effect.unique.map((u, j) => (
-                      <div key={j} className="mt-1 text-xs opacity-70">
-                        {u.name}: {u.text}
-                      </div>
-                    ))}
+                    {g.effect.unique.map((u, j) =>
+                      u.text ? (
+                        <div key={j} className="mt-1 text-xs opacity-70">
+                          {u.text}
+                        </div>
+                      ) : null,
+                    )}
                   </td>
                 )}
               </tr>

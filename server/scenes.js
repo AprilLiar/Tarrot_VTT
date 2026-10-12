@@ -2,6 +2,7 @@ import { AppError } from './errors.js';
 import { cleanName } from './roster.js';
 import { makeFolders } from './folders.js';
 import { deleteImageIfUnused } from './images.js';
+import { hasSelectedCard } from '../shared/manifest.js';
 
 // Scenes, the stage (who is summoned onto the active scene), temp NPCs and
 // character pictures. Pictures are one collection per character or temp NPC,
@@ -375,7 +376,7 @@ export async function buildStage(db, { forGm }) {
   if (!scene) return { scene: null, summons: [] };
   const r = await db.execute({
     sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.scale, s.hidden, s.pos_x, s.pos_y,
-                 c.name AS cname, c.type AS ctype, t.name AS tname, p.image_id AS image_id
+                 c.name AS cname, c.type AS ctype, c.sheet AS csheet, t.name AS tname, p.image_id AS image_id
           FROM stage_summons s
           LEFT JOIN characters c ON c.id = s.character_id
           LEFT JOIN temp_npcs t ON t.id = s.temp_npc_id
@@ -403,6 +404,7 @@ export async function buildStage(db, { forGm }) {
       imageId: row.image_id ?? null,
       scale: Number(row.scale),
       hidden: Number(row.hidden) === 1,
+      tarot: row.character_id != null && hasSelectedCard(row.csheet),
     }))
     .filter((s) => forGm || !s.hidden);
   return { scene: { id: scene.id, name: scene.name, imageId: scene.imageId }, summons };

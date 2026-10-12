@@ -100,6 +100,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Automatic | Автоматически |
 | Manual | Вручную |
 | {save} Save, DC | {save}, Сл |
+| Tarot Card | Карта Таро |
+| {name}: Tarot Card | {name}: карта Таро |
+| This character has an unknown Tarot Card | У этого персонажа неизвестная карта Таро |
+| This character has no Tarot Card selected. | У этого персонажа не выбрана карта Таро. |
 | Locking mode | Режим блокировки |
 | Locking mode: tap an open tab again to lock it, and tap a part to lock it. Players see a blur where something is locked; you see everything. | Режим блокировки: коснитесь открытой вкладки ещё раз, чтобы заблокировать её, и коснитесь части, чтобы заблокировать её. Игроки видят размытие на месте заблокированного; вы видите всё. |
 | Open a character's Arcane tab to work with its Magic. Here you can lock its parts for the players. | Откройте вкладку Аркана персонажа, чтобы работать с его Магией. Здесь можно заблокировать её части для игроков. |
@@ -210,14 +214,17 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stabilization | Стабилизация |
 | Manifest | Проявление |
 | No Tarot Cards yet. | Карт Таро пока нет. |
+| Hidden | Скрыт |
+| Hide this card from the other players | Скрыть эту карту от остальных игроков |
+| Show | Показать |
+| Hide | Скрыть |
 | Transfer | Передать |
-| Swap Card | Сменить карту |
 | Add Tarot Card | Добавить карту Таро |
-| Choose the card that becomes active. | Выберите карту, которая станет активной. |
 | Delete Tarot Card | Удалить карту Таро |
 | Edit Tarot Card | Изменить карту Таро |
 | Add | Добавить |
 | Effect | Эффект |
+| Hide this card from the other players (they only see that the character has an unknown card) | Скрыть эту карту от остальных игроков (они увидят только, что у персонажа неизвестная карта) |
 | Transfer {name} | Передать: {name} |
 | Nobody to send it to. | Некому отправить. |
 | Send to | Отправить кому |
@@ -455,7 +462,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Move {dir} | Шаг: {dir} |
 | Free Movement (does not spend Movement or AP) | Свободное перемещение (не тратит движение и ОД) |
 | No AP left to attack. | Не осталось ОД для атаки. |
-| Select a target below first. | Сначала выберите цель ниже. |
 | Spend AP to move? | Потратить ОД на движение? |
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
 | Yes | Да |
@@ -666,7 +672,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Click a drawing or an area to remove it. | Щёлкните по рисунку или области, чтобы убрать их. |
 | Token Settings | Настройки фишки |
 | Reveal | Показать |
-| Hide | Скрыть |
 | Set Height | Высота |
 | Start combat | Начать бой |
 | Round {n} | Раунд {n} |
@@ -914,7 +919,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Immobilized, Disadvantage on Dexterity Saves. Escape with a Body Movement roll against the grappler's Weight Manipulation, 1 AP. | Обездвижен, помеха на спасброски Ловкости. Вырваться можно проверкой движения тела против управления весом схватившего, 1 ОД. |
 | Half Cover | Половинное укрытие |
 | All Attacks and Spell Checks against you have -2. | Все атаки и проверки заклинаний против вас получают -2. |
-| Hidden | Скрыт |
 | Unseen and Unheard. Attackers have Disadvantage; you have Advantage on attacks. | Не виден и не слышен. Атакующие с помехой; ваши атаки с преимуществом. |
 | Hindered | Затруднён |
 | Disadvantage X on attacks. | Помеха X на атаки. |
@@ -1417,6 +1421,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Swap Card | Сменить карту |
+| Choose the card that becomes active. | Выберите карту, которая станет активной. |
+| Select a target below first. | Сначала выберите цель ниже. |
 | Areas (picking one targets everyone inside it) | Области (выбор области выбирает всех внутри неё) |
 | Using an action spends its AP and does what it says. Actions that aim at others use the selected targets. | Использование действия тратит его ОД и делает то, что в нём сказано. Действия, направленные на других, используют выбранные цели. |
 | One | Одна |

@@ -21,6 +21,7 @@ import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { tokenStatuses, tokenEffects } from './battle.js';
+import { hasSelectedCard } from '../shared/manifest.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
 import { createSaves, putStatus } from './saves.js';
@@ -76,8 +77,8 @@ export function registerHandlers(io, socket, db, shared) {
     // The statuses are shown on the character's token, so the stage is sent again when they change.
     const seen = (shared.statusSeen ??= new Map());
     const json = JSON.stringify(sheet);
-    const sig = JSON.stringify([tokenStatuses(json), tokenEffects(json)]);
-    const was = seen.get(characterId) ?? '[[],[]]';
+    const sig = JSON.stringify([tokenStatuses(json), tokenEffects(json), hasSelectedCard(json)]);
+    const was = seen.get(characterId) ?? '[[],[],false]';
     seen.set(characterId, sig);
     if (sig !== was) await stage.broadcast();
   };
@@ -326,9 +327,13 @@ export function registerHandlers(io, socket, db, shared) {
   on('roll:make', { needsIdentity: true }, async ({ characterId, kind, key, advantage, modifier, help }) => {
     const c = await requireControl(characterId);
     const sheet = await sheets.getSheet(db, c.id);
-    const roll = buildRoll(sheet, { kind, key, advantage, modifier, dice: helpDiceFor(sheet, help) });
-    await spendHelp(db, c.id, help, emitSheet);
-    await spendRollUses(db, c.id, roll, emitSheet);
+    // Luck is always a pure roll: no Help Dice, Advantage, modifier or Effect (shared/roll-plan.js).
+    const pure = kind === 'attribute' && key === 'luck';
+    const roll = buildRoll(sheet, { kind, key, advantage, modifier, dice: pure ? [] : helpDiceFor(sheet, help) });
+    if (!pure) {
+      await spendHelp(db, c.id, help, emitSheet);
+      await spendRollUses(db, c.id, roll, emitSheet);
+    }
     const message = chat.add({
       type: 'roll',
       author: await authorName(),
@@ -420,7 +425,7 @@ export function registerHandlers(io, socket, db, shared) {
   registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, saves, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
 
   registerSpellHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
-  registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm });
+  registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm, identity });
   registerLockHandlers({ io, db, on, emitSheet });
 
   registerStanceHandlers({ io, db, on, isGm, identity });

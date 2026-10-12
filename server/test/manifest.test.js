@@ -172,7 +172,7 @@ describe('locks', () => {
 });
 
 describe('Tarot Cards', () => {
-  it('only the GM makes them; the first is active and a player can swap', async () => {
+  it('only the GM makes them; a tap selects one, a tap on it unselects, another tap while one is selected does nothing', async () => {
     const { g, p, id } = await setup();
     expect(await p.call('tarot:add', { characterId: id, card: { name: 'X' } })).toMatchObject({ ok: false, code: 'forbidden' });
     expect(await g.call('tarot:add', { characterId: id, card: { name: ' ' } })).toMatchObject({ ok: false, code: 'bad_name' });
@@ -180,30 +180,54 @@ describe('Tarot Cards', () => {
     await g.call('tarot:add', { characterId: id, card: { name: 'Tower' } });
     let tarot = (await sheetOf(p, id)).tarot;
     expect(tarot.cards.map((c) => c.name)).toEqual(['Fool', 'Tower']);
-    expect(tarot.active).toBe(tarot.cards[0].id);
-    expect((await p.call('tarot:swap', { characterId: id, id: tarot.cards[1].id })).ok).toBe(true);
-    tarot = (await sheetOf(p, id)).tarot;
-    expect(tarot.active).toBe(tarot.cards[1].id);
-    expect(await p.call('tarot:swap', { characterId: id, id: 'nope' })).toMatchObject({ ok: false, code: 'not_found' });
+    expect(tarot.active).toBeNull(); // nothing is selected until somebody selects it
+    const [fool, tower] = tarot.cards;
+    const select = (who, card) => who.call('tarot:select', { characterId: id, id: card });
+    expect((await select(p, fool.id)).ok).toBe(true);
+    expect((await sheetOf(p, id)).tarot.active).toBe(fool.id);
+    expect((await select(p, tower.id)).ok).toBe(true); // nothing happens: another card is selected
+    expect((await sheetOf(p, id)).tarot.active).toBe(fool.id);
+    expect((await select(p, fool.id)).ok).toBe(true); // a tap on the selected card unselects it
+    expect((await sheetOf(p, id)).tarot.active).toBeNull();
+    expect((await select(p, tower.id)).ok).toBe(true);
+    expect((await sheetOf(p, id)).tarot.active).toBe(tower.id);
+    expect(await select(p, 'nope')).toMatchObject({ ok: false, code: 'not_found' });
     await g.call('lock:toggle', { key: 'tarot' });
-    expect(await p.call('tarot:swap', { characterId: id, id: tarot.cards[0].id })).toMatchObject({ ok: false, code: 'locked' });
+    expect(await select(p, tower.id)).toMatchObject({ ok: false, code: 'locked' });
   });
 
-  it('the GM transfers a card to another character, and deleting the active card clears it', async () => {
+  it('the GM transfers a card to another character, and deleting the selected card clears it', async () => {
     const { g, id } = await setup();
     const other = (await g.call('character:create', { name: 'Bram', type: 'npc' })).id;
     await g.call('tarot:add', { characterId: id, card: { name: 'Fool' } });
     await g.call('tarot:add', { characterId: id, card: { name: 'Tower' } });
     const [fool, tower] = (await sheetOf(g, id)).tarot.cards;
+    await g.call('tarot:select', { characterId: id, id: fool.id });
     expect((await g.call('tarot:transfer', { fromId: id, toId: id, id: fool.id })).ok).toBe(false);
     expect((await g.call('tarot:transfer', { fromId: id, toId: other, id: fool.id })).ok).toBe(true);
     expect((await sheetOf(g, id)).tarot).toMatchObject({ cards: [{ name: 'Tower' }], active: null });
-    expect((await sheetOf(g, other)).tarot.cards.map((c) => c.name)).toEqual(['Fool']);
+    expect((await sheetOf(g, other)).tarot).toMatchObject({ cards: [{ name: 'Fool' }], active: null }); // the receiver selects it themselves
     await g.call('tarot:update', { characterId: id, id: tower.id, card: { name: 'Star', description: 'Hope.' } });
     expect((await sheetOf(g, id)).tarot.cards[0]).toMatchObject({ name: 'Star', description: 'Hope.' });
-    await g.call('tarot:swap', { characterId: id, id: tower.id });
+    await g.call('tarot:select', { characterId: id, id: tower.id });
     await g.call('tarot:remove', { characterId: id, id: tower.id });
     expect((await sheetOf(g, id)).tarot).toEqual({ cards: [], active: null });
+  });
+
+  it('the selected card shows as a star on the maps; its text is asked for, and a hidden card is only given to the GM and the owner', async () => {
+    const { g, p, id } = await setup();
+    await g.call('tarot:add', { characterId: id, card: { name: 'Fool', description: 'A leap.' } });
+    const fool = (await sheetOf(g, id)).tarot.cards[0];
+    const other = await player((await g.call('character:create', { name: 'Eve', type: 'pc' })).id);
+    expect(await other.call('tarot:peek', { characterId: id })).toMatchObject({ card: null, hidden: false }); // nothing selected
+    await g.call('tarot:select', { characterId: id, id: fool.id });
+    expect((await other.call('tarot:peek', { characterId: id })).card).toEqual({ name: 'Fool', description: 'A leap.' });
+    // Hidden by the GM: every player but the owner is only told it is unknown.
+    await g.call('tarot:update', { characterId: id, id: fool.id, card: { name: 'Fool', description: 'A leap.', hidden: true } });
+    expect(await other.call('tarot:peek', { characterId: id })).toMatchObject({ card: null, hidden: true });
+    expect((await p.call('tarot:peek', { characterId: id })).card.name).toBe('Fool');
+    expect((await g.call('tarot:peek', { characterId: id })).card.name).toBe('Fool');
+    expect(await other.call('tarot:peek', { characterId: 9999 })).toMatchObject({ ok: false, code: 'not_found' });
   });
 });
 
