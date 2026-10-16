@@ -55,6 +55,7 @@ Repository layout:
 | `shared/effects.js`, `server/effectRuntime.js`, `server/effectHandlers.js` | Effects: parts and levers, scopes, durations and ticking, what they do to rolls, Defence, stats, damage and resistances; the global library, putting an Effect on, spending uses; socket events. |
 | `shared/basicActions.js`, `server/basicActions.js`, `server/basicHandlers.js`, `server/defaults.js` | Basic Actions (the DC20 list), their table, the shipped defaults (seeded once) and `basic:use`. |
 | `shared/arcane.js`, `server/arcane.js` | Weapons and Enhancements: normalising, `planAttack` (what a drafted attack costs and does), token distance, the global Enhancements table. |
+| `shared/presets.js` | Attack Presets: normalising, saving a drafted attack by names (`presetFromDraft`), finding the parts again by name (`resolvePreset`), the key that tells two presets apart. |
 | `LOCALIZATION.md` | The Localization Mapping: every text of the app in English and Russian (a table to read and fix by hand). |
 | `shared/localization.js`, `server/i18n.js`, `client/src/i18n.jsx` | Reading the table, translating with `{placeholders}`, the per-socket language on the server, the language context on the client. |
 | `scripts/i18n-keys.mjs`, `scripts/i18n-sync.mjs` | Find every text the code asks to translate; `npm run i18n` keeps `LOCALIZATION.md` in step. |
@@ -65,7 +66,7 @@ Repository layout:
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
-| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`. |
+| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`, `AttackPresets` (the star and the preset list), `useAttackRunner` (Help Dice question, `attack:roll`, range warning; shared by Done and the presets), `attackDraft` (the draft as an `attack:roll` body). |
 | `client/src/components/effects/` | `EffectEditor` (the Effect dialog), `EffectRefs` (pick Effects in a weapon, Enhancement or band), `EffectsLibrary`, `ActiveEffects` (sheet list), `BasicActions`, `effectText`, `useEffectLibrary`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
@@ -490,7 +491,8 @@ Experience Modifier, Physical/Mental Defence, X Defences and max HP are editable
 **Layout (decided after the second playtest):** the interface fills the whole width of the screen, and the same
 goes for every page: unused space is filled, not left empty.
 - **Sheet on a PC (1024 px and wider):** **three columns**. Left: the vitals (AP cubes, HP, Physical and Mental
-  Defence, Movement, Size, Experience Modifier, Height), the Combat Masteries (three in a row) and the Battle remote.
+  Defence, Movement, Size, Experience Modifier, Height), the Combat Masteries (three in a row), the Battle remote and,
+  right under it at the end of the column, the **Attack Presets**.
   Middle: Stats and Skills. Right: Features, Inventory, Resistances, Statuses, Stage and Pictures. The name, the
   Back link and the Sheet | Arcane switch share one row. On a phone it stays one column.
 - **Defences:** Physical Defence has a faint shield and Mental Defence a faint brain drawn behind the value.
@@ -923,6 +925,35 @@ Done makes one attack roll against all selected targets with all modifiers and t
 confirm card (prefilled from the parts). Targets are selected here too (mirrored with the Battle
 remote's targets, so no switching tabs). Only crafted spells can be used; drafts cannot.
 
+**Attack Presets (decided).** A **hollow star** appears in the footer, beside Options and Done, as soon as the attack being drafted is
+valid (a valid setup: targets and AP are not needed). Tapping it saves the **whole attack across all tabs** as a **preset** of that character: the
+weapon (the Unarmed Attack, an item, a spell or a Manifestation), every Enhancement with how many times (a default, global or own
+Enhancement, an Enhancement spell or Manifestation), the Stance, the extra Advantage levels and the custom modifier of Options. **Targets are never saved.**
+Once a preset holds exactly this setup the star is **filled**; a filled star does nothing (a preset is removed only from the list).
+- **Saved by names, not ids.** A preset stores the **names** of its parts (`shared/presets.js`), and finds them again by name when it is used
+  (ignoring case and the spaces around the name). So a spell stone being destroyed, a Stance being edited, or an Enhancement being deleted and made again
+  never corrupts a preset: whatever has that name **at that moment** is used, and a **new spell created with the same name is used by the preset
+  too** (a destroyed spell is passed over for a usable one with the same name). A Stance counts only if the character may use it (Learned); with
+  several of the same name the one of the saved Zodiac wins. A preset also keeps working across the character's own, global and default
+  Enhancements of one name (the saved kind wins a tie). An Enhancement that is no longer repeatable is used once. A preset belongs to its character
+  (`sheet.attackPresets`, at most 50) and is edited by the GM or the owner like the rest of the sheet.
+- **Naming:** a new preset is named from its parts ("Bow + Power Attack x2 + Charge", in the language of whoever saves it); **Edit** (pencil) renames it
+  or deletes it (after a confirmation). Saving the same setup twice does nothing.
+- **Where:** an **Attack Presets** section in the **General tab** (after Basic Actions) and on the **character sheet** at the end of the first column,
+  right under the Battle remote (on a phone, after the remote). It is always shown (also outside Battle), so presets can be loaded and managed anywhere.
+- **Two buttons per preset:** **Attack** makes the saved attack **at once** at the character's current targets, with everything a Done press does
+  (the Help Dice question, the AP and target checks, the out-of-range warning, the GM's confirm card), so presets give fully working attacks from the sheet without
+  the Arcane tab; it is greyed out without a Battle map, a target, enough AP or when a part is missing. **Load** (the arrow into a tray) fills the
+  **footer** with the preset's parts so they can be changed (it replaces the drafted attack; on the sheet it also opens the Arcane tab).
+- **A preset with a missing part** (a name that nothing has right now, or a Stance the character cannot use) gets a **slight red tint** and says
+  "Missing: {names}" instead of its numbers. It cannot **Attack**, but Load, Edit and everything else still work: Load fills in every part that was found
+  (with no weapon chosen when the weapon is the missing part), so it can be repaired by hand. It turns normal again as soon as something with that name exists.
+  Locked parts are left out of a player's sheet, so a preset using one shows as missing for them.
+- **The list** shows **five presets** and scrolls past that, with a count in the heading. On a **computer** it has the interface's thin violet scroll
+  bar; on a **touch screen it has no scroll bar at all** and is simply swiped (an upward swipe shows the next presets; a faint fade at the bottom says
+  there are more rows, and the page scrolls on when the list is at its end). A row is a fixed height: the name (up to two lines), the numbers
+  ("3 Slashing, 3 AP") and the buttons.
+
 **General tab (grey).**
 - Everyone always has an **Unarmed Attack** (0 Bludgeoning damage, Physical, 1 AP). It cannot be
   removed, but can be modified (martial arts and similar).
@@ -1199,7 +1230,7 @@ Implemented:
   `masteries` (magic, stances, manifestation), `skills` (tier 0-10 per skill), `features`,
   `items` (`id, name, description, uses {current, max}, states[], state, weapon`; `weapon` is `null` or
   `{ base, kind, defence, ap, range, statuses, dice, unique }`), `unarmed` (a weapon: 0 Bludgeoning),
-  `enhancements` (the character's own, see Arcane tab), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
+  `enhancements` (the character's own, see Arcane tab), `attackPresets` (`id, name, weapon { kind: 'unarmed' | 'item' | 'spell' | 'manifestation', name }, enhancements [{ name, origin, count }], stance { name, sign } | null, advantage, modifier`: names only, see Attack Presets), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
   (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes` (rune ids, at most 99, see `shared/runes.js`; Spell Stone runes are `stone_<sign>`)), `spells`
   (`id, name, description, draftId, runes, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
   tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description, hidden }], active }`, `active` = the selected card's id or null), `manifestations` (`id, name,
@@ -1265,8 +1296,8 @@ Implemented:
   `folder:move` `{ id, parentId }`, `folder:delete` `{ id }` (all GM only).
 - `sheet:get` `{ characterId }` returns `{ character, sheet }`. `sheet:set` `{ characterId, path,
   value }` sets one field (paths such as `stats.dexterity`, `hp.max`, `statuses.bleeding`,
-  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements'|'spellDrafts'|'helpDice', action: 'add'|
-  'update'|'remove'|'copy'|'use', ... }` (`helpDice` takes `add` `{ sides }` and `remove` `{ index }`; items take an optional `weapon`, Enhancements an `enhancement`, drafts a `draft`); `sheet:set` also takes
+  `resistances.fire`). `sheet:list` `{ characterId, list: 'features'|'items'|'enhancements'|'spellDrafts'|'helpDice'|'attackPresets', action: 'add'|
+  'update'|'remove'|'copy'|'use', ... }` (`helpDice` takes `add` `{ sides }` and `remove` `{ index }`; `attackPresets` takes `add` `{ preset }` (a setup already saved is left alone; errors `limit`), `rename` `{ id, name }` and `remove` `{ id }`; items take an optional `weapon`, Enhancements an `enhancement`, drafts a `draft`); `sheet:set` also takes
   `unarmed` and `stones.<sign>`. Allowed for the GM, or for a player on their own PC only.
 - `roll:make` `{ characterId, kind: 'attribute'|'save'|'skill', key, mode?, modifier?, help? }` (`help`: places in the character's Help Dice track to spend) rolls on
   the server from the stored sheet and posts to the chat. Same permission as editing.

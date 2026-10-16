@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
@@ -9,7 +9,6 @@ import Stances from './Stances.jsx';
 import Spontaneous from './Spontaneous.jsx';
 import Manifest from './Manifest.jsx';
 import { LockProvider, Lockable, LockIcon, LockTile, useLocks } from './Locks.jsx';
-import { useStances } from './useStances.js';
 import { EnhancementDialog, WeaponFields, weaponToForm, weaponValid, formToWeapon } from './editors.jsx';
 import { useGlobalEnhancements } from './useGlobalEnhancements.js';
 import { weaponSummary, enhancementSummary } from './summaries.js';
@@ -18,7 +17,9 @@ import { blankEffect } from '../../../../shared/stances.js';
 import { planRoll, MAX_MANUAL_LEVELS } from '../../../../shared/roll-plan.js';
 import * as D from '../../../../shared/rules-data.js';
 import { setChatSlot } from '../../lib/chatSlot.js';
-import { useHelpPrompt } from '../HelpDice.jsx';
+import { AttackPresets, PresetStar, usePresetContext } from './AttackPresets.jsx';
+import { useAttackRunner } from './useAttackRunner.jsx';
+import { attackRequest } from './attackDraft.js';
 import { EffectsLibrary } from '../effects/EffectsLibrary.jsx';
 import { BasicActions } from '../effects/BasicActions.jsx';
 import { OwnEffectsContext } from '../effects/ownEffects.js';
@@ -215,6 +216,8 @@ function General({ s, draft, setDraft }) {
 
       <BasicActions s={s} />
 
+      <AttackPresets s={s} onLoad={setDraft} />
+
       <section aria-label={t('Weapons')}>
         <h3 className={heading}>{t('Weapons')}</h3>
         <p className="mb-2 text-xs opacity-50">{t('Choose one weapon. Weapons are items with the Weapon switch on (see the Inventory on the sheet).')}</p>
@@ -273,40 +276,25 @@ function General({ s, draft, setDraft }) {
   );
 }
 
-// What the draft points at, in the shape the server understands.
-export function weaponChoice(draft) {
-  if (draft.weapon === 'unarmed') return { kind: 'unarmed' };
-  if (draft.weapon.startsWith('spell:')) return { kind: 'spell', spellId: draft.weapon.slice('spell:'.length) };
-  if (draft.weapon.startsWith('manifest:')) return { kind: 'manifestation', manifestationId: draft.weapon.slice('manifest:'.length) };
-  return { kind: 'item', itemId: draft.weapon };
-}
-
 // The footer, in every tab of a character: what this attack is made of, its total modifier, and Done.
 function AttackFooter({ s, draft, setDraft }) {
   const t = useT();
-  const { toast } = useApp();
   const { sheet, characterId } = s;
-  const globals = useGlobalEnhancements();
   const info = useTargets(characterId);
-  const catalog = useMemo(() => enhancementCatalog(globals, sheet), [globals, sheet]);
-  const { stances } = useStances();
+  const presetCtx = usePresetContext(s);
+  const { catalog, stances } = presetCtx;
   const stance = draft.stance ? stances.find((x) => x.id === draft.stance) : null;
-  const [busy, setBusy] = useState(false);
-  const [far, setFar] = useState(null); // { range, targets: [{ name, distance }] }
   const [options, setOptions] = useState(false);
-  const helpPrompt = useHelpPrompt(sheet.helpDice);
-  const helpChoice = useRef(null); // the Help Dice picked for this attack, kept while a range warning is answered
+  const runner = useAttackRunner(s);
+  const { busy } = runner;
 
-  const choice = {
-    weapon: weaponChoice(draft),
-    enhancements: Object.entries(draft.counts).filter(([, n]) => n > 0).map(([id, count]) => ({ id, count })),
-  };
-  const plan = planAttack(sheet, catalog, choice, stance ? [{ name: stance.name, effect: blankEffect(), cost: stance.cost }] : []);
+  const request = attackRequest(draft);
+  const plan = planAttack(sheet, catalog, request, stance ? [{ name: stance.name, effect: blankEffect(), cost: stance.cost }] : []);
   const modifierOk = isWholeNumber(draft.modifier) && Math.abs(Number(draft.modifier)) <= 99;
   const manual = plan.ok ? Math.max(-MAX_MANUAL_LEVELS, Math.min(MAX_MANUAL_LEVELS, draft.advantage + plan.advantage)) : draft.advantage;
   // Basic weapons roll the Prime stat; a spell rolls the Magic Mastery.
-  const request = plan.ok && plan.weapon.mastery ? { kind: 'mastery', key: plan.weapon.mastery, attack: plan.weapon.mastery } : { kind: 'weapon', key: 'prime', attack: 'weapon' };
-  const rp = planRoll(sheet, { ...request, advantage: manual, modifier: modifierOk ? Number(draft.modifier) : 0, dice: plan.ok ? plan.dice : [] });
+  const rollKind = plan.ok && plan.weapon.mastery ? { kind: 'mastery', key: plan.weapon.mastery, attack: plan.weapon.mastery } : { kind: 'weapon', key: 'prime', attack: 'weapon' };
+  const rp = planRoll(sheet, { ...rollKind, advantage: manual, modifier: modifierOk ? Number(draft.modifier) : 0, dice: plan.ok ? plan.dice : [] });
   const totalMod = rp.ok ? rp.terms.reduce((n, x) => n + x.value, 0) : 0;
   const targets = info?.targets ?? [];
 
@@ -317,20 +305,8 @@ function AttackFooter({ s, draft, setDraft }) {
   else if (sheet.ap.current < plan.ap) blocked = t('Not enough AP: this attack costs {cost} and you have {have}.', { cost: plan.ap, have: sheet.ap.current });
   else if (!modifierOk) blocked = t('The custom modifier must be a whole number from -99 to 99.');
 
-  async function done(confirmRange = false) {
-    if (!confirmRange) {
-      helpChoice.current = await helpPrompt.ask();
-      if (helpChoice.current === null) return; // cancelled: no attack
-    }
-    setBusy(true);
-    const r = await call('attack:roll', { characterId, weapon: choice.weapon, enhancements: choice.enhancements, stance: draft.stance, advantage: draft.advantage, modifier: Number(draft.modifier), help: helpChoice.current ?? [], confirmRange });
-    setBusy(false);
-    if (!r.ok) return toast(r.error);
-    if (r.needsConfirm) return setFar(r.needsConfirm);
-    helpChoice.current = null;
-    setFar(null);
-    setDraft({ ...draft, counts: {}, stance: null });
-  }
+  // Done: the Help Dice question, the roll, and the range warning; the parts are cleared once the attack has gone out.
+  const done = () => runner.run(request, () => setDraft({ ...draft, counts: {}, stance: null }));
 
   const chosenNames = plan.ok ? [plan.weapon.name, ...plan.chosen.map((e) => (e.count > 1 ? `${e.name} x${e.count}` : e.name)), ...(stance ? [t('Stance: {name}', { name: stance.name })] : [])] : [];
 
@@ -353,7 +329,8 @@ function AttackFooter({ s, draft, setDraft }) {
           <button className={btn} data-testid="arcane-options" onClick={() => setOptions(true)}>
             {t('Options')}
           </button>
-          <button className={btnPrimary} data-testid="arcane-done" disabled={!!blocked || busy || !rp.ok} onClick={() => done(false)}>
+          {plan.ok && rp.ok && modifierOk && <PresetStar s={s} draft={draft} ctx={presetCtx} />}
+          <button className={btnPrimary} data-testid="arcane-done" disabled={!!blocked || busy || !rp.ok} onClick={done}>
             {t('Done')}
           </button>
           <div ref={setChatSlot} className="contents" data-testid="footer-chat-slot" />
@@ -365,7 +342,7 @@ function AttackFooter({ s, draft, setDraft }) {
         )}
       </div>
 
-      {helpPrompt.dialog}
+      {runner.dialogs}
 
       {options && (
         <Dialog title={t('Attack options')} onClose={() => setOptions(false)}>
@@ -391,25 +368,6 @@ function AttackFooter({ s, draft, setDraft }) {
                 {t('Close')}
               </button>
             </div>
-          </div>
-        </Dialog>
-      )}
-
-      {far && (
-        <Dialog title={t('Out of range')} onClose={() => setFar(null)}>
-          <p className="mb-3 text-sm" data-testid="range-warning">
-            {t('Some targets are farther than the weapon\'s range of {range} Spaces: {list}. The range is only a suggestion. Attack anyway?', {
-              range: far.range,
-              list: far.targets.map((x) => t('{name} ({n} Spaces)', { name: x.name, n: x.distance })).join(', '),
-            })}
-          </p>
-          <div className="flex justify-end gap-2">
-            <button className={btn} onClick={() => setFar(null)}>
-              {t('No')}
-            </button>
-            <button className={btnPrimary} data-testid="range-yes" onClick={() => done(true)}>
-              {t('Attack anyway')}
-            </button>
           </div>
         </Dialog>
       )}
