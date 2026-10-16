@@ -137,7 +137,7 @@ export const DEFAULT_ENHANCEMENTS = [
 ];
 
 // A spell can be used while it is not destroyed and has uses left (a Spell tattoo has no uses).
-const spellUsable = (sp) => !sp.destroyed && (sp.tattoo || sp.uses.current > 0);
+export const spellUsable = (sp) => !sp.destroyed && (sp.tattoo || sp.uses.current > 0);
 export const SPELL_PREFIX = 'spell:';
 export const MANIFEST_PREFIX = 'manifest:';
 

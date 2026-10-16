@@ -8,6 +8,7 @@ import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
 import { reconcileGroups, DURATIONS, MINUTE_ROUNDS, statusInfo } from '../shared/statuses.js';
 import { normalizeInstances, normalizeDefinition, statMods, MAX_EFFECTS_LIBRARY } from '../shared/effects.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
+import { MAX_PRESETS, MAX_PRESET_NAME, normalizePreset, normalizePresets, presetKey } from '../shared/presets.js';
 
 // The character sheet lives as one JSON document per character
 // (characters.sheet). Every write goes through `normalizeSheet`, so a sheet
@@ -145,6 +146,8 @@ export function normalizeSheet(raw) {
     // Effects: the ones running (shared/effects.js) and the character's own library of them.
     effects: normalizeInstances(r.effects, randomUUID),
     effectDefs: (Array.isArray(r.effectDefs) ? r.effectDefs : []).slice(0, MAX_EFFECTS_LIBRARY).map((e) => normalizeDefinition(e, randomUUID())),
+    // Attack Presets: saved attack setups, kept by the names of their parts (shared/presets.js).
+    attackPresets: normalizePresets(r.attackPresets, randomUUID),
   };
   for (const sign of SIGNS) sheet.stones[sign] = clampInt(r.stones?.[sign], 0, MAX_STONE_COUNT, 0);
   sheet.ap.current = clampInt(r.ap?.current, 0, apMax(sheet), apMax(sheet));
@@ -371,6 +374,25 @@ export function applyList(sheet, list, action, p = {}) {
     } else if (action === 'update') {
       const i = find(arr, p.id);
       arr[i] = { ...normalizeDefinition(p.effect, p.id), id: p.id };
+    } else if (action === 'remove') {
+      arr.splice(find(arr, p.id), 1);
+    } else throw bad('Unknown action.', 'bad_action');
+    return normalizeSheet(next);
+  }
+
+  if (list === 'attackPresets') {
+    const arr = next.attackPresets;
+    if (action === 'add') {
+      const preset = normalizePreset(p.preset, randomUUID());
+      if (!preset) throw bad('That attack cannot be saved as a preset.');
+      preset.id = randomUUID();
+      if (arr.some((x) => presetKey(x) === presetKey(preset))) return normalizeSheet(next); // already saved
+      if (arr.length >= MAX_PRESETS) throw bad('Too many presets.', 'limit');
+      arr.push(preset);
+    } else if (action === 'rename') {
+      const name = typeof p.name === 'string' ? p.name.trim().slice(0, MAX_PRESET_NAME) : '';
+      if (!name) throw bad('A name is required.', 'bad_name');
+      arr[find(arr, p.id)].name = name;
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

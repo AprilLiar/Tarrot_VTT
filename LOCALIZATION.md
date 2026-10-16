@@ -27,6 +27,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add status... | Добавить состояние... |
 | Later | Позже |
 | Advantage | Преимущество |
+| Attack | Атака |
 | Spontaneous Action | Спонтанное действие |
 | Edit | Изменить |
 | Clear | Очистить |
@@ -142,15 +143,20 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Fewer levels | Меньше уровней |
 | More levels | Больше уровней |
 | Custom modifier | Свой модификатор |
-| Out of range | Вне дальности |
-| Some targets are farther than the weapon's range of {range} Spaces: {list}. The range is only a suggestion. Attack anyway? | Некоторые цели дальше дальности оружия ({range} кл.): {list}. Дальность — лишь подсказка. Всё равно атаковать? |
-| {name} ({n} Spaces) | {name} ({n} кл.) |
-| No | Нет |
-| Attack anyway | Всё равно атаковать |
 | Edit Unarmed Attack | Изменить атаку без оружия |
 | Enhancements for everyone | Усиления для всех |
 | These are available to every PC and NPC, on top of Power Attack and Precise Attack. To make one for a single character, open its own Arcane tab. | Они доступны каждому ПИ и НИП, помимо Мощной и Точной атаки. Чтобы создать усиление для одного персонажа, откройте его вкладку Аркана. |
 | None yet | Пока нет |
+| Saved as a preset | Сохранено как пресет |
+| Save as a preset | Сохранить как пресет |
+| Attack Presets | Пресеты атак |
+| No presets yet. Set up an attack in the Arcane tab and tap the star beside Options and Done to save it. | Пресетов пока нет. Составьте атаку во вкладке «Аркана» и нажмите звезду рядом с «Настройки» и «Готово», чтобы сохранить её. |
+| Missing: {list} | Не найдено: {list} |
+| Weapon | Оружие |
+| {base} {kind}, {ap} AP | {base} {kind}, {ap} ОД |
+| Load into the footer | Загрузить в нижнюю панель |
+| Edit Preset | Изменить пресет |
+| Delete Preset | Удалить пресет |
 | You have not learned what this means for now | Вы пока не постигли, что это значит |
 | Locked | Заблокировано |
 | Open | Открыто |
@@ -197,7 +203,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No uses | Без использований |
 | Uses {cur}/{max} | Использования {cur}/{max} |
 | Stabilization {n} | Стабилизация {n} |
-| Weapon | Оружие |
 | Enhancement | Усиление |
 | Chosen as weapon | Выбрано как оружие |
 | Use as weapon | Использовать как оружие |
@@ -326,6 +331,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Effect: {list} | Эффект: {list} |
 | Roll {n} | Бросок {n} |
 | {effect} ({to}) | {effect} ({to}) |
+| Out of range | Вне дальности |
+| Some targets are farther than the weapon's range of {range} Spaces: {list}. The range is only a suggestion. Attack anyway? | Некоторые цели дальше дальности оружия ({range} кл.): {list}. Дальность — лишь подсказка. Всё равно атаковать? |
+| {name} ({n} Spaces) | {name} ({n} кл.) |
+| No | Нет |
+| Attack anyway | Всё равно атаковать |
 | Effects | Эффекты |
 | No Effects running. | Действующих эффектов нет. |
 | {n} rounds left | осталось раундов: {n} |
@@ -437,7 +447,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Disadvantage | Помеха |
-| Attack | Атака |
 | Send | Отправить |
 | Picture | Картинка |
 | Area | Область |
@@ -1303,6 +1312,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid states. | Неверные состояния. |
 | Invalid state. | Неверное состояние. |
 | No uses left. | Использований не осталось. |
+| That attack cannot be saved as a preset. | Эту атаку нельзя сохранить как пресет. |
+| Too many presets. | Слишком много пресетов. |
 | A character holds at most {max} Help Dice. | У персонажа не больше {max} кубиков помощи. |
 | That die is no longer there. | Этого кубика уже нет. |
 | Too many spells. | Слишком много заклинаний. |

@@ -16,6 +16,7 @@ import { ShieldIcon, BrainIcon } from './DefenceIcons.jsx';
 import { tint, skillTint } from './tints.js';
 import { HelpTrack, useHelpPrompt } from '../HelpDice.jsx';
 import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
+import { AttackPresets } from '../arcane/AttackPresets.jsx';
 import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
 
@@ -245,6 +246,13 @@ export default function SheetPage({ characterId }) {
           </section>
           <Masteries s={s} />
           <BattleRemote s={s} onAttack={() => setView('arcane')} />
+          <AttackPresets
+            s={s}
+            onLoad={(d) => {
+              setDraft(d);
+              setView('arcane');
+            }}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
