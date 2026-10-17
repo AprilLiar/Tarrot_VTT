@@ -9,7 +9,8 @@ import { effectiveMovement } from '../shared/effects.js';
 // Battle mode: tokens on a square grid over the scene's battle picture, shared
 // drawings and spell templates, and the movement rules.
 //
-// Positions are whole cells (col, row) counted from the grid's top left corner.
+// Positions are cells (col, row) counted from the grid's top left corner: whole cells while the scene's grid is on, and anywhere (to
+// a hundredth of a cell) while it is off.
 // A token of size N covers N x N cells, with (col, row) as its top left cell.
 
 export const BATTLE_SCHEMA = [
@@ -135,9 +136,13 @@ async function activeBattleScene(db) {
   return scene;
 }
 
+// With the grid on a token stands on whole squares; with it off it may stand anywhere on the map (to a hundredth of a square).
+export const roundFree = (v) => Math.round(v * 100) / 100;
+const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const inBounds = (scene, size, col, row) => {
   const { cols, rows } = scenes.gridSize(scene);
-  return Number.isInteger(col) && Number.isInteger(row) && col >= 0 && row >= 0 && col + size <= cols && row + size <= rows;
+  const fits = scene.showGrid ? Number.isInteger(col) && Number.isInteger(row) : isNumber(col) && isNumber(row);
+  return fits && col >= 0 && row >= 0 && col + size <= cols && row + size <= rows;
 };
 
 // The first free spot scanning from the top left, so a new token never lands on another.
@@ -179,10 +184,14 @@ export async function removeToken(db, id) {
   await db.execute({ sql: 'DELETE FROM battle_tokens WHERE id = ?', args: [id] });
 }
 
-// Dragging: free, and never touches AP or Movement.
+// Dragging: free, and never touches AP or Movement. With the grid off the spot is kept as sent (to a hundredth of a square).
 export async function placeToken(db, id, col, row) {
   const token = await getToken(db, id);
   const scene = await scenes.getScene(db, token.sceneId);
+  if (!scene.showGrid && isNumber(col) && isNumber(row)) {
+    col = roundFree(col);
+    row = roundFree(row);
+  }
   if (!inBounds(scene, token.size, col, row)) throw new AppError('out_of_bounds', 'That is off the map.');
   await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, id] });
   await followTemplates(db, { ...token, col, row });
@@ -268,8 +277,10 @@ export async function moveStep(db, { token, dc, dr, freeChecked, confirmAp, isOw
     throw new AppError('bad_value', 'A step is one square in one of eight directions.');
   }
   const scene = await scenes.getScene(db, token.sceneId);
-  const col = token.col + dc;
-  const row = token.row + dr;
+  // One square from where the token stands. With the grid on a token that was left between squares first counts as standing on its
+  // nearest square (a step snaps it back); with the grid off it keeps its offset.
+  const col = scene.showGrid ? Math.round(token.col) + dc : roundFree(token.col + dc);
+  const row = scene.showGrid ? Math.round(token.row) + dr : roundFree(token.row + dr);
   if (!inBounds(scene, token.size, col, row)) throw new AppError('out_of_bounds', 'That is off the map.');
 
   // Only a character on its own turn pays for movement; anyone else moves free.

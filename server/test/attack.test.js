@@ -358,6 +358,15 @@ describe('planning an attack from a weapon and Enhancements', () => {
     expect(tokenDistance(a, { col: 2, row: 2, size: 1, height: 0 })).toBe(3); // one diagonal costs 2
     expect(tokenDistance(a, { col: 3, row: 0, size: 1, height: 4 })).toBe(5);
     expect(tokenDistance(a, { col: 1, row: 0, size: 1, height: 1 })).toBe(1); // 1.41 rounds to 1
+    // A token left between squares counts as standing on its nearest square while the grid is on.
+    expect(tokenDistance(a, { col: 2.6, row: 0.2, size: 1, height: 0 })).toBe(3);
+    // With the grid off it is the straight line between the centres, rounded to a whole Space.
+    expect(tokenDistance(a, { col: 3, row: 0, size: 1, height: 0 }, true)).toBe(3);
+    expect(tokenDistance(a, { col: 2, row: 2, size: 1, height: 0 }, true)).toBe(3); // 2.83
+    expect(tokenDistance(a, { col: 6, row: 6, size: 1, height: 0 }, true)).toBe(8); // 8.49, where the squares rule counts 9
+    expect(tokenDistance(a, { col: 6, row: 6, size: 1, height: 0 })).toBe(9);
+    expect(tokenDistance(a, { col: 0.5, row: 0, size: 2, height: 0 }, true)).toBe(1); // centre to centre: 1.12
+    expect(tokenDistance(a, { col: 3, row: 0, size: 1, height: 4 }, true)).toBe(5);
   });
 });
 

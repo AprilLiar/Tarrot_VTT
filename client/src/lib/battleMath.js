@@ -15,6 +15,15 @@ export function cellAt(u, v, grid, aspect) {
   };
 }
 
+// The exact (fractional) cell position under a point: where in the grid it is, not which square.
+export function pointAt(u, v, grid, aspect) {
+  return { col: (u - grid.ox) / grid.cell, row: (v - grid.oy) / cellHeight(grid, aspect) };
+}
+
+// A position for placing things: half a square with the grid on (the grid is a guide), exactly where it is with the grid off
+// (to a hundredth of a square).
+export const snapHalf = (x, gridOn) => (gridOn ? Math.round(x * 2) / 2 : Math.round(x * 100) / 100);
+
 // Picture fractions to picture-width units.
 export const toUnits = (u, v, aspect) => ({ x: u, y: v / aspect });
 
@@ -32,14 +41,28 @@ export function distanceSquares(a, b) {
   return straight + diagonals + Math.floor(diagonals / 2);
 }
 
-// Where a token dropped with its centre at (u, v) lands: its top left cell, kept on the map.
-export function dropCell(u, v, size, grid, aspect, cols, rows) {
+// Where a token dropped with its centre at (u, v) lands: its top left cell, kept on the map. With the grid on it snaps to a whole
+// square; with it off (`free`) it stays exactly where it was dropped (to a hundredth of a square).
+export function dropCell(u, v, size, grid, aspect, cols, rows, free = false) {
   const c = (u - grid.ox) / grid.cell - size / 2;
   const r = (v - grid.oy) / cellHeight(grid, aspect) - size / 2;
+  const place = free ? (x) => Math.round(x * 100) / 100 : Math.round;
   return {
-    col: Math.max(0, Math.min(Math.round(c), cols - size)),
-    row: Math.max(0, Math.min(Math.round(r), rows - size)),
+    col: Math.max(0, Math.min(place(c), cols - size)),
+    row: Math.max(0, Math.min(place(r), rows - size)),
   };
+}
+
+// The Ruler: with the grid on its ends are squares (counted with diagonals alternating 1 and 2), with it off they are the exact
+// points and the distance is the straight line, rounded to a whole Space. An end is stored as the cell whose centre is the point
+// (so the ruler is drawn through (col + 0.5, row + 0.5) in both cases).
+export function rulerEnd(u, v, grid, aspect, gridOn) {
+  if (gridOn) return cellAt(u, v, grid, aspect);
+  const p = pointAt(u, v, grid, aspect);
+  return { col: p.col - 0.5, row: p.row - 0.5 };
+}
+export function rulerDistance(a, b, gridOn) {
+  return gridOn ? distanceSquares(a, b) : Math.round(Math.hypot(b.col - a.col, b.row - a.row));
 }
 
 // The outline of a spell template in picture-width units, as SVG.
