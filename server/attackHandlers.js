@@ -112,8 +112,9 @@ export function registerAttackHandlers(ctx) {
     const token = sceneId == null ? null : await battle.tokenForCharacter(db, sceneId, c.id);
     if (token && plan.range != null && p.confirmRange !== true) {
       const far = [];
+      const gridOff = !(await scenes.getScene(db, sceneId)).showGrid; // no squares: the straight line between the tokens
       for (const t of infos) {
-        const d = tokenDistance(token, await battle.getToken(db, t.tokenId));
+        const d = tokenDistance(token, await battle.getToken(db, t.tokenId), gridOff);
         if (d > plan.range) far.push({ name: t.name, distance: d });
       }
       if (far.length) return { needsConfirm: { range: plan.range, targets: far } };

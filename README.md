@@ -705,6 +705,15 @@ Decided:
   shown. Hidden tokens are never sent to players or the Display.
 - **Grid on/off is a setting of the scene** (decided), saved for everybody watching until it is changed; the
   GM and the Display can switch it (it used to be local to each screen).
+- **Free movement with the grid off (decided):** while the grid is **off**, the squares are only a guide that is hidden and
+  **tokens move freely**: a dragged token stays **exactly where it is dropped** (its centre under the pointer), to a hundredth of a square,
+  for everyone, still kept on the map. With the grid **on** a token snaps to a whole square as before. **Switching the grid back on moves
+  nobody**: a token that stands between squares stays there until it is moved (the next drag or D-pad step lands on a square). The same
+  switch changes five more things, all described where they live: the **phone D-pad** steps one full square **from where the token stands**
+  (it keeps its offset); **distance** (the attack's out-of-range check and the Ruler) is the **straight line, rounded to a whole Space**,
+  where with the grid on it is counted in squares (a token left between squares then counts as standing on its nearest square); **Areas** are
+  placed exactly where they are pressed (not snapped to half a square) and **the Ruler's ends are free points**; an area **made from a token**
+  and **who is inside an area** need no change (they use the token's centre).
 - The **Cast drawer** lists the characters in their folders, as on the Characters page: folders are
   **collapsed by default** and open with a tap (a search opens the folders that hold a match); a folder shows
   how many characters it holds.
@@ -724,8 +733,8 @@ Decided:
   character. Controls on the Display and in Scene and Battle are meant to be usable with the mouse
   alone. (decided) A token or figure the Display hides is gone from the Display too, so only the
   GM can reveal it again.
-- **Dragging** a token (GM, Display, and a player for their own character) is free and snaps to a square for everyone; it costs no
-  movement.
+- **Dragging** a token (GM, Display, and a player for their own character) is free and snaps to a square for everyone while the grid is
+  on, and lands anywhere while it is off (see Free movement); it costs no movement.
 - **Tools** (GM and Display): Move, Draw, Ping, Ruler, Area, Erase, on a **static bar** on the left
   (it never moves or changes size). Picking a tool opens its options in a separate panel to the right
   of the bar. Pings show a ring for a few seconds on every map. At most 300 marks.
@@ -746,7 +755,7 @@ Decided:
     deleted, Arc (7) stays Arc (7). Clean (all areas deleted) starts again at 1. The name is written on the map at the
     area's origin, for everyone. (Areas drawn before names existed were numbered once, in the order they were drawn.)
   - **Move (decided):** a **Move** button in the Area tool's options switches it to moving areas: dragging an area moves it
-    (snapped to half a square like a new one) and selects it (drawn with a white outline); a press on the empty map drops
+    (snapped to half a square like a new one, while the grid is on) and selects it (drawn with a white outline); a press on the empty map drops
     the selection. **With an area selected, Ctrl + mouse wheel turns it by 1 degree and Shift + mouse wheel by 15**
     (Ctrl is the fine one, Shift the fast one; wheel down turns clockwise); the wheel does not zoom the map then. The
     GM and the Display can do it; the name never changes. Turning has no touch control. (`mark:update`)
@@ -766,11 +775,14 @@ Decided:
   - **Erase:** click any drawing or area to remove it whole.
   - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
     Display alike (a decision of mine: they share the same tools).
-- **Ruler:** counts squares with diagonals alternating 1 and 2.
+- **Ruler:** with the grid on it counts squares with diagonals alternating 1 and 2 (its ends are squares); with the grid off its ends are the
+  exact points pressed and it shows the straight-line distance, rounded to a whole Space.
 - **Movement (phone D-pad):** each sheet has **Movement** (squares per AP, default 5, 0 to 99).
   On the character's own turn every square costs from the Movement bank; when the bank is empty
   the next step needs 1 AP and banks a fresh Movement (the phone asks to confirm spending AP).
-  Diagonal steps alternate cost 1 and 2. A **Free Movement** checkbox lets a step cost nothing.
+  Diagonal steps alternate cost 1 and 2. A **Free Movement** checkbox lets a step cost nothing. A step is one full square from where
+  the token stands: with the grid off a token that stands between squares keeps its offset; with the grid on a token left between squares
+  first counts as standing on its nearest square, so the step snaps it back.
   Outside the character's own turn (and before combat) steps are free.
 - **Targeting:** from the phone a player selects any number of visible tokens as targets (tap to
   select, tap again to deselect). Targets live in server memory; each selected token shows a pulsing
@@ -1095,7 +1107,8 @@ Stones, Spell Combinations, Spell Fine Tuning.
   Unique Effects are posted in the chat when the attack is applied and shown on the card.
 - **Range check:** measured between the centre squares of the two tokens (the Ruler's distance, diagonals
   alternating 1 and 2); with a height difference, Pythagoras (1 height = 1 Space) rounded to the nearest whole
-  Space. If any target is farther than the range, a dialog warns and offers "Attack anyway".
+  Space. **With the grid off** it is the straight line between the centres of the two tokens (and their heights), rounded to the nearest
+  whole Space. If any target is farther than the range, a dialog warns and offers "Attack anyway".
 - **Targets** are mirrored in General (the same selection as the Battle remote).
 
 **How the Magic tab is built (answers and my defaults):**
@@ -1267,8 +1280,8 @@ Battle (Phase 5a):
   (fractions of the picture; the shifts may be negative), `show_grid` (1 shown, 0 hidden, for everybody); `scene_state.mode` ('scene' | 'battle'); `temp_npcs` gains `is_prop`
   and `size`.
 - `battle_tokens(id, scene_id, character_id | temp_npc_id, picture_id, col, row, hidden, bank, height)`:
-  one token per owner per scene; `height` is the Spaces in the air; `bank` is the leftover Movement squares. Tokens keep whole-square
-  positions and are clamped back onto the map when the grid changes.
+  one token per owner per scene; `height` is the Spaces in the air; `bank` is the leftover Movement squares. `col` and `row` are whole squares while the scene's grid is on and may be **fractional** (to a hundredth) while it is off; they are
+  clamped back onto the map when the grid changes.
 - `battle_marks(id, scene_id, kind 'draw' | 'template', data JSON)` (a template's data has `shape`, `x`, `y`, `size`, `angle`, `color` and its number `n`).
 - Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
 - Targets and the combat state are server memory only (`shared.targets`, `shared.combat`; see the Combat tracker).
@@ -1361,7 +1374,7 @@ Battle (Phase 5a):
   `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height? }` (GM and Display; a player only `height`, for their own PC), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.
 - GM and Display: `scene:show_grid` `{ id, show }` (saved per scene, everybody follows).
-- GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag), `mark:add` `{ kind, data }`,
+- GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag: whole squares while the scene's grid is on, any numbers on the map, kept to a hundredth, while it is off; otherwise `out_of_bounds`), `mark:add` `{ kind, data }`,
   `mark:remove` `{ id }`, `mark:clear` `{ kind? }` (Clean), `mark:erase` `{ x, y, r }` (the eraser: picture
   fractions and a radius in picture widths; splits the drawings it cuts), `battle:ping` `{ x, y }` (picture fractions) which goes to everyone as
   `battle:pinged`.

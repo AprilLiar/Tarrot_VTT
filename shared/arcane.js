@@ -171,10 +171,19 @@ export function distanceSquares(a, b) {
 // Spaces between two tokens ({ col, row, size, height }), measured between their centre squares. At the
 // same height it is what the Ruler shows; at different heights it is the straight line (Pythagoras,
 // 1 height = 1 Space), rounded to the nearest whole Space.
-export function tokenDistance(a, b) {
-  const centre = (t) => ({ col: t.col + Math.floor(((t.size ?? 1) - 1) / 2), row: t.row + Math.floor(((t.size ?? 1) - 1) / 2) });
-  const flat = distanceSquares(centre(a), centre(b));
+export function tokenDistance(a, b, free = false) {
   const up = Math.abs((a.height ?? 0) - (b.height ?? 0));
+  if (free) {
+    // The grid is off: the straight line between the centres of the tokens (and of their heights), rounded to a whole Space.
+    const half = (t) => (t.size ?? 1) / 2;
+    return Math.round(Math.hypot(b.col + half(b) - (a.col + half(a)), b.row + half(b) - (a.row + half(a)), up));
+  }
+  // A token that was left between squares counts as standing on its nearest square.
+  const centre = (t) => {
+    const off = Math.floor(((t.size ?? 1) - 1) / 2);
+    return { col: Math.round(t.col) + off, row: Math.round(t.row) + off };
+  };
+  const flat = distanceSquares(centre(a), centre(b));
   return up === 0 ? flat : Math.round(Math.hypot(flat, up));
 }
 

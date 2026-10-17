@@ -677,6 +677,68 @@ test('the token menu stands on both sides of the token; the Display has the whol
   await gmCtx.close();
 });
 
+test('with the grid off tokens move freely and the Ruler measures a straight line; with the grid on they snap to squares again', async ({ browser }) => {
+  const pc = `Free-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await battleScene(gm, `Loose-${uid()}`);
+  await placeToken(gm, pc);
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await expect(token(tv, pc)).toBeVisible();
+
+  const map = await gm.getByTestId('battle-map').boundingBox(); // 10 x 5 squares
+  const at = (cols, rows) => [map.x + (cols / 10) * map.width, map.y + (rows / 5) * map.height];
+  const dragTo = async (cols, rows) => {
+    const b = await token(gm, pc).boundingBox();
+    await gm.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await gm.mouse.down();
+    const [x, y] = at(cols, rows);
+    await gm.mouse.move(x, y, { steps: 8 });
+    await gm.mouse.up();
+  };
+  const colOf = (page) => async () => Number(await token(page, pc).getAttribute('data-col'));
+  const rowOf = (page) => async () => Number(await token(page, pc).getAttribute('data-row'));
+
+  // Grid off: the token stays exactly where it is dropped (its centre at 6.77 across and 3.4 down), for everybody.
+  await gm.getByTestId('toggle-grid').click();
+  await expect(gm.getByTestId('battle-grid')).toHaveCount(0);
+  await dragTo(6.77, 3.4);
+  await expect.poll(colOf(tv)).toBeCloseTo(6.27, 1);
+  await expect.poll(rowOf(tv)).toBeCloseTo(2.9, 1);
+  expect(Number.isInteger(await colOf(gm)())).toBe(false);
+
+  // The Ruler: the straight line, rounded (8.94 is 9; counting squares from square to square it would say 10).
+  await gm.getByTestId('tool-ruler').click();
+  const [ax, ay] = at(1.2, 0.2);
+  const [bx, by] = at(9.2, 4.2);
+  await gm.mouse.move(ax, ay);
+  await gm.mouse.down();
+  await gm.mouse.move(bx, by, { steps: 6 });
+  await expect(gm.getByTestId('ruler-distance')).toHaveText('9 squares');
+  await gm.mouse.up();
+  await gm.getByTestId('tool-select').click();
+
+  // Grid on: the token keeps its free spot until it is moved; then it lands on a square, and the Ruler counts squares.
+  await gm.getByTestId('toggle-grid').click();
+  await expect(gm.getByTestId('battle-grid')).toBeVisible();
+  expect(await colOf(gm)()).toBeCloseTo(6.27, 1);
+  await gm.getByTestId('tool-ruler').click();
+  await gm.mouse.move(ax, ay);
+  await gm.mouse.down();
+  await gm.mouse.move(bx, by, { steps: 6 });
+  await expect(gm.getByTestId('ruler-distance')).toHaveText('10 squares');
+  await gm.mouse.up();
+  await gm.getByTestId('tool-select').click();
+  await dragTo(7.77, 3.4); // its centre one square on: 7.27 across and 2.9 down, which lands on square (7, 3)
+  await expect(token(tv, pc)).toHaveAttribute('data-col', '7');
+  await expect(token(tv, pc)).toHaveAttribute('data-row', '3');
+
+  await tvCtx.close();
+  await gmCtx.close();
+});
+
 test('a desktop player drags their own token and can set its height; the sheet has height buttons too', async ({ browser }) => {
   const pc = `Flyer-${uid()}`;
   const other = `Grounded-${uid()}`;

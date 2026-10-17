@@ -4,7 +4,7 @@ import { call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
-import { cellAt, cellToUnits, distanceSquares, dropCell, templateShape, toUnits } from '../../lib/battleMath.js';
+import { cellToUnits, dropCell, pointAt, rulerDistance, rulerEnd, snapHalf, templateShape, toUnits } from '../../lib/battleMath.js';
 import Dialog, { btn, btnDanger } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
@@ -353,18 +353,19 @@ export default function BattleView() {
     } else if (tool === 'draw') {
       setDraft({ kind: 'draw', points: [[f.u, f.v]] });
     } else if (tool === 'ruler') {
-      const c = cellAt(f.u, f.v, battle.grid, aspect);
+      const c = rulerEnd(f.u, f.v, battle.grid, aspect, battle.showGrid);
       setDraft({ kind: 'ruler', a: c, b: c });
     } else if (tool === 'template') {
-      let cx = Math.round(((f.u - battle.grid.ox) / battle.grid.cell) * 2) / 2;
-      let cy = Math.round(((f.v - battle.grid.oy) / (battle.grid.cell * aspect)) * 2) / 2;
+      // Half a square with the grid on; exactly where it was pressed with the grid off.
+      const press = pointAt(f.u, f.v, battle.grid, aspect);
+      let cx = snapHalf(press.col, battle.showGrid);
+      let cy = snapHalf(press.row, battle.showGrid);
       // From Token: a press inside the bounds of any token locks the area to that token: its start is the token's centre, the token is
       // the area's "self", and the area is bigger by (size - 1) squares so a big token reaches as far past its edge as a small one.
       let self = null;
       let bonus = 0;
       if (fromToken) {
-        const c = cellAt(f.u, f.v, battle.grid, aspect);
-        const tk = battle.tokens.find((x) => c.col >= x.col && c.col < x.col + x.size && c.row >= x.row && c.row < x.row + x.size);
+        const tk = battle.tokens.find((x) => press.col >= x.col && press.col < x.col + x.size && press.row >= x.row && press.row < x.row + x.size);
         if (tk) {
           cx = tk.col + tk.size / 2;
           cy = tk.row + tk.size / 2;
@@ -381,8 +382,8 @@ export default function BattleView() {
       const f = toFractions(e);
       const m = areaMark(md.id);
       if (!m) return;
-      const x = Math.round(((f.u - battle.grid.ox) / battle.grid.cell - md.offX) * 2) / 2;
-      const y = Math.round(((f.v - battle.grid.oy) / (battle.grid.cell * aspect) - md.offY) * 2) / 2;
+      const x = snapHalf((f.u - battle.grid.ox) / battle.grid.cell - md.offX, battle.showGrid);
+      const y = snapHalf((f.v - battle.grid.oy) / (battle.grid.cell * aspect) - md.offY, battle.showGrid);
       const cur = editRef.current?.id === m.id ? editRef.current : { id: m.id, x: m.x, y: m.y, angle: m.angle };
       if (x !== cur.x || y !== cur.y) {
         md.moved = true;
@@ -402,7 +403,7 @@ export default function BattleView() {
       setDraft({ ...draft, u: f.u, v: f.v });
       if (inside(f)) eraseAt(f);
     } else if (draft.kind === 'ruler') {
-      setDraft({ ...draft, b: cellAt(f.u, f.v, battle.grid, aspect) });
+      setDraft({ ...draft, b: rulerEnd(f.u, f.v, battle.grid, aspect, battle.showGrid) });
     } else if (draft.kind === 'template') {
       const dx = e.clientX - draft.sx;
       const dy = e.clientY - draft.sy;
@@ -459,7 +460,7 @@ export default function BattleView() {
     if (d.moved && canDragToken(tk)) {
       const f = toFractions(e);
       setDrag(null);
-      const cell = dropCell(f.u, f.v, tk.size, battle.grid, aspect, battle.cols, battle.rows);
+      const cell = dropCell(f.u, f.v, tk.size, battle.grid, aspect, battle.cols, battle.rows, !battle.showGrid);
       const r = await call('battle:place', { id: tk.id, ...cell });
       if (!r.ok) toast(r.error);
     } else if (!d.moved && canOpenMenu(tk)) {
@@ -469,7 +470,7 @@ export default function BattleView() {
 
   const cellPx = (v) => `${v * 100}%`;
   const tokenBox = (tk) => {
-    const pos = drag?.id === tk.id ? dropCell(drag.u, drag.v, tk.size, battle.grid, aspect, battle.cols, battle.rows) : { col: tk.col, row: tk.row };
+    const pos = drag?.id === tk.id ? dropCell(drag.u, drag.v, tk.size, battle.grid, aspect, battle.cols, battle.rows, !battle.showGrid) : { col: tk.col, row: tk.row };
     return {
       left: cellPx(battle.grid.ox + pos.col * battle.grid.cell),
       top: cellPx(battle.grid.oy + pos.row * battle.grid.cell * aspect),
@@ -724,7 +725,7 @@ export default function BattleView() {
 
       {ruler && (
         <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1 text-lg" data-testid="ruler-distance">
-          {t('{n} squares', { n: distanceSquares(ruler.a, ruler.b) })}
+          {t('{n} squares', { n: rulerDistance(ruler.a, ruler.b, battle.showGrid) })}
         </div>
       )}
 

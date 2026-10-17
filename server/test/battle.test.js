@@ -283,6 +283,27 @@ describe('tokens', () => {
     expect(await p.call('battle:place', { id: bt, col: 1, row: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
   });
 
+  it('with the grid off a token can be dragged anywhere on the map, to a hundredth of a square; with it on, whole squares only', async () => {
+    const g = await gm();
+    const d = await display();
+    const scene = await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const { id } = await g.call('battle:add', { characterId: a });
+    expect((await g.call('scene:show_grid', { id: scene, show: false })).ok).toBe(true);
+    expect((await d.call('battle:place', { id, col: 3.456, row: 1.5 })).ok).toBe(true);
+    expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 3.46, row: 1.5 });
+    expect((await g.call('battle:place', { id, col: 9, row: 4 })).ok).toBe(true); // the last square fits exactly
+    expect(await g.call('battle:place', { id, col: 9.2, row: 4 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect(await g.call('battle:place', { id, col: -0.1, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect(await g.call('battle:place', { id, col: 'x', row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    // Turning the grid back on leaves the token where it is; the next drag has to land on a square.
+    await g.call('battle:place', { id, col: 2.25, row: 2.75 });
+    expect((await g.call('scene:show_grid', { id: scene, show: true })).ok).toBe(true);
+    expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 2.25, row: 2.75 });
+    expect(await g.call('battle:place', { id, col: 3.5, row: 2 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect((await g.call('battle:place', { id, col: 3, row: 2 })).ok).toBe(true);
+  });
+
   it('never sends hidden tokens to players or the Display, and drops their targets', async () => {
     const g = await gm();
     const d = await display();
@@ -347,6 +368,21 @@ describe('the D-pad', () => {
     expect(await p.call('battle:move', { tokenId: id, dc: 0, dr: 0 })).toMatchObject({ ok: false, code: 'bad_value' });
     for (let i = 0; i < 4; i++) await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 });
     expect(await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+  });
+
+  it('with the grid off a step is one square from where the token stands (it keeps its offset); with it on, a step snaps first', async () => {
+    const { g, p, id } = await ready();
+    const scene = (await stageOf(g)).scene.id;
+    await g.call('scene:show_grid', { id: scene, show: false });
+    await g.call('battle:place', { id, col: 5.4, row: 2.25 });
+    expect((await p.call('battle:move', { tokenId: id, dc: 1, dr: 1 })).moved).toBe(true);
+    expect((await stageOf(p)).battle.tokens[0]).toMatchObject({ col: 6.4, row: 3.25 });
+    await g.call('battle:place', { id, col: 8.5, row: 0 });
+    expect(await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' }); // 9.5 + 1 > 10
+    await g.call('battle:place', { id, col: 5.4, row: 2.25 });
+    await g.call('scene:show_grid', { id: scene, show: true });
+    expect((await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).moved).toBe(true);
+    expect((await stageOf(p)).battle.tokens[0]).toMatchObject({ col: 6, row: 2 });
   });
 
   it('lets a player move only their own PC token; the GM moves anyone', async () => {
