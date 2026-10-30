@@ -33,7 +33,7 @@ export default function Shell({ children }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-white/10 bg-[#0f0d14] px-4">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-white/10 bg-[#0f0d14] px-3 sm:gap-3 sm:px-4">
         {isGm ? (
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-700 text-sm font-semibold">
             {t('GM')}
@@ -54,7 +54,7 @@ export default function Shell({ children }) {
                 end
                 data-testid={`nav-${id.toLowerCase()}`}
                 className={({ isActive }) =>
-                  `flex min-h-10 items-center rounded-lg px-3 text-sm ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
+                  `flex min-h-10 items-center rounded-lg px-2.5 text-sm sm:px-3 ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
                 }
               >
                 {text}
@@ -68,7 +68,7 @@ export default function Shell({ children }) {
           </span>
         )}
         {isGm && (
-          <button data-testid="open-settings-gm" aria-label={t('Settings')} title={t('Settings')} className="flex min-h-11 shrink-0 items-center rounded-lg bg-white/10 px-3 text-sm active:bg-white/20" onClick={() => setSettingsOpen(true)}>
+          <button data-testid="open-settings-gm" aria-label={t('Settings')} title={t('Settings')} className="flex min-h-11 shrink-0 items-center rounded-lg bg-white/10 px-2.5 text-sm active:bg-white/20 sm:px-3" onClick={() => setSettingsOpen(true)}>
             {/* On a narrow screen only the sliders icon, so the top bar still fits. */}
             <svg className="sm:hidden" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M2 4h14M2 9h14M2 14h14" />
@@ -81,7 +81,7 @@ export default function Shell({ children }) {
         )}
         <button
           data-testid="switch-identity"
-          className="min-h-11 rounded-lg bg-white/10 px-3 text-sm active:bg-white/20"
+          className="min-h-11 rounded-lg bg-white/10 px-2.5 text-sm active:bg-white/20 sm:px-3"
           onClick={switchIdentity}
         >
           {t('Switch')}

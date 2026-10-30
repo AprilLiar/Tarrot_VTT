@@ -31,8 +31,10 @@ Statuses: `decided`, `open`, `implemented`.
 - **Tests:** Vitest for server logic, Playwright with a mobile viewport for flows. E2e tests run one at a time because they share one stage. (decided)
 - **Reference:** `AprilLiar/Custom-VTT` (Dogfight) for Scene, Music player, image pipeline, socket
   patterns. Tarrot is a rewrite from scratch, not a copy. (decided)
-- **Workflow:** merge to `main` = deploy. README updated in the same PR; CI job `readme-updated`
-  fails code PRs that skip it. No GitHub polling. (decided)
+- **Workflow (decided, changed on 30 Oct 2026):** work **directly on `main`**: no feature branches and no pull requests; each change is
+  committed and pushed to `main` at once, without asking first. A push to `main` = deploy, so the checks (lint, unit tests, the e2e specs
+  that cover the change) are run before pushing. README (and `LOCALIZATION.md`) updated in the same commit; the CI job `readme-updated` still
+  guards any pull request that is opened. No GitHub polling.
 
 Repository layout:
 
@@ -67,7 +69,7 @@ Repository layout:
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
 | `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`, `AttackPresets` (the star and the preset list), `useAttackRunner` (Help Dice question, `attack:roll`, range warning; shared by Done and the presets), `attackDraft` (the draft as an `attack:roll` body). |
-| `client/src/components/effects/` | `EffectEditor` (the Effect dialog), `EffectRefs` (pick Effects in a weapon, Enhancement or band), `EffectsLibrary`, `ActiveEffects` (sheet list), `BasicActions`, `effectText`, `useEffectLibrary`. |
+| `client/src/components/effects/` | `EffectEditor` (the Effect dialog), `EffectRefs` (pick Effects in a weapon, Enhancement or band), `EffectsLibrary`, `ActiveEffects` (sheet list), `BasicActions`, `ActionIcon` and `basicActionIconData` (the Basic Actions' icons), `effectText`, `useEffectLibrary`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
 | `render.yaml` | Render blueprint. |
@@ -448,6 +450,17 @@ removed (including spent uses). A card line shows "Gains / Refreshes {effect}" a
 An **item** can carry Effects too (`item.effects`, on its user only): using the item (the Use button) puts them on, as one card with Revert.
 
 ### Basic Actions (decided)
+**Icons (decided):** every Basic Action has an **icon** (`icon`, one of `ACTION_ICON_KEYS`, or none) and shows it to the left of its name in the list: the
+**same icons the Foundry DC20 system assigns to its Basic Actions** (read from its `packs/system-items`: Attack is the sword, Move the winged foot,
+Spell the explosion, Dodge and Full Dodge the paralysis figure, Disengage and Full Disengage the crossed swords and shield, Hide the cowled head,
+Help the die target, Object the chest, Feint the ice aura, Taunt the eye, Intimidate the screaming face, Grapple the DC20 system's grappled grip,
+Shove the thrust, Tackle the falling figure, Throw the acid splash, Disarm the lever, Analyze Creature the book, Calm Animal the paw print, Combat Insight the
+light bulb, Conceal the bag, Investigate the village, Search the cave, Medicine the health cross, Pass Through the exit door and Extend Jump the
+upgrade arrows; `DEFAULT_ACTION_ICONS`). Foundry's core icons are the **game-icons.net** glyphs (CC BY 3.0; Lorc, Delapouite and other authors;
+https://game-icons.net, so this credit must stay) under other file names; they are drawn in the text colour (`basicActionIconData.js`, 27 icons:
+the 25 the shipped actions use plus Foundry's Mounted Defense and Sustained Action ones, `shield` and `clockwork`). An action stored before icons existed gets
+its shipped icon the first time it is listed; one the GM saved with **no icon** keeps none. The GM chooses the icon in the edit dialog (**Icon**), for
+a shipped action or a new one.
 The things anybody can do on their turn, from DC20's Basic Actions, in the **General tab**: a **Basic Actions** button opens a small, compact list (**closed at first**, so it does not take room; tap a name to read its text, **Use** beside it; on a PC the list breaks into **three columns** like the other sections, two on a tablet and one on a phone) (`shared/basicActions.js`).
 Shipped with the app (the GM can edit, delete and add actions; a deleted one stays deleted): Attack, Move, Spell (text only: they
 point to the footer attack, the D-pad and the Magic tab), Dodge (1 AP: Effect *Dodge*, Disadvantage on the next attack against
@@ -1258,7 +1271,7 @@ Implemented:
   (no subfolders, no characters) can be deleted. Character deletion is permanent and requires
   the exact name.
 
-- `effect_defs(id, data, position)` (the global Effects) and `basic_actions(id, data, position)` (the Basic Actions); the shipped ones are put in once (a `meta` row remembers it).
+- `effect_defs(id, data, position)` (the global Effects) and `basic_actions(id, data, position)` (the Basic Actions; `data` holds `name, description, icon, ap, roll, effects, statuses, help`); the shipped ones are put in once (a `meta` row remembers it).
 - `images(id, mime, data, bytes)`: random 32-hex id, stored as a BLOB.
 - `scene_folders`, `scenes(id, name, folder_id, scene_image_id, battle_image_id)` (the Battle
   image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.

@@ -8,12 +8,21 @@ import { normalizeApply } from './statuses.js';
 // Basic Actions (from DC20): the things anybody can do on their turn. A Basic Action costs AP, may make a roll (shown in the chat; contested
 // and DC results are judged by the GM, nothing is decided for them), may put Effects (shared/effects.js) on the user or the selected
 // targets, and may give a Help Die to the selected targets. The GM edits the list in the general Arcane tab.
-//   { id, name, description, ap, roll: null | { kind: 'skill'|'attribute'|'weapon'|'mastery', key }, effects: [{ id, to }],
+//   { id, name, description, icon, ap, roll: null | { kind: 'skill'|'attribute'|'weapon'|'mastery', key }, effects: [{ id, to }],
 //     statuses: [{ key, stacks, duration, dc, to }], help: null | { sides } }
+// `icon` is one of ACTION_ICON_KEYS ('' for none): the icon the Foundry DC20 system gives that Basic Action (see below).
 // `statuses` (conditions) go to the user or the selected targets (`to`), the same way an attack's statuses do: a status with a Save
 // is only put on after that Save fails (shared/statuses.js).
 
 export const MAX_ACTIONS = 100;
+
+// The icons a Basic Action can have: the ones the Foundry DC20 system (pazindorb/dc20rpg) assigns to its Basic Actions, by Foundry's file
+// names (`icons/svg/<key>.svg`; `grappled` is the DC20 system's own `images/statuses/grappled.svg`). The drawings are in
+// client/src/components/effects/basicActionIconData.js.
+export const ACTION_ICON_KEYS = [
+  'sword', 'wingfoot', 'explosion', 'paralysis', 'combat', 'cowled', 'dice-target', 'chest', 'ice-aura', 'eye', 'terror', 'grappled', 'thrust', 'falling',
+  'acid', 'lever', 'book', 'pawprint', 'light', 'item-bag', 'village', 'cave', 'regen', 'door-exit', 'upgrade', 'shield', 'clockwork',
+];
 export const DEFAULT_ACTION_PREFIX = 'default:';
 
 const isInt = Number.isInteger;
@@ -50,6 +59,7 @@ export function normalizeAction(raw, id) {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX, 'Action').trim() || 'Action',
     description: text(r.description, D.TEXT_MAX),
+    icon: ACTION_ICON_KEYS.includes(r.icon) ? r.icon : '',
     ap: clampInt(r.ap, 0, MAX_AP_COST, 1),
     roll: normalizeActionRoll(r.roll),
     effects: normalizeEffectRefs(r.effects),
@@ -72,7 +82,15 @@ export const DEFAULT_EFFECTS = [
 
 const eff = (id) => [{ id: `${DEFAULT_ACTION_PREFIX}${id}`, to: 'self' }];
 const skill = (key) => ({ kind: 'skill', key });
-const a = (id, name, description, ap, extra = {}) => normalizeAction({ id: `${DEFAULT_ACTION_PREFIX}${id}`, name, description, ap, ...extra }, `${DEFAULT_ACTION_PREFIX}${id}`);
+// The icon the Foundry DC20 system gives each of them (its Dodge and Disengage icons are shared with their Full versions).
+export const DEFAULT_ACTION_ICONS = {
+  attack: 'sword', move: 'wingfoot', spell: 'explosion', dodge: 'paralysis', full_dodge: 'paralysis', disengage: 'combat', full_disengage: 'combat',
+  hide: 'cowled', help: 'dice-target', object: 'chest', feint: 'ice-aura', taunt: 'eye', intimidate: 'terror', grapple: 'grappled', shove: 'thrust',
+  tackle: 'falling', throw: 'acid', disarm: 'lever', analyze: 'book', calm_animal: 'pawprint', combat_insight: 'light', conceal: 'item-bag',
+  investigate: 'village', search: 'cave', medicine: 'regen', pass_through: 'door-exit', extend_jump: 'upgrade',
+};
+const a = (id, name, description, ap, extra = {}) =>
+  normalizeAction({ id: `${DEFAULT_ACTION_PREFIX}${id}`, name, description, ap, icon: DEFAULT_ACTION_ICONS[id], ...extra }, `${DEFAULT_ACTION_PREFIX}${id}`);
 
 export const DEFAULT_ACTIONS = [
   a('attack', T('Attack'), T('Make an attack from the footer of the Arcane tab. Its AP is the cost of the weapon and the Enhancements you choose.'), 0),

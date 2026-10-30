@@ -278,6 +278,27 @@ describe('Basic Actions', () => {
     await g.call('basic:save', { id: dodge.id, action: { ...dodge, ap: 1 } });
   });
 
+  it('carry the Foundry DC20 icons: a stored default without one gets it, the GM can change it or take it away, and an unknown one is dropped', async () => {
+    const g = await client({ role: 'gm' });
+    const list = (await g.call('basic:list')).actions;
+    const attack = list.find((a) => a.name === 'Attack');
+    expect(attack.icon).toBe('sword');
+    // Stored before icons existed: no `icon` in the saved data at all.
+    const raw = JSON.parse((await db.execute({ sql: 'SELECT data FROM basic_actions WHERE id = ?', args: [attack.id] })).rows[0].data);
+    delete raw.icon;
+    await db.execute({ sql: 'UPDATE basic_actions SET data = ? WHERE id = ?', args: [JSON.stringify(raw), attack.id] });
+    expect((await g.call('basic:list')).actions.find((a) => a.id === attack.id).icon).toBe('sword');
+    // The GM picks another icon, or none: that is kept (none stays none).
+    expect((await g.call('basic:save', { id: attack.id, action: { ...attack, icon: 'shield' } })).action.icon).toBe('shield');
+    expect((await g.call('basic:save', { id: attack.id, action: { ...attack, icon: '' } })).action.icon).toBe('');
+    expect((await g.call('basic:list')).actions.find((a) => a.id === attack.id).icon).toBe('');
+    expect((await g.call('basic:save', { id: attack.id, action: { ...attack, icon: 'not-an-icon' } })).action.icon).toBe('');
+    await g.call('basic:save', { id: attack.id, action: { ...attack, icon: 'sword' } });
+    const fresh = await g.call('basic:save', { action: { name: 'Shout', ap: 1, icon: 'eye' } });
+    expect(fresh.action.icon).toBe('eye');
+    await g.call('basic:delete', { id: fresh.action.id });
+  });
+
   it('Dodge spends the AP, puts its Effect on the user, and Revert gives it all back', async () => {
     const g = await client({ role: 'gm' });
     const id = (await g.call('character:create', { name: 'Mira', type: 'pc' })).id;

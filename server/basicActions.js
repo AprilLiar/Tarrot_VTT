@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { normalizeAction, MAX_ACTIONS } from '../shared/basicActions.js';
+import { normalizeAction, MAX_ACTIONS, DEFAULT_ACTION_ICONS, DEFAULT_ACTION_PREFIX } from '../shared/basicActions.js';
 import { ensureDefaults } from './defaults.js';
 import { AppError } from './errors.js';
 
@@ -20,6 +20,8 @@ export async function listActions(db) {
     try {
       raw = JSON.parse(row.data);
     } catch {}
+    // A shipped action stored before icons existed gets its icon; one the GM saved with no icon ('') keeps none.
+    if (raw.icon === undefined && row.id.startsWith(DEFAULT_ACTION_PREFIX)) raw.icon = DEFAULT_ACTION_ICONS[row.id.slice(DEFAULT_ACTION_PREFIX.length)];
     return { ...normalizeAction(raw, row.id), id: row.id };
   });
 }

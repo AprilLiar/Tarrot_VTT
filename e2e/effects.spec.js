@@ -25,6 +25,20 @@ test('Effects: the GM builds one from parts, puts it on a character, a Basic Act
   await expect(gm.getByTestId('basic-actions')).toHaveCount(0); // the list is closed until its button is tapped
   await gm.getByTestId('basic-actions-toggle').click();
   await expect(gm.locator('[data-testid="basic-action"][data-name="Grapple"]')).toBeVisible();
+  // Each one has the icon the Foundry DC20 system gives it; the GM can pick another (or none) in the edit dialog.
+  const iconOf = (action) => gm.locator(`[data-testid="basic-action"][data-name="${action}"]`).getByTestId('action-icon');
+  await expect(iconOf('Attack')).toHaveAttribute('data-icon', 'sword');
+  await expect(iconOf('Move')).toHaveAttribute('data-icon', 'wingfoot');
+  await expect(iconOf('Grapple')).toHaveAttribute('data-icon', 'grappled');
+  await expect(iconOf('Full Dodge')).toHaveAttribute('data-icon', 'paralysis');
+  await gm.locator('[data-testid="basic-action"][data-name="Grapple"]').getByTestId('action-edit').click();
+  await gm.getByTestId('action-icon-select').selectOption('lever');
+  await gm.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await expect(iconOf('Grapple')).toHaveAttribute('data-icon', 'lever');
+  await gm.locator('[data-testid="basic-action"][data-name="Grapple"]').getByTestId('action-edit').click();
+  await gm.getByTestId('action-icon-select').selectOption('grappled');
+  await gm.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await expect(iconOf('Grapple')).toHaveAttribute('data-icon', 'grappled');
   await gm.getByTestId('add-effect').click();
   await gm.getByTestId('effect-name').fill(effect);
   // A tap outside the dialog does not close it (nothing typed is lost).

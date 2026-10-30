@@ -10,7 +10,8 @@ import { useEffectLibrary } from './useEffectLibrary.js';
 import * as D from '../../../../shared/rules-data.js';
 import { HELP_SIDES } from '../../../../shared/help.js';
 import { MAX_AP_COST } from '../../../../shared/arcane.js';
-import { DEFAULT_ACTION_PREFIX } from '../../../../shared/basicActions.js';
+import { ACTION_ICON_KEYS, DEFAULT_ACTION_PREFIX } from '../../../../shared/basicActions.js';
+import { ActionIcon } from './ActionIcon.jsx';
 import { useT } from '../../i18n.jsx';
 
 
@@ -55,13 +56,14 @@ function ActionDialog({ action, onClose }) {
   const [selfStatuses, setSelfStatuses] = useState((action?.statuses ?? []).filter((s) => s.to === 'self'));
   const [targetStatuses, setTargetStatuses] = useState((action?.statuses ?? []).filter((s) => s.to !== 'self'));
   const [help, setHelp] = useState(action?.help?.sides ?? 0);
+  const [icon, setIcon] = useState(action?.icon ?? '');
   const keys = rollKeys[kind]?.() ?? [];
   const rollKey = keys.some(([k]) => k === key) ? key : keys[0]?.[0];
   const valid = name.trim() && isNum(ap, 0, MAX_AP_COST);
   const run = () =>
     call('basic:save', {
       id: action?.id,
-      action: { name: name.trim(), description, ap: Number(ap), roll: kind === 'none' ? null : kind === 'weapon' ? { kind: 'weapon', key: 'prime' } : { kind, key: rollKey }, effects, statuses: [...selfStatuses.map((s) => ({ ...s, to: 'self' })), ...targetStatuses.map((s) => ({ ...s, to: 'target' }))], help: help ? { sides: help } : null },
+      action: { name: name.trim(), description, icon, ap: Number(ap), roll: kind === 'none' ? null : kind === 'weapon' ? { kind: 'weapon', key: 'prime' } : { kind, key: rollKey }, effects, statuses: [...selfStatuses.map((s) => ({ ...s, to: 'self' })), ...targetStatuses.map((s) => ({ ...s, to: 'target' }))], help: help ? { sides: help } : null },
     });
   return (
     <FormDialog title={action ? t('Edit Basic Action') : t('New Basic Action')} submitLabel={action ? t('Save') : t('Add')} onClose={onClose} canSubmit={!!valid} run={run}>
@@ -72,6 +74,20 @@ function ActionDialog({ action, onClose }) {
       <label className={label}>
         {t('Description')}
         <textarea className={`${input} min-h-20`} value={description} maxLength={D.TEXT_MAX} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+      <label className={label}>
+        {t('Icon')}
+        <span className="flex items-center gap-2">
+          <ActionIcon icon={icon} size={32} />
+          <select className={select} aria-label={t('Icon')} data-testid="action-icon-select" value={icon} onChange={(e) => setIcon(e.target.value)}>
+            <option value="">{t('None')}</option>
+            {ACTION_ICON_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </span>
       </label>
       <label className={label}>
         {t('AP cost')}
@@ -159,6 +175,7 @@ export function BasicActions({ s = null }) {
             return (
               <div key={a.id} className="self-start rounded-xl border border-white/10 bg-white/5 px-2 py-1" data-testid="basic-action" data-name={a.name}>
                 <div className="flex min-h-9 items-center gap-2">
+                  <ActionIcon icon={a.icon} />
                   <button className="min-w-0 flex-1 truncate text-left text-sm font-medium" aria-expanded={shown === a.id} data-testid="action-name-toggle" onClick={() => setShown(shown === a.id ? null : a.id)}>
                     {isDefault ? t(a.name) : a.name}
                   </button>

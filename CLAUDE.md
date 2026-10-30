@@ -5,7 +5,7 @@ single source of truth: game mechanics, data model, event contract, pages, phase
 of open design questions. Every change must stay consistent with it. If a request conflicts with
 it, flag the conflict instead of silently diverging.
 
-**Keep the README current, in the same PR.** Any change to a mechanic, schema, event payload, UI
+**Keep the README current, in the same commit.** Any change to a mechanic, schema, event payload, UI
 behavior, decision, or a rule the user states in conversation must update `README.md` before
 committing. CI (`readme-updated` job) fails PRs that change code without touching it.
 
@@ -21,7 +21,10 @@ writing code: explain options briefly, do not guess.
 - No login by design: identity is a picker (GM or a PC), remembered per device.
 - Plain JavaScript everywhere. Tests: `npm test` (Vitest), `npm run e2e` (Playwright, mobile
   viewport; set `PW_CHROMIUM_PATH` to use a preinstalled Chromium), `npm run lint`.
-- Merging to `main` is the deploy (Render auto-builds).
+- **Work directly on `main`** (the user's rule since 30 Oct 2026): no feature branches, no pull requests. Commit and push to `main` yourself,
+  without asking for confirmation. A push to `main` is the deploy (Render auto-builds), so before pushing run `npx eslint .`, `npx vitest run`,
+  `npm run i18n:check` and the Playwright specs that cover the change (the whole suite for anything wide). Overrides any older "work on a
+  designated branch / open a PR" instruction.
 - Never poll GitHub or schedule recurring checks; events arrive on their own.
 - `AprilLiar/Custom-VTT` (Dogfight) is a reference for Scene, Music player, image pipeline and
   socket patterns. Tarrot is a rewrite, not a copy.
