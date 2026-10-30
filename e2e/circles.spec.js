@@ -194,3 +194,87 @@ test('Spell Circles: a saved draft is upgraded in place from its magnified view,
   await ctx.close();
   await gmCtx.close();
 });
+
+test('Spell Stones say what they do when a mouse is over them, and the runes are read as a sentence under the chain', async ({ browser }) => {
+  const name = `Tip-${uid()}`;
+  const gmCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const gm = await gmCtx.newPage();
+  await gm.goto('/');
+  await gm.getByTestId('pick-gm').click();
+  await createPc(gm, name);
+
+  const open = async (ctx) => {
+    const p = await ctx.newPage();
+    await p.goto('/');
+    await p.getByTestId('pick-pc').filter({ hasText: name }).click();
+    await p.getByTestId('view-arcane').click();
+    await p.getByTestId('arcane-tab-magic').click();
+    return p;
+  };
+  const mouseCtx = await browser.newContext({ viewport: { width: 1280, height: 900 }, hasTouch: false, isMobile: false });
+  const p = await open(mouseCtx);
+
+  // The palette in the Editor, the stone on the table, and the Stones tab all explain a stone; it goes away with the mouse.
+  await expect(p.getByTestId('stone-tip')).toHaveCount(0);
+  await p.getByTestId('palette-virgo').hover();
+  await expect(p.getByTestId('stone-tip')).toContainText('Records a physical phenomenon.');
+  await expect(p.getByTestId('stone-tip')).toContainText('Virgo');
+  await expect(p.getByTestId('stone-tip')).toContainText('Base');
+  await p.getByTestId('palette-virgo').click();
+  await p.getByTestId('palette-aries').click();
+  await p.getByTestId('spell-name').hover();
+  await expect(p.getByTestId('stone-tip')).toHaveCount(0);
+  await stone(p, 'aries').hover();
+  await expect(p.getByTestId('stone-tip')).toContainText('Aggressive release of the recorded phenomenon.');
+  await expect(p.getByTestId('stone-tip')).toContainText('Release');
+  await p.getByTestId('spell-name').hover();
+  await expect(p.getByTestId('stone-tip')).toHaveCount(0);
+  await p.getByTestId('magic-stones').click();
+  await p.getByTestId('stone-leo').getByRole('button').hover();
+  await expect(p.getByTestId('stone-tip')).toContainText('Creates a positive version of the recorded effect.');
+  await p.getByTestId('magic-editor').click();
+
+  // The sentence: the runes' names in the reader's language, small and right under the chain.
+  await expect(p.getByTestId('rune-sentence')).toHaveCount(0); // (no runes yet)
+  await p.getByTestId('rune-category-logic').click();
+  await p.getByTestId('rune-pick-if').click();
+  await p.getByTestId('rune-pick-then').click();
+  await p.getByTestId('rune-category-elements_essences').click();
+  await p.getByTestId('rune-pick-fire').click();
+  const sentence = p.getByTestId('rune-sentence');
+  await expect(sentence).toHaveText('If then fire.');
+  const chain = await p.getByTestId('runes').boundingBox();
+  const line = await sentence.boundingBox();
+  expect(line.y).toBeGreaterThanOrEqual(chain.y + chain.height - 1);
+  expect(line.y - (chain.y + chain.height)).toBeLessThan(12); // very close to the runes
+  await expect(sentence).toHaveCSS('font-size', '11px'); // small
+  await p.getByTestId('rune-backspace').click();
+  await expect(sentence).toHaveText('If then.');
+  await p.getByTestId('rune-pick-fire').click();
+  await p.getByTestId('spell-name').fill('Sentence');
+  await p.getByTestId('spell-save').click();
+
+  // It is under the chain on the saved draft and in the large view too.
+  await p.getByTestId('magic-drafts').click();
+  const draft = p.getByTestId('draft').filter({ hasText: 'Sentence' });
+  await expect(draft.getByTestId('rune-sentence')).toHaveText('If then fire.');
+  await draft.getByTestId('draft-zoom').click();
+  await expect(p.getByTestId('spell-zoom').getByTestId('rune-sentence')).toHaveText('If then fire.');
+  await p.getByTestId('zoom-close').click();
+  await mouseCtx.close();
+
+  // In Russian: the stone's description and the sentence are Russian too.
+  const ruCtx = await browser.newContext({ viewport: { width: 1280, height: 900 }, hasTouch: false, isMobile: false });
+  await ruCtx.addInitScript(() => localStorage.setItem('tarrot.lang', 'ru'));
+  const r = await open(ruCtx);
+  await r.getByTestId('magic-drafts').click();
+  await expect(r.getByTestId('draft').filter({ hasText: 'Sentence' }).getByTestId('rune-sentence')).toHaveText('Если то огонь.');
+  await r.getByTestId('magic-editor').click();
+  await r.getByTestId('palette-aries').click();
+  await stone(r, 'aries').hover();
+  await expect(r.getByTestId('stone-tip')).toContainText('Агрессивное высвобождение записанного явления.');
+  await expect(r.getByTestId('stone-tip')).toContainText('Овен');
+  await ruCtx.close();
+
+  await gmCtx.close();
+});

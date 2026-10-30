@@ -124,3 +124,12 @@ export const normalizeChain = (raw) => (Array.isArray(raw) ? raw : []).filter((i
 
 // Terms the data adds to LOCALIZATION.md (the category names and the runes; the stones' names are terms already).
 export const runeTermKeys = () => ALL_CATEGORIES.flatMap((c) => [c.name, ...c.runes.filter((r) => r.name).map((r) => r.name)]);
+
+// The chain read as a sentence, from the runes' names already in the reader's language (`names` = one string per rune). A rune with two names
+// ("Force / Strength") is read by the first; the words are lower case except the first, and the sentence ends with a full stop.
+export function runeSentence(names) {
+  const words = names.map((n) => String(n).split('/')[0].trim().toLowerCase()).filter(Boolean);
+  if (!words.length) return '';
+  const text = words.join(' ');
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+}

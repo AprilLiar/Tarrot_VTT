@@ -1,5 +1,6 @@
 import { useId, useRef } from 'react';
 import { KIND_COLORS, KIND_LABELS, circleOf, layoutScheme, stoneInfo } from '../../../../shared/spells.js';
+import { useStoneTip } from './StoneTip.jsx';
 import { useT } from '../../i18n.jsx';
 
 const C = 72; // pixels of one cell in the drawing
@@ -12,10 +13,12 @@ const MAX_SCALE = 1.25; // the editor's picture is drawn at most this much large
 //   onStone(id), onStoneTwice(id): a tap and a quick second tap on a stone
 //   mini: the small snapshot shown in the compendium (no labels); only the stones with a note can be tapped, to show it
 //   big: no height limit (the spell shown large)     activeCircle: the Circle being worked on gets a dashed outline
+// A mouse over a stone (not in the small snapshot) shows what the stone does.
 // With several Circles they are drawn one under the other, and the Release of every Circle but the last has a faded glow in the colour of
 // the Bases: it is the special Base of the Circle below it.
 export function SchemeView({ scheme, selected = null, source = null, noteOpen = null, onStone, onStoneTwice, mini = false, big = false, activeCircle = null }) {
   const t = useT();
+  const [tip, over] = useStoneTip();
   const uid = useId().replace(/:/g, '');
   const last = useRef({ id: null, at: 0 });
   const { pos, width, height, lanes, parts, circles } = layoutScheme(scheme);
@@ -98,6 +101,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
             data-selected={selected === s.id || source === s.id ? 'true' : 'false'}
             style={mini && !(hasNote && onStone) ? { pointerEvents: 'none' } : { cursor: 'pointer' }}
             onClick={mini ? (hasNote && onStone ? () => onStone(s.id) : undefined) : () => tap(s.id)}
+            {...(mini ? {} : over(s.sign))}
           >
             {special.has(s.id) && <circle r={R + 5} fill={KIND_COLORS.base} filter={`url(#${uid}-g)`} opacity="0.6" data-testid="special-base-glow" />}
             {hasNote && <circle r={R + 2} fill="#3b82f6" filter={`url(#${uid}-g)`} opacity="0.95" />}
@@ -126,7 +130,14 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
       )}
     </svg>
   );
-  if (!mini) return svg;
+  if (!mini) {
+    return (
+      <>
+        {svg}
+        {tip}
+      </>
+    );
+  }
   // The small snapshot is scaled down, so its note is an ordinary box over it (a note drawn inside the picture would shrink
   // with it): the standard text size of the interface.
   return (

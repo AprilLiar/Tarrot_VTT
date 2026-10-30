@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { io as connect } from 'socket.io-client';
 import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
-import { validateScheme, stonesNeeded, usesFor, layoutScheme, normalizeScheme, normalizeRows, MAX_CIRCLES } from '../../shared/spells.js';
+import { validateScheme, stonesNeeded, usesFor, layoutScheme, normalizeScheme, normalizeRows, MAX_CIRCLES, STONES, KINDS, KIND_LABELS } from '../../shared/spells.js';
+import { runeSentence } from '../../shared/runes.js';
 
 const st = (id, sign) => ({ id, sign, note: '' });
 const ar = (from, to) => ({ from, to });
@@ -301,6 +302,31 @@ describe('crafting a spell of several Circles', () => {
     await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Twin', scheme: twoCircles(), runes: [['x'], ['y']] } });
     expect((await sheetOf(g, id)).spellDrafts[0].runes).toEqual([['fire'], ['if']]);
     await g.call('lock:toggle', { key: 'fine_tuning' });
+  });
+});
+
+describe('what a Spell Stone says on hover', () => {
+  it('every one of the twelve stones has a description and a known kind', () => {
+    expect(STONES).toHaveLength(12);
+    for (const x of STONES) {
+      expect(x.text.trim().length, x.sign).toBeGreaterThan(10);
+      expect(KINDS).toContain(x.kind);
+      expect(KIND_LABELS[x.kind]).toBeTruthy();
+    }
+  });
+});
+
+describe('the rune chain read as a sentence', () => {
+  it('joins the names, a capital letter first and a full stop last', () => {
+    expect(runeSentence(['If', 'Fire', 'Then', 'Increase', 'Greater than'])).toBe('If fire then increase greater than.');
+    expect(runeSentence(['Если', 'Огонь'])).toBe('Если огонь.');
+  });
+
+  it('reads a rune with two names by the first, and says nothing for an empty chain', () => {
+    expect(runeSentence(['Force / Strength', 'Increase'])).toBe('Force increase.');
+    expect(runeSentence(['Сила / Мощь', 'Огонь'])).toBe('Сила огонь.');
+    expect(runeSentence([])).toBe('');
+    expect(runeSentence(['', ' '])).toBe('');
   });
 });
 

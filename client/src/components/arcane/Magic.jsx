@@ -12,6 +12,7 @@ import * as D from '../../../../shared/rules-data.js';
 import { Lockable } from './Locks.jsx';
 import { RuneChain, RuneEditor, RuneRows } from './Runes.jsx';
 import { SpellZoom } from './SpellZoom.jsx';
+import { useStoneTip } from './StoneTip.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The Magic tab: Spell Stones, the scheme editor, the compendium of saved drafts, and finished spells.
@@ -32,19 +33,25 @@ export const withNewCircle = (d) => {
   return workOf({ ...d, scheme: normalizeScheme({ ...d.scheme, circles }), runes: normalizeRows(d.runes, circles) }, circles);
 };
 
-// A stone as a small round button with its ring, used in the palette and the filters.
+// A stone as a small round button with its ring, used in the palette and the filters. A mouse over it shows what the stone does.
 function StoneChip({ sign, size = 44, ...rest }) {
+  const t = useT();
+  const [tip, over] = useStoneTip();
   const info = stoneInfo(sign);
   return (
-    <button
-      type="button"
-      className="flex shrink-0 items-center justify-center rounded-full bg-[#14111d] text-2xl"
-      style={{ width: size, height: size, border: `3px solid ${KIND_COLORS[info.kind]}` }}
-      title={`${info.name}`}
-      {...rest}
-    >
-      {info.glyph}
-    </button>
+    <>
+      <button
+        type="button"
+        className="flex shrink-0 items-center justify-center rounded-full bg-[#14111d] text-2xl"
+        style={{ width: size, height: size, border: `3px solid ${KIND_COLORS[info.kind]}` }}
+        aria-label={t(info.name)}
+        {...over(sign)}
+        {...rest}
+      >
+        {info.glyph}
+      </button>
+      {tip}
+    </>
   );
 }
 
@@ -282,7 +289,7 @@ function Editor({ s, work, setWork }) {
             {rows.map((row, i) => (
               <button key={i} type="button" data-testid="rune-row" data-circle={i + 1} aria-pressed={active === i + 1} className={`flex items-center gap-2 rounded-xl bg-black/30 px-2 py-1 text-left ${active === i + 1 ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setWork({ ...work, circle: i + 1 })}>
                 <span className="w-16 shrink-0 text-xs opacity-60">{t('Circle {n}', { n: i + 1 })}</span>
-                {row.length ? <RuneChain runes={row} size={28} testId="rune-row-chain" /> : <span className="text-xs opacity-40">{t('No runes yet.')}</span>}
+                {row.length ? <RuneChain runes={row} size={28} testId="rune-row-chain" sentence={false} /> : <span className="text-xs opacity-40">{t('No runes yet.')}</span>}
               </button>
             ))}
           </div>

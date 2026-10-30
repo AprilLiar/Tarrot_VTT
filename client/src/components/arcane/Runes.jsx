@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { GLYPHS, RUNE_VIEWBOX } from './runeGlyphs.js';
 import { btn, btnDanger } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
-import { ALL_CATEGORIES, MAX_CHAIN, runeInfo } from '../../../../shared/runes.js';
+import { ALL_CATEGORIES, MAX_CHAIN, runeInfo, runeSentence } from '../../../../shared/runes.js';
 import { stoneInfo } from '../../../../shared/spells.js';
 import { useT } from '../../i18n.jsx';
 
@@ -37,33 +37,40 @@ export function useRuneName() {
   };
 }
 
-// A chain of runes, left to right on one line. It scrolls sideways only when it is wider than the screen.
-// With `onPick` the runes are buttons (the editor selects one to remove it).
-export function RuneChain({ runes, size = 40, selected = null, onPick = null, testId = 'rune-chain' }) {
+// A chain of runes, left to right on one line, with the chain read as a sentence in small letters right under it (`sentence={false}` leaves
+// it out). It scrolls sideways only when it is wider than the screen. With `onPick` the runes are buttons (the editor selects one to remove it).
+export function RuneChain({ runes, size = 40, selected = null, onPick = null, testId = 'rune-chain', sentence = true }) {
   const name = useRuneName();
   if (!runes.length) return null;
   return (
-    <div className="flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto py-1" data-testid={testId} data-count={runes.length}>
-      {runes.map((id, i) =>
-        onPick ? (
-          <button
-            key={i}
-            type="button"
-            data-testid="rune"
-            data-rune={id}
-            aria-pressed={selected === i}
-            title={name(id)}
-            aria-label={name(id)}
-            className={`shrink-0 rounded-lg p-0.5 ${selected === i ? 'bg-amber-400/25 ring-2 ring-amber-400' : 'bg-white/5'}`}
-            onClick={() => onPick(i)}
-          >
-            <RuneGlyph id={id} size={size} />
-          </button>
-        ) : (
-          <span key={i} data-testid="rune" data-rune={id} title={name(id)} className="shrink-0">
-            <RuneGlyph id={id} size={size} />
-          </span>
-        ),
+    <div className="min-w-0 max-w-full">
+      <div className="flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto pt-1" data-testid={testId} data-count={runes.length}>
+        {runes.map((id, i) =>
+          onPick ? (
+            <button
+              key={i}
+              type="button"
+              data-testid="rune"
+              data-rune={id}
+              aria-pressed={selected === i}
+              title={name(id)}
+              aria-label={name(id)}
+              className={`shrink-0 rounded-lg p-0.5 ${selected === i ? 'bg-amber-400/25 ring-2 ring-amber-400' : 'bg-white/5'}`}
+              onClick={() => onPick(i)}
+            >
+              <RuneGlyph id={id} size={size} />
+            </button>
+          ) : (
+            <span key={i} data-testid="rune" data-rune={id} title={name(id)} className="shrink-0">
+              <RuneGlyph id={id} size={size} />
+            </span>
+          ),
+        )}
+      </div>
+      {sentence && (
+        <p className="pb-1 text-[11px] leading-tight opacity-60" data-testid="rune-sentence">
+          {runeSentence(runes.map(name))}
+        </p>
       )}
     </div>
   );

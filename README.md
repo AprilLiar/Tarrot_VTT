@@ -1014,6 +1014,9 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   (weaker, much greater range), Capricorn Link (slightly weaker, one acts as catalyst for the other),
   Aquarius Release (precise, stronger the more restrictions), Pisces Modifier (envelops the mage, immune
   to it). Ring colours: Bases purple, Links dark blue, Modifiers cyan, Releases pink/red.
+  **Hover description:** with a mouse over a stone (the Stones tab, the Editor's palette and table, the large view of a spell) a small card beside the pointer
+  names the stone, its type and what it does (the text above, in the reader's language). A touch screen has no hover and shows nothing; the small snapshot on a
+  draft's card has none either (open it large). All twelve stones have a description (`STONES[].text` in `shared/spells.js`).
 - **Inventory:** a character has a count per stone, edited by the GM or the sheet's owner; shown as
   "x3" beside stones with at least 1. Drafting shows all 12 and consumes nothing.
 - **Editor:** stones are listed in one column on the right (Bases, Modifiers, Links, Releases). On the
@@ -1044,6 +1047,10 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   last chain; a spell granted by the GM has no chain). The chain has no effect on the rules (no legality check). The old
   placeholder runes "1, 2, 3" were dropped: existing drafts start with an empty chain. With Spell Fine Tuning locked a
   player cannot change the chain and sees none (drafts and spells).
+  **Read as a sentence:** under every chain (the Editor, the draft cards, a crafted spell, the large view) the runes' names, in the reader's language, are
+  written as one sentence in small letters, very close to the runes (`runeSentence` in `shared/runes.js`): the names in order, separated by spaces, all lower case
+  except the first letter, ending with a full stop ("If then fire."); a rune with two names ("Force / Strength") is read by the first. It is one line of text
+  under the whole chain, not a caption under each rune. The Editor's list of Circle rows (a picker, several Circles) shows only the runes, to stay short.
 - **Compendium drawer:** all saved spells (drafts) with name, description and a visual snapshot of the
   scheme; filters: any number of stones of chosen Zodiacs used, and a search over names and
   descriptions. From it a spell can be **edited** (loaded into the editor) or **crafted**. The snapshot of the scheme on
