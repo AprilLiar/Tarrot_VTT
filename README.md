@@ -92,7 +92,10 @@ Without Turso credentials the server uses `local.db`. To use a preinstalled Chro
 ## Deploying
 
 1. Create a Turso database; note its `libsql://` URL and an auth token.
-2. Create a Render Web Service from this repo (`render.yaml` preconfigures build/start).
+2. Create a Render Web Service from this repo (`render.yaml` preconfigures build/start). The blueprint also sets `branch: main` and
+   `autoDeployTrigger: commit`, so **every commit pushed to `main` deploys by itself** (the same switch is the service's **Settings >
+   Build & Deploy > Auto-Deploy: On Commit** in the Render dashboard; the Render GitHub app must be allowed to read this repository, and an
+   existing service picks the blueprint change up when its Blueprint is synced).
 3. Set env vars `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
 
 Health check: `GET /api/health` returns `{ ok, db }`.
