@@ -81,13 +81,22 @@ describe('spell Circles', () => {
     expect(normalizeScheme({ circles: 2, stones: [...many, c2('z', 'leo')] }).stones).toHaveLength(25); // 24 in Circle 1, 1 in Circle 2
   });
 
-  it('lays the Circles one under the other, each with its own rows', () => {
+  it('lays the Circles one under the other; the Release of a Circle stands in the Bases row of the next one', () => {
     const { pos, parts, lanes, height } = layoutScheme(twoCircles());
     expect(parts.map((x) => x.circle)).toEqual([1, 2]);
-    expect(lanes.map((l) => `${l.circle}${l.kind}`)).toEqual(['1base', '1mid', '1release', '2base', '2mid', '2release']);
-    expect(pos.get('m2').y).toBeGreaterThan(pos.get('r').y); // Circle 2 is below the Release of Circle 1
+    // Only the last Circle has a Release row: the Release of the one above is the special Base in its Bases row.
+    expect(lanes.map((l) => `${l.circle}${l.kind}`)).toEqual(['1base', '1mid', '2base', '2mid', '2release']);
+    const basesOf2 = lanes.find((l) => l.circle === 2 && l.kind === 'base');
+    expect(pos.get('r').y).toBe(basesOf2.y + 0.5);
+    expect(pos.get('m').y).toBeLessThan(pos.get('r').y); // the stones of Circle 1 are above its Release
+    expect(pos.get('m2').y).toBeGreaterThan(pos.get('r').y); // and Circle 2's own stones are below it
     expect(pos.get('r2').y).toBeGreaterThan(pos.get('m2').y);
     expect(height).toBe(parts[0].height + parts[1].height);
+    // Circle 2's own Bases stand beside the special Base, which comes first.
+    const g1 = good();
+    const wide = layoutScheme({ circles: 2, stones: [...g1.stones, c2('b3', 'cancer'), c2('r2', 'gemini')], arrows: g1.arrows });
+    expect(wide.pos.get('r').y).toBe(wide.pos.get('b3').y);
+    expect(wide.pos.get('r').x).toBeLessThan(wide.pos.get('b3').x);
   });
 
   it('is legal when the Release of a Circle leads into the next one, which needs no Base of its own', () => {

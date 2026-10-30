@@ -301,10 +301,10 @@ export function registerSceneHandlers(ctx) {
   }
   on('battle:update', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) {
-      const heightOnly = p.pictureId === undefined && p.hidden === undefined && p.height !== undefined;
+      const heightOnly = p.pictureId === undefined && p.hidden === undefined && (p.height !== undefined || p.heightBy !== undefined);
       if (!heightOnly || !(await ownsToken(p.id))) throw new AppError('forbidden', 'You can only change the height of your own character.');
     }
-    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height });
+    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height, heightBy: p.heightBy });
     if (p.hidden === true) for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });

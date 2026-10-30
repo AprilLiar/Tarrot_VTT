@@ -74,21 +74,24 @@ export const circleOf = (stone) => (Number.isInteger(stone?.circle) && stone.cir
 export const circlesOf = (scheme) => Math.max(Number.isInteger(scheme?.circles) ? scheme.circles : 1, 1, ...(scheme?.stones ?? []).map(circleOf));
 
 // Where every stone stands: for each Circle (one under the other) the Bases side by side in a row, then one Modifier or Link to a row
-// (with one empty row left under the last), and the Release alone at the bottom. Units are stone cells. `parts` gives each Circle's
-// rows ({ circle, y, height }); a stone's `level` is its row, and arrows only go to a deeper row.
+// (with one empty row left under the last), and the Release alone at the bottom. A Circle with another Circle under it has no Release row of
+// its own: its Release is the special Base of the next Circle, so it stands in that Circle's Bases row, first among them. Units are stone
+// cells. `parts` gives each Circle's rows ({ circle, y, height }); a stone's `level` is its row, and arrows only go to a deeper row.
 export function layoutScheme(scheme) {
   const circles = circlesOf(scheme);
   const kindOf = (s) => stoneInfo(s.sign).kind;
   const per = Array.from({ length: circles }, (_, i) => scheme.stones.filter((s) => circleOf(s) === i + 1));
-  const width = Math.max(3, ...per.map((stones) => stones.filter((s) => kindOf(s) === 'base').length));
+  const releasesOf = (i) => per[i].filter((s) => kindOf(s) === 'release');
+  // The Bases row of a Circle: the Releases of the Circle above it (its special Bases), then its own Bases.
+  const baseRow = (i) => [...(i > 0 ? releasesOf(i - 1) : []), ...per[i].filter((s) => kindOf(s) === 'base')];
+  const width = Math.max(3, ...per.map((_, i) => baseRow(i).length));
   const pos = new Map();
   const lanes = [];
   const parts = [];
   let row = 0;
   per.forEach((stones, i) => {
-    const bases = stones.filter((s) => kindOf(s) === 'base');
+    const bases = baseRow(i);
     const mids = stones.filter((s) => ['modifier', 'link'].includes(kindOf(s)));
-    const releases = stones.filter((s) => kindOf(s) === 'release');
     const top = row;
     bases.forEach((s, j) => pos.set(s.id, { x: ((j + 0.5) * width) / bases.length, y: row + 0.5, level: row }));
     lanes.push({ kind: 'base', y: row, height: 1, circle: i + 1 });
@@ -97,9 +100,12 @@ export function layoutScheme(scheme) {
     const midRows = mids.length + 1; // the empty row
     lanes.push({ kind: 'mid', y: row, height: midRows, circle: i + 1 });
     row += midRows;
-    releases.forEach((s, j) => pos.set(s.id, { x: ((j + 0.5) * width) / releases.length, y: row + 0.5, level: row }));
-    lanes.push({ kind: 'release', y: row, height: 1, circle: i + 1 });
-    row += 1;
+    if (i === circles - 1) {
+      const releases = releasesOf(i);
+      releases.forEach((s, j) => pos.set(s.id, { x: ((j + 0.5) * width) / releases.length, y: row + 0.5, level: row }));
+      lanes.push({ kind: 'release', y: row, height: 1, circle: i + 1 });
+      row += 1;
+    }
     parts.push({ circle: i + 1, y: top, height: row - top });
   });
   return { pos, width, height: row, lanes, parts, circles };

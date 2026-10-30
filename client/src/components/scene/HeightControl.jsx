@@ -9,13 +9,14 @@ export const HEIGHT_MAX = 99;
 export function HeightControl({ token }) {
   const t = useT();
   const { toast } = useApp();
-  async function set(height) {
-    const r = await call('battle:update', { id: token.id, height });
+  // Up and Down send a step (the server adds it), Reset sends 0: a quick run of taps never loses one.
+  async function change(patch) {
+    const r = await call('battle:update', { id: token.id, ...patch });
     if (!r.ok) toast(r.error);
   }
   return (
     <div className="flex items-center gap-2" data-testid="height-control">
-      <button className={`${btn} min-w-16`} data-testid="height-down" aria-label={t('Lower by one Space')} disabled={token.height <= 0} onClick={() => set(token.height - 1)}>
+      <button className={`${btn} min-w-16`} data-testid="height-down" aria-label={t('Lower by one Space')} disabled={token.height <= 0} onClick={() => change({ heightBy: -1 })}>
         {t('Down')}
       </button>
       <div className="w-20 text-center" aria-live="polite">
@@ -24,10 +25,10 @@ export function HeightControl({ token }) {
         </div>
         <div className="text-xs opacity-60">{t('Spaces')}</div>
       </div>
-      <button className={`${btn} min-w-16`} data-testid="height-up" aria-label={t('Raise by one Space')} disabled={token.height >= HEIGHT_MAX} onClick={() => set(token.height + 1)}>
+      <button className={`${btn} min-w-16`} data-testid="height-up" aria-label={t('Raise by one Space')} disabled={token.height >= HEIGHT_MAX} onClick={() => change({ heightBy: 1 })}>
         {t('Up')}
       </button>
-      <button className={btn} data-testid="height-reset" disabled={token.height === 0} onClick={() => set(0)}>
+      <button className={btn} data-testid="height-reset" disabled={token.height === 0} onClick={() => change({ height: 0 })}>
         {t('Reset')}
       </button>
     </div>

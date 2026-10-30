@@ -520,6 +520,36 @@ describe('height', () => {
     expect(await own.call('battle:remove', { id: t })).toMatchObject({ ok: false, code: 'forbidden' });
     expect((await d.call('battle:remove', { id: t })).ok).toBe(true);
   });
+
+  it('Up and Down are steps the server adds, so a run of quick taps loses none, and the height stays between 0 and 99', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const t = (await g.call('battle:add', { characterId: a })).id;
+    const d = await display();
+    // Five taps on Up sent without waiting for any answer.
+    await Promise.all(Array.from({ length: 5 }, () => d.call('battle:update', { id: t, heightBy: 1 })));
+    expect((await stageOf(g)).battle.tokens[0].height).toBe(5);
+    await Promise.all(Array.from({ length: 2 }, () => g.call('battle:update', { id: t, heightBy: -1 })));
+    expect((await stageOf(g)).battle.tokens[0].height).toBe(3);
+    // Down never goes below 0, Up never above 99, and a step is exactly one.
+    await g.call('battle:update', { id: t, height: 0 });
+    await g.call('battle:update', { id: t, heightBy: -1 });
+    expect((await stageOf(g)).battle.tokens[0].height).toBe(0);
+    await g.call('battle:update', { id: t, height: 99 });
+    await g.call('battle:update', { id: t, heightBy: 1 });
+    expect((await stageOf(g)).battle.tokens[0].height).toBe(99);
+    expect(await g.call('battle:update', { id: t, heightBy: 5 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await g.call('battle:update', { id: t, heightBy: 0.5 })).toMatchObject({ ok: false, code: 'bad_value' });
+    // A player may step the height of their own character, but nothing else with it.
+    const own = await player(a);
+    await g.call('battle:update', { id: t, height: 4 });
+    expect((await own.call('battle:update', { id: t, heightBy: 1 })).ok).toBe(true);
+    expect((await stageOf(g)).battle.tokens[0].height).toBe(5);
+    expect(await own.call('battle:update', { id: t, heightBy: 1, hidden: true })).toMatchObject({ ok: false, code: 'forbidden' });
+    const other = await player(await withPicture(g, 'Bob'));
+    expect(await other.call('battle:update', { id: t, heightBy: 1 })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
 });
 
 describe('the eraser', () => {

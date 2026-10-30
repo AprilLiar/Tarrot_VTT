@@ -68,6 +68,13 @@ test('Spell Circles: a second Circle built on the Release of the first, a row of
   // The Release of Circle 1 has the faded glow of a Base.
   await expect(stone(p, 'aries')).toHaveAttribute('data-base', 'true');
   await expect(p.getByTestId('special-base-glow')).toHaveCount(1);
+  // It is drawn in the Bases row of Circle 2 (level with the Bases Circle 2 would add), not in a Release row of its own.
+  const lane2Bases = p.getByTestId('scheme-lane').and(p.locator('[data-circle="2"][data-kind="base"]'));
+  const laneBox = await lane2Bases.boundingBox();
+  const releaseBox = await stone(p, 'aries').boundingBox();
+  expect(releaseBox.y).toBeGreaterThan(laneBox.y);
+  expect(releaseBox.y + releaseBox.height).toBeLessThan(laneBox.y + laneBox.height + 2);
+  await expect(p.getByTestId('scheme-lane').and(p.locator('[data-circle="1"][data-kind="release"]'))).toHaveCount(0);
   await arrow(p, stone(p, 'aries'), stone(p, 'leo'));
   await arrow(p, stone(p, 'leo'), stone(p, 'gemini'));
   await expect(p.getByTestId('scheme-status')).toHaveAttribute('data-legal', 'true');
@@ -118,6 +125,21 @@ test('Spell Circles: a second Circle built on the Release of the first, a row of
   await expect(spell.getByTestId('spell-circles')).toHaveAttribute('data-circles', '2');
   await expect(spell.getByTestId('rune-row-view')).toHaveCount(2);
   await expect(p.getByTestId('chat-panel').getByTestId('roll-title')).toHaveCount(0); // (the chat is closed: nothing to read here)
+
+  // With a mouse (no touch screen) the magnifying glass is hidden until the pointer is over the picture, and fades in within 100 ms.
+  const mouseCtx = await browser.newContext({ viewport: { width: 1280, height: 900 }, hasTouch: false, isMobile: false });
+  const m = await mouseCtx.newPage();
+  await m.goto('/');
+  await m.getByTestId('pick-pc').filter({ hasText: name }).click();
+  await m.getByTestId('view-arcane').click();
+  await m.getByTestId('arcane-tab-magic').click();
+  await m.getByTestId('magic-drafts').click();
+  const lens2 = m.getByTestId('draft').filter({ hasText: 'Twin Bolt' }).getByTestId('draft-zoom');
+  await expect(lens2).toHaveCSS('opacity', '0');
+  await expect(lens2).toHaveCSS('transition-duration', '0.1s');
+  await m.getByTestId('draft').filter({ hasText: 'Twin Bolt' }).getByTestId('scheme-mini').hover({ position: { x: 4, y: 4 } }); // over the picture, away from the glass itself
+  await expect(lens2).toHaveCSS('opacity', '0.5');
+  await mouseCtx.close();
 
   await ctx.close();
   await gmCtx.close();

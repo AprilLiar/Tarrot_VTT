@@ -741,7 +741,7 @@ Decided:
   centred on the middle of the token; next to a screen edge the column moves beside the other one):
   **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove** (takes the token off the map).
   **Set Height** is the number of Spaces the character is in the air (0 to 99), changed with **Up**,
-  **Down** and **Reset** buttons (no typing; every press is saved at once); it shows as "+X sp." above
+  **Down** and **Reset** buttons (no typing; every press is saved at once; Up and Down are steps the server adds, so a quick run of taps loses none); it shows as "+X sp." above
   the token for everyone and changes nothing else yet. The same buttons sit on the character
   sheet next to Movement and Size while the character has a token on the active Battle map.
   **Who:** the GM and the **Display Screen** get every circle (in Scene mode: Token Settings,
@@ -1065,7 +1065,9 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
 **Spell Circles (decided).** A spell has **1 to 9 Circles**. Every spell that exists or could be made before Circles is a **Circle 1** spell.
 A new Circle is built on the whole spell below it: **the Release of the previous Circle is the special Base** of the new one, so the new Circle carries the
 previous scheme and its Spell Fine Tuning further. In the Editor the Circles are drawn one under the other, each with its own Bases, Modifiers and Links, and
-Release; the **Release of every Circle but the last has a special faded glow** (in the colour of the Bases) in the editor, in the compendium picture and in the large view.
+Release. **The Release of a Circle that has another Circle under it stands inside the Bases row of that next Circle** (first among its Bases, no Release row of
+its own above it), **with a special faded glow** (in the colour of the Bases): in the editor, in the compendium picture and in the large view. Only the last Circle shows
+its Release in a Release row. The editor's drawing is never scaled up more than 1.25 times (a stone stays a usable size on a wide screen; the page scrolls).
 - **The rules of a Circle:** the first Circle needs a Base of its own; a higher Circle needs none (it has the special Base) but may add Bases, which meet it in a Link as
   usual. Every Circle has **exactly one Release**, every stone leads to its own Circle's Release, and the **Release of a Circle that has another Circle under it
   needs exactly one arrow leaving it** (into that next Circle: it is its Base). **Only a Release leads into the next Circle**: any other arrow between Circles is
@@ -1077,7 +1079,7 @@ Release; the **Release of every Circle but the last has a special faded glow** (
   upgraded in place**: saving puts the new Circle into the same draft (the Circle 1 version is gone). Nothing is saved until Save. Lower Circles stay **editable** at any
   time and the higher ones follow along (a change that breaks a higher Circle shows the draft as Illegal).
 - **The magnifying glass:** on every draft's picture in the compendium there is a **magnifying glass with a plus** inside, half transparent, centred, with a diameter of
-  **half the picture's height**. It opens the spell **large (nearly the whole screen)** with everything the small picture can do (a tap on a stone with a note shows it),
+  **half the picture's height**. With a mouse it is **hidden until the pointer is over the picture and fades in within 100 ms**; a touch screen has no hover, so there it stays shown. It opens the spell **large (nearly the whole screen)** with everything the small picture can do (a tap on a stone with a note shows it),
   and the **Spell Fine Tuning along the whole tree**: one row of runes per Circle, beside that Circle's part of the tree on a wide screen and under the tree on a narrow one.
   The large view has **Add Circle**, **Edit** and **Close**. A draft or spell of Circle 2 or more shows a "Circle N" tag.
 - **Crafting needs all the stones, circle by circle:** crafting a Circle N draft **spends the stones of every Circle at once** (the dialog lists the totals), and makes
@@ -1413,7 +1415,7 @@ Battle (Phase 5a):
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
 - GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
-  `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height? }` (GM and Display; a player only `height`, for their own PC), `battle:clear_bank` `{ id }`,
+  `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height?, heightBy? }` (GM and Display; a player only `height` or `heightBy`, for their own PC; `heightBy` is `1` or `-1` and the server adds it in one statement, kept between 0 and 99, so quick taps on Up and Down never lose a step; Reset sends `height: 0`), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.
 - GM and Display: `scene:show_grid` `{ id, show }` (saved per scene, everybody follows).
 - GM and Display (`battle:place`: also a player, for their own PC): `battle:place` `{ id, col, row }` (free drag: whole squares while the scene's grid is on, any numbers on the map, kept to a hundredth, while it is off; otherwise `out_of_bounds`), `mark:add` `{ kind, data }`,

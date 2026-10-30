@@ -1175,6 +1175,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That is off the map. | Это за пределами карты. |
 | Hidden must be true or false. | Значение «скрыт» должно быть «да» или «нет». |
 | Height must be from 0 to {max} Spaces. | Высота должна быть от 0 до {max} клеток. |
+| A height step is one Space up or down. | Высота меняется на одну клетку вверх или вниз. |
 | This character has no Movement. | У этого персонажа нет движения. |
 | Not enough AP left to move. | Не хватает ОД для движения. |
 | A step is one square in one of eight directions. | Шаг — одна клетка в одном из восьми направлений. |

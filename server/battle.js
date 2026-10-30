@@ -209,7 +209,9 @@ async function followTemplates(db, token) {
 
 export const HEIGHT_MAX = 99;
 
-export async function updateToken(db, id, { pictureId, hidden, height }) {
+// `height` sets the number of Spaces; `heightBy` (-1 or 1, from the Up and Down buttons) changes it by one in a single database statement,
+// so quick taps never lose a step however slow the screen is to catch up. The result stays between 0 and HEIGHT_MAX.
+export async function updateToken(db, id, { pictureId, hidden, height, heightBy }) {
   const token = await getToken(db, id);
   if (pictureId !== undefined) {
     const pictures = await scenes.listPictures(db, { kind: token.ownerKind, id: token.ownerId });
@@ -223,6 +225,10 @@ export async function updateToken(db, id, { pictureId, hidden, height }) {
   if (height !== undefined) {
     if (!Number.isInteger(height) || height < 0 || height > HEIGHT_MAX) throw new AppError('bad_value', 'Height must be from 0 to {max} Spaces.', { max: HEIGHT_MAX });
     await db.execute({ sql: 'UPDATE battle_tokens SET height = ? WHERE id = ?', args: [height, id] });
+  }
+  if (heightBy !== undefined) {
+    if (heightBy !== 1 && heightBy !== -1) throw new AppError('bad_value', 'A height step is one Space up or down.');
+    await db.execute({ sql: 'UPDATE battle_tokens SET height = MIN(?, MAX(0, height + ?)) WHERE id = ?', args: [HEIGHT_MAX, heightBy, id] });
   }
 }
 

@@ -4,6 +4,7 @@ import { useT } from '../../i18n.jsx';
 
 const C = 72; // pixels of one cell in the drawing
 const R = 27; // radius of a stone
+const MAX_SCALE = 1.25; // the editor's picture is drawn at most this much larger than its units, so a stone stays a stone however wide the screen
 
 // A spell scheme drawn as a table: Bases on top, Modifiers and Links below, the Release at the bottom, with
 // arrows between the stones. It is only a drawing: the parent decides what a tap means.
@@ -36,7 +37,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
   }
 
   const svg = (
-    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : big ? { maxHeight: '75vh' } : many ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
+    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : big ? { maxHeight: '75vh' } : { maxWidth: width * C * MAX_SCALE, marginInline: 'auto' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
       <defs>
         <marker id={`${uid}-a`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill="#e2e8f0" />
@@ -46,14 +47,14 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
         </filter>
       </defs>
       {lanes.map((l) => (
-        <g key={l.kind}>
+        <g key={`${l.circle}${l.kind}`} data-testid="scheme-lane" data-circle={l.circle} data-kind={l.kind}>
           <rect x="0" y={l.y * C} width={width * C} height={l.height * C} fill={tints[l.kind]} fillOpacity="0.13" />
           {!mini && (
             <text x="6" y={l.y * C + 14} fontSize="12" fill="#e2e8f0" fillOpacity="0.55">
               {laneLabel[l.kind]}
             </text>
           )}
-          {many && l.kind === 'release' && (
+          {many && l.kind === 'mid' && (
             <text x="6" y={(l.y + l.height) * C - 6} fontSize="13" fontWeight="600" fill="#e2e8f0" fillOpacity="0.8" data-testid="scheme-circle-label">
               {t('Circle {n}', { n: l.circle })}
             </text>

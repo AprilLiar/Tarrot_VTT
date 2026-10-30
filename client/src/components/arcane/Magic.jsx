@@ -386,10 +386,11 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
               )}
             </div>
             {d.description && <p className="whitespace-pre-wrap text-sm opacity-70">{d.description}</p>}
-            <div className="relative">
+            <div className="group relative">
               <SchemeView scheme={d.scheme} mini noteOpen={shown?.draft === d.id ? shown.stone : null} onStone={(id) => setShown(justClosed.current ? null : { draft: d.id, stone: id })} />
-              {/* A half-transparent magnifying glass with a plus, half as big as the picture is tall: it opens the spell large. */}
-              <button type="button" className="absolute left-1/2 top-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-50 active:opacity-90" data-testid="draft-zoom" aria-label={t('Show the spell large')} title={t('Show the spell large')} onClick={() => setZoom(d)}>
+              {/* A half-transparent magnifying glass with a plus, half as big as the picture is tall: it opens the spell large. With a mouse it
+                  fades in (100 ms) only while the pointer is over the picture; a touch screen has no hover, so there it stays shown. */}
+              <button type="button" className="absolute left-1/2 top-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 transition-opacity duration-100 group-hover:opacity-50 hover:opacity-90 focus-visible:opacity-50 active:opacity-90 [@media(hover:none)]:opacity-50" data-testid="draft-zoom" aria-label={t('Show the spell large')} title={t('Show the spell large')} onClick={() => setZoom(d)}>
                 <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" aria-hidden="true">
                   <circle cx="20" cy="20" r="13" />
                   <path d="M30 30l13 13" />
