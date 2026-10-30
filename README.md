@@ -113,8 +113,8 @@ All decided.
 - Several devices may control the same PC at once; last write wins.
 
 Implemented in Phase 2:
-- The picker shows a Game Master card and one card per PC (name with a colored initial; portraits
-  come with the image pipeline). NPCs are never listed. (decided)
+- The picker shows a Game Master card and one card per PC (name with a colored initial, or the PC's **Portrait** when it has one,
+  see Portraits below). NPCs are never listed. (decided)
 - Identity is stored in `localStorage` key `tarrot.identity` (`{ role: 'gm' }` or
   `{ role: 'player', characterId }`) and re-validated by the server on every (re)connect. A saved
   identity that no longer exists returns the device to the picker with a notice. (decided)
@@ -691,6 +691,15 @@ Light-novel style: a fullscreen background with character art standing along the
   art and later as Battle tokens. A picture is chosen at summon and can be swapped in Token Settings.
   Deleting a picture that is on stage swaps to another, or removes the character from the stage if
   none is left.
+- **Portrait (decided):** every character, PC or NPC, can have **one Portrait**, kept apart from its Pictures. It is set, changed and removed in a **Portrait**
+  section on the character sheet (right column, just above Pictures) by the GM, or by the owner of a PC; it is not set from the roster. The browser prepares it like
+  character art (fits 1200x1400, proportions kept, transparency kept; see Images). It is shown: **small and round beside the name at the top of the sheet**; in the
+  **list of characters** (the roster, 36 px, the coloured initial for a character with none); on the **picker's cards** (PCs); and in the **combat order** (in
+  place of the token's picture; a character without a Portrait, and a temp NPC, keep the token's picture). Round pictures are cropped to the top of the image.
+  **Copy from Portrait** is a button beside Add pictures in the **sheet's Pictures section** (not in the Cast drawer's Pictures dialog): it adds the Portrait as a new
+  Picture named **Portrait** (named in the language of whoever pressed). It adds it **once**: when the Portrait is already one of the Pictures a second press
+  only says so; with no Portrait the button is disabled. The Picture shares the Portrait's image, so deleting either one leaves the other; an image is deleted only
+  when no Portrait, Picture or scene uses it. Replacing or removing a Portrait never touches the Pictures.
 - **Summoning:** the GM can summon or dismiss anyone; a player can summon or dismiss only their own
   PC (from the sheet, on any device). Summons belong to a scene: each scene keeps its own cast, and
   the GM can only summon into the active scene.
@@ -1278,7 +1287,7 @@ before sending it (`client/src/lib/image.js`): backgrounds fit 1920x1200 as JPEG
 fits 1200x1400 and keeps transparency as WebP, or PNG on browsers that cannot encode WebP (Safari).
 The server accepts PNG, JPEG or WebP (checked by their first bytes) up to 3 MB and never decodes
 them. Uploads travel over the socket so the sender's permission is checked; the socket limit is
-5 MB. Images nothing points to any more are deleted. These limits are my defaults; tell me if you
+5 MB. Images nothing points to any more (no scene, Picture or Portrait) are deleted. These limits are my defaults; tell me if you
 want different ones. (decided by me, open to change)
 
 ## Data model
@@ -1286,8 +1295,8 @@ want different ones. (decided by me, open to change)
 Implemented:
 - `meta(key, value)`: Phase 1 placeholder.
 - `character_folders(id, parent_id, name, created_at)`: nested tree, shared by PCs and NPCs.
-- `characters(id, name, type 'pc'|'npc', folder_id, sheet, created_at)`. Names are 1 to 60
-  characters after trimming and need not be unique. `sheet` is one JSON document per character.
+- `characters(id, name, type 'pc'|'npc', folder_id, sheet, portrait_image_id, created_at)`. Names are 1 to 60
+  characters after trimming and need not be unique. `sheet` is one JSON document per character. `portrait_image_id` is the Portrait (an `images` id, or null).
   It is added to existing databases at boot (`initSchema` checks `PRAGMA table_info`).
 - **Sheet JSON** (`server/sheet.js`): `ap {current, minion}`, `hp {current, max, temp}`,
   `defence {physical, mental}`, `experience`, `stats`, `xDefence` (four stats, no Luck),
@@ -1373,8 +1382,8 @@ Implemented:
 - Error codes: `forbidden`, `bad_name`, `bad_type`, `bad_id`, `bad_value`, `bad_path`,
   `bad_action`, `bad_list`, `bad_roll`, `bad_text`, `bad_transfer`, `npc_only`, `no_uses`, `limit`,
   `not_found`, `cycle`, `not_empty`, `confirm_mismatch`, `gone`, `server_error`.
-- Server to clients: `pcs:updated` `[{ id, name }]` to everyone; `roster:updated`
-  `{ folders, characters }` to the GM room only; `identity:revoked` `{ characterId, name }` to the
+- Server to clients: `pcs:updated` `[{ id, name, portraitImageId }]` to everyone; `roster:updated`
+  `{ folders, characters: [{ id, name, type, folderId, portraitImageId }] }` to the GM room only; `identity:revoked` `{ characterId, name }` to the
   sockets playing a deleted character; `sheet:updated` `{ characterId, sheet }` to the GM and the
   PC's own devices; `chat:message`, `chat:updated` and `chat:cleared` to everyone identified; `trade:offered`
   `{ offerId, fromName, itemName, toId }` to the recipient's devices and `trade:resolved` `{
@@ -1394,10 +1403,14 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
   rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }` (GM and Display).
 - `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
   for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
+  `picture:copy_portrait` `{ characterId }` adds the character's Portrait as a Picture named "Portrait" (same permission; errors `no_portrait`, `already_there`).
+- `portrait:set` `{ characterId, data }` (an image, like `picture:add`) and `portrait:clear` `{ characterId }`: the GM for anyone, a player for their own PC. They
+  answer `{ imageId }` for a new Portrait, send `character:updated` `{ character }` to the GM and the character's own devices (the sheet follows), and refresh the roster, the
+  picker (`pcs:updated`) and the stage (the combat order).
 - `stage:summon` `{ owner, pictureId? }` and `stage:dismiss` `{ id }`: the GM for anyone; a player
   for their own PC only. `stage:move` `{ id, x, y }` or `{ id, reset: true }`: the GM, the Display, or a player for their own PC (x and y between -1 and 2, fractions of the scene picture; the figure comes to the front). Summons in `stage` carry `x`, `y` (null when never dragged), `side` and `slot`.
 - Display sockets get no chat, sheets, roster or rolls.
-- Error codes added: `no_scene`, `no_picture`, `already_on_stage`, `bad_image`, `image_too_large`.
+- Error codes added: `no_scene`, `no_picture`, `already_on_stage`, `bad_image`, `image_too_large`, `no_portrait`, `already_there`.
 
 Music (Phase 4b):
 - `audio:ping` `{ t0 }` (anyone) returns `{ t0, serverMs }` for clock alignment.

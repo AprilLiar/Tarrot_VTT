@@ -8,7 +8,8 @@ import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { ActiveEffects } from '../effects/ActiveEffects.jsx';
 import { effectiveDefence, effectiveMaxHp, effectiveMovement, statMods } from '../../../../shared/effects.js';
-import { PicturesSection, StageSection } from './SheetStage.jsx';
+import { PicturesSection, PortraitSection, StageSection } from './SheetStage.jsx';
+import { Avatar } from '../Avatar.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
 import { ExperienceIcon, MovementIcon, SizeIcon } from './ParamIcons.jsx';
@@ -63,12 +64,17 @@ export default function SheetPage({ characterId }) {
     const onUpdated = (u) => {
       if (u.characterId === characterId) setData((d) => (d ? { ...d, sheet: u.sheet } : d));
     };
+    const onCharacter = (u) => {
+      if (u.character.id === characterId) setData((d) => (d ? { ...d, character: u.character } : d));
+    };
     load();
     socket.on('sheet:updated', onUpdated);
+    socket.on('character:updated', onCharacter); // the Portrait changed
     socket.on('connect', load); // catch up after a dropped connection
     return () => {
       live = false;
       socket.off('sheet:updated', onUpdated);
+      socket.off('character:updated', onCharacter);
       socket.off('connect', load);
     };
   }, [characterId]);
@@ -127,6 +133,7 @@ export default function SheetPage({ characterId }) {
             {t('Back to roster')}
           </Link>
         )}
+        {character.portraitImageId && <Avatar name={character.name} imageId={character.portraitImageId} size="h-12 w-12" testId="sheet-portrait" />}
         <h1 className="min-w-0 truncate text-2xl font-semibold" data-testid="sheet-name">
           {character.name}
         </h1>
@@ -267,6 +274,7 @@ export default function SheetPage({ characterId }) {
           <Statuses s={s} />
           <ActiveEffects s={s} />
           <StageSection s={s} />
+          <PortraitSection s={s} />
           <PicturesSection s={s} />
         </div>
       </div>

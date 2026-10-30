@@ -462,6 +462,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Send | Отправить |
 | Picture | Картинка |
 | Area | Область |
+| Upload failed. | Не удалось загрузить. |
+| Uploading... | Загрузка... |
 | Pictures | Картинки |
 | Battle | Бой |
 | AP: {current} of {max} | ОД: {current} из {max} |
@@ -567,6 +569,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Skills | Навыки |
 | + Mastery {tier} | + мастерство {tier} |
 | {name} Mastery tier | Уровень мастерства: {name} |
+| Portrait | Портрет |
+| No Portrait yet. | Портрета пока нет. |
+| Change Portrait | Сменить портрет |
+| Set Portrait | Задать портрет |
+| Remove Portrait | Убрать портрет |
 | Stage | Сцена |
 | No scene is active right now. | Сейчас нет активной сцены. |
 | Scene: {name} | Сцена: {name} |
@@ -721,13 +728,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | --- | --- |
 | Add here | Добавить сюда |
 | Subfolder | Подпапка |
-| Upload failed. | Не удалось загрузить. |
 | No pictures yet. Add one to use this character on a scene. | Картинок пока нет. Добавьте одну, чтобы вывести персонажа на сцену. |
 | Untitled | Без названия |
 | Delete {name} | Удалить: {name} |
 | picture | картинку |
-| Uploading... | Загрузка... |
 | Add pictures | Добавить картинки |
+| Copy from Portrait | Копировать из портрета |
 | Rename picture | Переименовать картинку |
 | New scene | Новая сцена |
 | Background: {name} | Фон: {name} |
@@ -1262,6 +1268,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name}: {status} | {name}: {status} |
 | GM only. | Только для мастера. |
 | Only the GM or the Display can change a size. | Менять размер могут только мастер и экран стола. |
+| This character has no Portrait yet. | У этого персонажа ещё нет портрета. |
+| The Portrait is already one of the Pictures. | Портрет уже есть среди картинок. |
 | The Display Screen cannot summon. | Экран стола не может вызывать персонажей. |
 | You can only summon your own character. | Вы можете вызвать только своего персонажа. |
 | You can only dismiss your own character. | Вы можете убрать только своего персонажа. |

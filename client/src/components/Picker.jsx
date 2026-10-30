@@ -1,5 +1,6 @@
 import { useApp } from '../AppContext.jsx';
 import { useT } from '../i18n.jsx';
+import { Avatar } from './Avatar.jsx';
 
 // Deterministic color per name so the initial badge is stable.
 function hue(name) {
@@ -75,7 +76,7 @@ export default function Picker({ onSettings }) {
           data-testid="pick-pc"
           onClick={() => choose({ role: 'player', characterId: pc.id })}
         >
-          <Initial name={pc.name} />
+          <Avatar name={pc.name} imageId={pc.portraitImageId} testId="picker-portrait" />
           <span className="text-lg">{pc.name}</span>
         </button>
       ))}

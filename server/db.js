@@ -42,6 +42,7 @@ const SCHEMA = [
 // added only when PRAGMA table_info shows it missing.
 const COLUMNS = [
   { table: 'characters', column: 'sheet', ddl: 'sheet TEXT' },
+  { table: 'characters', column: 'portrait_image_id', ddl: 'portrait_image_id TEXT' },
   { table: 'scenes', column: 'battle_aspect', ddl: 'battle_aspect REAL' },
   { table: 'scenes', column: 'grid_cell', ddl: 'grid_cell REAL' },
   { table: 'scenes', column: 'grid_ox', ddl: 'grid_ox REAL' },

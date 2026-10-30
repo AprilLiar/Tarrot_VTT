@@ -11,7 +11,7 @@ import { tickEnd } from '../shared/effects.js';
 import { spendRollUses } from './effectRuntime.js';
 import { storeImage, deleteImageIfUnused } from './images.js';
 import { AppError } from './errors.js';
-import { line as chatLine } from './i18n.js';
+import { line as chatLine, t as translate } from './i18n.js';
 import { T } from '../shared/localization.js';
 
 // Socket events for scenes, the stage, temp NPCs and pictures.
@@ -24,7 +24,7 @@ import { T } from '../shared/localization.js';
 //  - Hidden summons are filtered out on the server for everyone but the GM.
 
 export function registerSceneHandlers(ctx) {
-  const { io, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, saves, shared, rooms } = ctx;
+  const { io, socket, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, saves, shared, rooms } = ctx;
   const targets = shared.targets;
   const areaPicks = shared.areaPicks; // per character: the characters each area added to their targets last time it was picked
   const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
@@ -175,6 +175,19 @@ export function registerSceneHandlers(ctx) {
       await deleteImageIfUnused(db, imageId);
       throw err;
     }
+    await broadcastPictures(owner);
+    return { id };
+  });
+
+  // The Portrait becomes one of the Pictures (it is the same image, not a second copy of it); once only.
+  on('picture:copy_portrait', { needsIdentity: true }, async (p) => {
+    const c = await requireControl(p.characterId);
+    if (!c.portraitImageId) throw new AppError('no_portrait', 'This character has no Portrait yet.');
+    const owner = { kind: 'character', id: c.id };
+    if ((await scenes.listPictures(db, owner)).some((x) => x.imageId === c.portraitImageId)) {
+      throw new AppError('already_there', 'The Portrait is already one of the Pictures.');
+    }
+    const id = await scenes.addPicture(db, owner, c.portraitImageId, translate(socket.data.lang, 'Portrait'));
     await broadcastPictures(owner);
     return { id };
   });

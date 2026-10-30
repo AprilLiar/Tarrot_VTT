@@ -48,7 +48,8 @@ export async function uploadPicture(owner, file, name, t = (x) => x) {
   return call('picture:add', { ...owner, name, data });
 }
 
-export function PicturesManager({ owner }) {
+// `portrait` (a character's Portrait image id, or null for none) adds the Copy from Portrait button; leave it out for temp NPCs and the Cast drawer.
+export function PicturesManager({ owner, portrait }) {
   const t = useT();
   const { toast } = useApp();
   const pictures = usePictures(owner);
@@ -94,9 +95,24 @@ export function PicturesManager({ owner }) {
         ))}
       </div>
       <input ref={fileRef} type="file" accept="image/*" multiple hidden data-testid="picture-file" onChange={onFile} />
-      <button className={`${btn} mt-2 w-full`} disabled={busy} data-testid="add-picture" onClick={() => fileRef.current?.click()}>
-        {busy ? t('Uploading...') : t('Add pictures')}
-      </button>
+      <div className="mt-2 flex gap-2">
+        <button className={`${btn} flex-1`} disabled={busy} data-testid="add-picture" onClick={() => fileRef.current?.click()}>
+          {busy ? t('Uploading...') : t('Add pictures')}
+        </button>
+        {portrait !== undefined && (
+          <button
+            className={`${btn} flex-1`}
+            disabled={!portrait}
+            data-testid="copy-portrait"
+            onClick={async () => {
+              const r = await call('picture:copy_portrait', { characterId: owner.characterId });
+              if (!r.ok) toast(r.error);
+            }}
+          >
+            {t('Copy from Portrait')}
+          </button>
+        )}
+      </div>
       {renaming && <RenamePicture picture={renaming} onClose={() => setRenaming(null)} />}
     </div>
   );

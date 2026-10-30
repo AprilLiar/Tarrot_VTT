@@ -187,7 +187,7 @@ export function combatView(combat, tokens) {
     .filter((e) => byId.has(e.tokenId))
     .map((e) => {
       const t = byId.get(e.tokenId);
-      return { tokenId: e.tokenId, ownerKind: e.ownerKind, ownerId: e.ownerId, name: t.name, imageId: t.imageId, kind: t.kind, initiative: e.initiative };
+      return { tokenId: e.tokenId, ownerKind: e.ownerKind, ownerId: e.ownerId, name: t.name, imageId: t.portraitImageId ?? t.imageId, kind: t.kind, initiative: e.initiative };
     });
   const active = activeEntry(combat);
   return {

@@ -85,6 +85,12 @@ describe('the order', () => {
     expect(() => C.newCombat(1, [tok(9, 'prop')])).toThrow(/no characters/i);
   });
 
+  it('shows a character\'s Portrait in the order, and the token\'s picture when there is none', () => {
+    const tokens = [{ ...tok(1), imageId: 'picture-a', portraitImageId: 'portrait-a' }, { ...tok(2), imageId: 'picture-b', portraitImageId: null }, { ...tok(3), imageId: null }];
+    const view = C.combatView(C.newCombat(1, tokens), tokens);
+    expect(view.order.map((e) => e.imageId)).toEqual(['portrait-a', 'picture-b', null]);
+  });
+
   it('sorts highest first, keeps ties in order, and puts the unrolled last', () => {
     const c = make();
     C.setInitiative(c, 1, 5);

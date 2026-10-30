@@ -74,7 +74,7 @@ export function tokenEffects(json) {
 }
 
 const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
-                          c.name AS cname, c.type AS ctype, c.sheet AS csheet,
+                          c.name AS cname, c.type AS ctype, c.sheet AS csheet, c.portrait_image_id AS cportrait,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
                           p.image_id AS image_id
                    FROM battle_tokens t
@@ -97,6 +97,8 @@ function toToken(r, targets) {
     row: Number(r.row),
     pictureId: n(r.picture_id),
     imageId: r.image_id ?? null,
+    // A character's Portrait (the combat order shows it before the token's picture).
+    portraitImageId: isChar ? (r.cportrait ?? null) : null,
     hidden: Number(r.hidden) === 1,
     bank: Number(r.bank),
     diagonals: Number(r.diagonals),

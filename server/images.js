@@ -65,10 +65,11 @@ export async function deleteImageIfUnused(db, id) {
     [
       { sql: 'SELECT COUNT(*) AS n FROM scenes WHERE scene_image_id = ? OR battle_image_id = ?', args: [id, id] },
       { sql: 'SELECT COUNT(*) AS n FROM pictures WHERE image_id = ?', args: [id] },
+      { sql: 'SELECT COUNT(*) AS n FROM characters WHERE portrait_image_id = ?', args: [id] },
     ],
     'read',
   );
-  if (Number(used[0].rows[0].n) + Number(used[1].rows[0].n) === 0) {
+  if (used.every((r) => Number(r.rows[0].n) === 0)) {
     await db.execute({ sql: 'DELETE FROM images WHERE id = ?', args: [id] });
   }
 }

@@ -409,3 +409,88 @@ describe('the Display Screen', () => {
     expect(got).toBe(false);
   });
 });
+
+describe('Portraits', () => {
+  const imageStatus = async (imageId) => (await fetch(`${base}/api/images/${imageId}`)).status;
+
+  it('the GM or the owner of a PC sets a Portrait; it is in the roster, the picker and the sheet, and nobody else can change it', async () => {
+    const g = await gm();
+    const aria = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const bob = (await g.call('character:create', { name: 'Bob', type: 'pc' })).id;
+    const orc = (await g.call('character:create', { name: 'Orc', type: 'npc' })).id;
+    const a = await player(aria);
+    expect((await g.call('roster:get')).roster.characters.every((c) => c.portraitImageId === null)).toBe(true);
+
+    const told = new Promise((resolve) => a.once('character:updated', resolve));
+    const set = await a.call('portrait:set', { characterId: aria, data: png() });
+    expect(set).toMatchObject({ ok: true });
+    expect((await told).character).toMatchObject({ id: aria, portraitImageId: set.imageId });
+    expect(await imageStatus(set.imageId)).toBe(200);
+
+    expect(await a.call('portrait:set', { characterId: bob, data: png() })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await a.call('portrait:set', { characterId: aria, data: Buffer.from('not an image at all') })).toMatchObject({ ok: false, code: 'bad_image' });
+    expect((await g.call('portrait:set', { characterId: orc, data: png(1) })).ok).toBe(true); // an NPC has one too
+
+    const rows = (await g.call('roster:get')).roster.characters;
+    expect(rows.find((c) => c.id === aria).portraitImageId).toBe(set.imageId);
+    expect(rows.find((c) => c.id === bob).portraitImageId).toBeNull();
+    const pcs = await (await fetch(`${base}/api/pcs`)).json();
+    expect(pcs.find((c) => c.id === aria).portraitImageId).toBe(set.imageId);
+    expect(pcs.some((c) => c.id === orc)).toBe(false); // an NPC is never on the picker
+    expect((await a.call('sheet:get', { characterId: aria })).character.portraitImageId).toBe(set.imageId);
+  });
+
+  it('a replaced or removed Portrait takes its image with it, and a deleted character too', async () => {
+    const g = await gm();
+    const id = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const first = (await g.call('portrait:set', { characterId: id, data: png() })).imageId;
+    const second = (await g.call('portrait:set', { characterId: id, data: png(1) })).imageId;
+    expect(await imageStatus(first)).toBe(404);
+    expect(await imageStatus(second)).toBe(200);
+    expect((await g.call('portrait:clear', { characterId: id })).ok).toBe(true);
+    expect(await imageStatus(second)).toBe(404);
+    expect((await g.call('sheet:get', { characterId: id })).character.portraitImageId).toBeNull();
+
+    const third = (await g.call('portrait:set', { characterId: id, data: png(2) })).imageId;
+    await g.call('character:delete', { id, confirmName: 'Aria' });
+    expect(await imageStatus(third)).toBe(404);
+  });
+
+  it('Copy from Portrait adds the Portrait as a Picture once, sharing the image, and deleting that Picture keeps the Portrait', async () => {
+    const g = await gm();
+    const id = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    expect(await g.call('picture:copy_portrait', { characterId: id })).toMatchObject({ ok: false, code: 'no_portrait' });
+    const { imageId } = await g.call('portrait:set', { characterId: id, data: png() });
+
+    const copy = await g.call('picture:copy_portrait', { characterId: id });
+    expect(copy.ok).toBe(true);
+    const list = (await g.call('picture:list', { characterId: id })).pictures;
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id: copy.id, imageId, name: 'Portrait' });
+    expect(await g.call('picture:copy_portrait', { characterId: id })).toMatchObject({ ok: false, code: 'already_there' });
+    expect((await g.call('picture:list', { characterId: id })).pictures).toHaveLength(1);
+
+    await g.call('picture:delete', { id: copy.id });
+    expect(await imageStatus(imageId)).toBe(200); // still the Portrait
+    // Replacing the Portrait while a Picture uses the old image keeps that image for the Picture.
+    const again = await g.call('picture:copy_portrait', { characterId: id });
+    expect(again.ok).toBe(true);
+    await g.call('portrait:set', { characterId: id, data: png(1) });
+    expect(await imageStatus(imageId)).toBe(200);
+    expect((await g.call('picture:copy_portrait', { characterId: id })).ok).toBe(true); // the new Portrait is a different image
+    expect((await g.call('picture:list', { characterId: id })).pictures).toHaveLength(2);
+  });
+
+  it('a player copies only their own Portrait, and the Picture is named in their language', async () => {
+    const g = await gm();
+    const aria = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const bob = (await g.call('character:create', { name: 'Bob', type: 'pc' })).id;
+    await g.call('portrait:set', { characterId: bob, data: png() });
+    await g.call('portrait:set', { characterId: aria, data: png(1) });
+    const a = await player(aria);
+    expect(await a.call('picture:copy_portrait', { characterId: bob })).toMatchObject({ ok: false, code: 'forbidden' });
+    await a.call('lang:set', { lang: 'ru' });
+    expect((await a.call('picture:copy_portrait', { characterId: aria })).ok).toBe(true);
+    expect((await g.call('picture:list', { characterId: aria })).pictures[0].name).toBe('Портрет');
+  });
+});

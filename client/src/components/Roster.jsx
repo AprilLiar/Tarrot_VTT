@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { call, useApp } from '../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField, descendantIds } from './folderUi.jsx';
+import { Avatar } from './Avatar.jsx';
 import { useT } from '../i18n.jsx';
 
 function CreateCharacterDialog({ folders, folderId, onClose }) {
@@ -185,6 +186,7 @@ export default function Roster() {
               className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left active:bg-white/10"
               onClick={() => toggle(key)}
             >
+              <Avatar name={c.name} imageId={c.portraitImageId} size="h-9 w-9 text-base" testId="roster-portrait" />
               <span
                 className={`rounded px-1.5 py-0.5 text-xs ${c.type === 'pc' ? 'bg-emerald-800' : 'bg-slate-700'}`}
               >

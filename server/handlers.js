@@ -21,6 +21,7 @@ import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { tokenStatuses, tokenEffects } from './battle.js';
+import { storeImage, deleteImageIfUnused } from './images.js';
 import { hasSelectedCard } from '../shared/manifest.js';
 import { normalizeRows } from '../shared/spells.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
@@ -183,6 +184,7 @@ export function registerHandlers(io, socket, db, shared) {
   on('character:delete', { gmOnly: true, broadcast: true }, async (p) => {
     const gone = await roster.deleteCharacter(db, p.id, p.confirmName);
     await scenes.removeOwnerArt(db, { kind: 'character', id: gone.id });
+    await deleteImageIfUnused(db, gone.portraitImageId);
     await stage.broadcast();
     // Anyone playing the deleted character is sent back to the picker.
     for (const s of io.sockets.sockets.values()) {
@@ -419,6 +421,38 @@ export function registerHandlers(io, socket, db, shared) {
     saves,
     shared,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
+  });
+
+  // ---- Portraits ---------------------------------------------------------------
+  // A Portrait is one image for each character (PC or NPC), set by the GM or the owner of a PC. It is shown on the sheet, in the roster,
+  // on the picker's cards and in the combat order. Everyone's roster and the picker follow through `broadcast`; the sheet is told here.
+
+  async function portraitChanged(characterId) {
+    const c = await roster.getCharacter(db, characterId);
+    io.to(GM_ROOM).to(charRoom(characterId)).emit('character:updated', { character: c });
+    await stage.broadcast();
+  }
+
+  on('portrait:set', { needsIdentity: true, broadcast: true }, async ({ characterId, data }) => {
+    const c = await requireControl(characterId);
+    const imageId = await storeImage(db, data);
+    let before;
+    try {
+      before = await roster.setPortrait(db, c.id, imageId);
+    } catch (err) {
+      await deleteImageIfUnused(db, imageId);
+      throw err;
+    }
+    await deleteImageIfUnused(db, before);
+    await portraitChanged(c.id);
+    return { imageId };
+  });
+
+  on('portrait:clear', { needsIdentity: true, broadcast: true }, async ({ characterId }) => {
+    const c = await requireControl(characterId);
+    const before = await roster.setPortrait(db, c.id, null);
+    await deleteImageIfUnused(db, before);
+    await portraitChanged(c.id);
   });
 
   // ---- Attacks ---------------------------------------------------------------
