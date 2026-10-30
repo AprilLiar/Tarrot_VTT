@@ -20,7 +20,8 @@ export function PicturesSection({ s }) {
   );
 }
 
-// The character's Portrait (PC or NPC): one image, shown on the sheet, in the roster, on the picker and in the combat order.
+// The character's Portrait (PC or NPC), the first thing on the sheet: the whole picture, about 12rem tall, with one small button over its corner to upload or change it.
+// It is also shown in the roster, on the picker and in the combat order.
 export function PortraitSection({ s }) {
   const t = useT();
   const { toast } = useApp();
@@ -44,35 +45,13 @@ export function PortraitSection({ s }) {
   }
 
   return (
-    <section aria-label={t('Portrait')}>
-      <h2 className={heading}>{t('Portrait')}</h2>
-      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-        {imageId ? (
-          <div className="mb-2 flex h-40 items-center justify-center overflow-hidden rounded bg-[repeating-conic-gradient(#222_0%_25%,#2c2c2c_0%_50%)] bg-[length:16px_16px]">
-            <img src={imageUrl(imageId)} alt={t('Portrait')} className="max-h-full max-w-full object-contain" data-testid="portrait-image" />
-          </div>
-        ) : (
-          <p className="mb-2 text-sm opacity-60">{t('No Portrait yet.')}</p>
-        )}
+    <section aria-label={t('Portrait')} data-testid="portrait">
+      <div className={`relative flex items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/30 ${imageId ? 'h-48' : 'h-20'}`}>
+        {imageId ? <img src={imageUrl(imageId)} alt={t('Portrait')} className="max-h-full max-w-full object-contain" data-testid="portrait-image" /> : <p className="text-sm opacity-60">{t('No Portrait yet.')}</p>}
         <input ref={fileRef} type="file" accept="image/*" hidden data-testid="portrait-file" onChange={onFile} />
-        <div className="flex gap-2">
-          <button className={`${btn} flex-1`} disabled={busy} data-testid="portrait-set" onClick={() => fileRef.current?.click()}>
-            {busy ? t('Uploading...') : imageId ? t('Change Portrait') : t('Set Portrait')}
-          </button>
-          {imageId && (
-            <button
-              className={btn}
-              disabled={busy}
-              data-testid="portrait-remove"
-              onClick={async () => {
-                const r = await call('portrait:clear', { characterId: s.characterId });
-                if (!r.ok) toast(r.error);
-              }}
-            >
-              {t('Remove Portrait')}
-            </button>
-          )}
-        </div>
+        <button className="absolute bottom-2 right-2 min-h-8 rounded-lg bg-black/70 px-2.5 text-xs active:bg-black/90" disabled={busy} data-testid="portrait-set" onClick={() => fileRef.current?.click()}>
+          {busy ? t('Uploading...') : imageId ? t('Change Portrait') : t('Set Portrait')}
+        </button>
       </div>
     </section>
   );

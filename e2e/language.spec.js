@@ -55,6 +55,10 @@ test('Settings on the picker switch the whole app to Russian, and the choice is 
   await expect(card.getByTestId('roll-title')).toHaveText('Проверка атрибута: Сила');
   await expect(card.getByTestId('roll-expression')).toContainText('(Сила)');
 
+  // The roll opened the chat, which covers the lower part of a phone: close it, as a player would, before using the sheet again.
+  await page.getByTestId('chat-panel').getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByTestId('chat-panel')).toHaveCount(0);
+
   // A status and its rule text.
   await page.getByTestId('add-status').click();
   await page.getByPlaceholder('Поиск').fill('Кровот');

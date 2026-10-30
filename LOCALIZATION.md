@@ -573,7 +573,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No Portrait yet. | Портрета пока нет. |
 | Change Portrait | Сменить портрет |
 | Set Portrait | Задать портрет |
-| Remove Portrait | Убрать портрет |
 | Stage | Сцена |
 | No scene is active right now. | Сейчас нет активной сцены. |
 | Scene: {name} | Сцена: {name} |
@@ -1474,6 +1473,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Remove Portrait | Убрать портрет |
 | A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
 | Swap Card | Сменить карту |
 | Choose the card that becomes active. | Выберите карту, которая станет активной. |

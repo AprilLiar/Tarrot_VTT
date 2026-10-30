@@ -34,7 +34,7 @@ const openSheet = async (gm, name) => {
   await gm.getByTestId('open-sheet').click();
 };
 
-test('Portrait: set on the sheet, shown in the header, the roster and the picker, copied once to the Pictures, and removed again', async ({ browser }) => {
+test('Portrait: big at the start of the sheet, shown in the roster and the picker, copied once to the Pictures, and changed by the player', async ({ browser }) => {
   const pc = `Hero-${uid()}`;
   const npc = `Orc-${uid()}`;
   const gmCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -52,18 +52,29 @@ test('Portrait: set on the sheet, shown in the header, the roster and the picker
 
   await openSheet(gm, pc);
   await expect(gm.getByTestId('portrait-image')).toHaveCount(0);
+  await expect(gm.getByTestId('portrait-set')).toHaveText('Set Portrait');
   await expect(gm.getByTestId('copy-portrait')).toBeDisabled();
-  await expect(gm.getByTestId('portrait-remove')).toHaveCount(0);
   await gm.getByTestId('portrait-file').setInputFiles(await face(gm));
   await expect(gm.getByTestId('portrait-image')).toBeVisible();
   await expect(gm.getByTestId('portrait-set')).toHaveText('Change Portrait');
 
-  // Beside the name at the top of the sheet: small.
-  const header = gm.getByTestId('sheet-portrait');
-  await expect(header).toBeVisible();
-  const box = await header.boundingBox();
-  expect(box.width).toBeLessThanOrEqual(56);
-  expect(box.height).toBeLessThanOrEqual(56);
+  // The first thing on the sheet: top of the left column, above the Action Points, about 12rem (192 px) tall; the button is small and sits over its corner.
+  const section = await gm.getByTestId('portrait').boundingBox();
+  const image = await gm.getByTestId('portrait-image').boundingBox();
+  const points = await gm.getByText('Action Points', { exact: true }).boundingBox();
+  expect(section.height).toBeGreaterThan(150);
+  expect(section.height).toBeLessThanOrEqual(194);
+  expect(image.height).toBeGreaterThan(120);
+  expect(section.y + section.height).toBeLessThanOrEqual(points.y);
+  expect(Math.abs(section.x - points.x)).toBeLessThan(40);
+  const button = await gm.getByTestId('portrait-set').boundingBox();
+  expect(button.height).toBeLessThanOrEqual(40);
+  expect(button.width).toBeLessThanOrEqual(160);
+  expect(button.x).toBeGreaterThanOrEqual(section.x);
+  expect(button.x + button.width).toBeLessThanOrEqual(section.x + section.width);
+  expect(button.y + button.height).toBeLessThanOrEqual(section.y + section.height);
+  await expect(gm.getByTestId('sheet-portrait')).toHaveCount(0); // nothing beside the name any more
+  await expect(gm.getByTestId('portrait-remove')).toHaveCount(0);
 
   // Copy from Portrait: one new Picture named Portrait, and the second press explains instead of adding another.
   await expect(gm.getByTestId('picture')).toHaveCount(0);
@@ -98,16 +109,24 @@ test('Portrait: set on the sheet, shown in the header, the roster and the picker
   await p.goto('/');
   await expect(p.getByTestId('pick-pc').filter({ hasText: pc }).getByTestId('picker-portrait')).toBeVisible();
 
-  // The player changes their own Portrait; it updates on their sheet and the GM's roster at once.
+  // On a phone the Portrait is the first block of the sheet. The player changes their own Portrait; it updates on their sheet and the GM's roster at once.
   await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
-  await expect(p.getByTestId('sheet-portrait')).toBeVisible();
-  await p.getByTestId('portrait-remove').click();
-  await expect(p.getByTestId('sheet-portrait')).toHaveCount(0);
-  await expect(p.getByTestId('portrait-image')).toHaveCount(0);
-  await expect(p.getByTestId('copy-portrait')).toBeDisabled();
-  await expect(p.getByTestId('picture')).toHaveCount(1); // the copied Picture stays
-  await expect(rosterPortrait(pc)).toHaveCount(0);
-  await expect(rosterPortrait(npc)).toHaveCount(1);
+  await expect(p.getByTestId('portrait-image')).toBeVisible();
+  const header = await p.getByTestId('sheet-name').boundingBox();
+  const mobile = await p.getByTestId('portrait').boundingBox();
+  const mobilePoints = await p.getByText('Action Points', { exact: true }).boundingBox();
+  expect(mobile.y).toBeGreaterThan(header.y);
+  expect(mobile.y + mobile.height).toBeLessThanOrEqual(mobilePoints.y);
+  expect(mobile.height).toBeLessThanOrEqual(194);
+  const before = await p.getByTestId('portrait-image').getAttribute('src');
+  await p.getByTestId('portrait-file').setInputFiles(await face(p));
+  await expect(p.getByTestId('portrait-image')).not.toHaveAttribute('src', before);
+  await expect(rosterPortrait(pc)).not.toHaveAttribute('src', before);
+  await expect(rosterPortrait(pc)).toHaveCount(1);
+  // The changed Portrait is a new image, so it can be copied too; the old copy stays.
+  await expect(p.getByTestId('picture')).toHaveCount(1);
+  await p.getByTestId('copy-portrait').click();
+  await expect(p.getByTestId('picture')).toHaveCount(2);
 
   await phone.close();
   await gmCtx.close();

@@ -9,7 +9,6 @@ import { Resistances, Statuses } from './SheetDefences.jsx';
 import { ActiveEffects } from '../effects/ActiveEffects.jsx';
 import { effectiveDefence, effectiveMaxHp, effectiveMovement, statMods } from '../../../../shared/effects.js';
 import { PicturesSection, PortraitSection, StageSection } from './SheetStage.jsx';
-import { Avatar } from '../Avatar.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
 import { ExperienceIcon, MovementIcon, SizeIcon } from './ParamIcons.jsx';
@@ -133,7 +132,6 @@ export default function SheetPage({ characterId }) {
             {t('Back to roster')}
           </Link>
         )}
-        {character.portraitImageId && <Avatar name={character.name} imageId={character.portraitImageId} size="h-12 w-12" testId="sheet-portrait" />}
         <h1 className="min-w-0 truncate text-2xl font-semibold" data-testid="sheet-name">
           {character.name}
         </h1>
@@ -155,6 +153,7 @@ export default function SheetPage({ characterId }) {
         <>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start" data-testid="sheet-columns">
         <div className="flex min-w-0 flex-col gap-3">
+          <PortraitSection s={s} />
           <section className="grid grid-cols-2 gap-2" aria-label={t('Vitals')}>
             <div className={`${tile} col-span-2`}>
               <div className="text-xs opacity-60">{t('Action Points')}</div>
@@ -274,7 +273,6 @@ export default function SheetPage({ characterId }) {
           <Statuses s={s} />
           <ActiveEffects s={s} />
           <StageSection s={s} />
-          <PortraitSection s={s} />
           <PicturesSection s={s} />
         </div>
       </div>

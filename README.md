@@ -691,15 +691,18 @@ Light-novel style: a fullscreen background with character art standing along the
   art and later as Battle tokens. A picture is chosen at summon and can be swapped in Token Settings.
   Deleting a picture that is on stage swaps to another, or removes the character from the stage if
   none is left.
-- **Portrait (decided):** every character, PC or NPC, can have **one Portrait**, kept apart from its Pictures. It is set, changed and removed in a **Portrait**
-  section on the character sheet (right column, just above Pictures) by the GM, or by the owner of a PC; it is not set from the roster. The browser prepares it like
-  character art (fits 1200x1400, proportions kept, transparency kept; see Images). It is shown: **small and round beside the name at the top of the sheet**; in the
-  **list of characters** (the roster, 36 px, the coloured initial for a character with none); on the **picker's cards** (PCs); and in the **combat order** (in
-  place of the token's picture; a character without a Portrait, and a temp NPC, keep the token's picture). Round pictures are cropped to the top of the image.
+- **Portrait (decided):** every character, PC or NPC, can have **one Portrait**, kept apart from its Pictures. It is the **first thing on the character sheet**: at the top of
+  the left column (the first block on a phone), above Action Points, shown **whole (proportions kept, nothing cropped) and about 12rem tall**, with **one small button over
+  its bottom-right corner** (Set Portrait, or Change Portrait once there is one) to upload or replace it. With no Portrait the block is a short placeholder with the same
+  button. There is **no remove button** in the interface (a decision: it can only be replaced; the `portrait:clear` event still exists on the server). It is set by the GM
+  or by the owner of a PC, not from the roster. The browser prepares it like character art (fits 1200x1400, proportions kept, transparency kept; see Images). It is also
+  shown: in the **list of characters** (the roster, a 36 px round thumbnail, the coloured initial for a character with none); on the **picker's cards** (PCs); and in the
+  **combat order** (in place of the token's picture; a character without a Portrait, and a temp NPC, keep the token's picture). Round pictures are cropped to the top of
+  the image. The sheet's header shows only the name (the small round Portrait beside it was dropped once the big one came).
   **Copy from Portrait** is a button beside Add pictures in the **sheet's Pictures section** (not in the Cast drawer's Pictures dialog): it adds the Portrait as a new
-  Picture named **Portrait** (named in the language of whoever pressed). It adds it **once**: when the Portrait is already one of the Pictures a second press
-  only says so; with no Portrait the button is disabled. The Picture shares the Portrait's image, so deleting either one leaves the other; an image is deleted only
-  when no Portrait, Picture or scene uses it. Replacing or removing a Portrait never touches the Pictures.
+  Picture named **Portrait** (named in the language of whoever pressed). It adds it **once per Portrait image**: when the Portrait is already one of the Pictures a second
+  press only says so (a changed Portrait is a new image and can be copied again); with no Portrait the button is disabled. The Picture shares the Portrait's image, so
+  deleting either one leaves the other; an image is deleted only when no Portrait, Picture or scene uses it. Replacing a Portrait never touches the Pictures.
 - **Summoning:** the GM can summon or dismiss anyone; a player can summon or dismiss only their own
   PC (from the sheet, on any device). Summons belong to a scene: each scene keeps its own cast, and
   the GM can only summon into the active scene.
