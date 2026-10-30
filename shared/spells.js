@@ -28,7 +28,8 @@ export const STONES = [
 export const SIGNS = STONES.map((s) => s.sign);
 export const stoneInfo = (sign) => STONES.find((s) => s.sign === sign);
 
-export const MAX_STONES_IN_SCHEME = 24;
+export const MAX_STONES_IN_SCHEME = 24; // in one Circle
+export const MAX_CIRCLES = 9;
 export const MAX_STONE_COUNT = 99;
 export const MAX_NOTE = 500;
 export const MAX_SPELLS = 200;
@@ -38,18 +39,24 @@ export const TATTOO_STATUS = 'blood_oxidization';
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 
-// { stones: [{ id, sign, note }], arrows: [{ from, to }] }. A stone's place in the table follows from its
-// type (Bases in one row, Modifiers and Links one to a row, then the Release) and the order they were added.
+// { circles, stones: [{ id, sign, note, circle }], arrows: [{ from, to }] }. A spell has 1 to MAX_CIRCLES Circles (see the README, "Spell
+// Circles"): every stone belongs to one of them (Circle 1 for everything made before Circles existed), and the Release of a Circle is the
+// special Base of the next one. A stone's place in the table follows from its Circle, its type (Bases in one row, Modifiers and Links one
+// to a row, then the Release) and the order they were added.
 export function normalizeScheme(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
+  const circles = Number.isInteger(r.circles) ? Math.min(MAX_CIRCLES, Math.max(1, r.circles)) : 1;
   const ids = new Set();
   const stones = [];
+  const perCircle = new Array(circles + 1).fill(0);
   for (const s of Array.isArray(r.stones) ? r.stones : []) {
-    if (stones.length >= MAX_STONES_IN_SCHEME) break;
+    const circle = Number.isInteger(s?.circle) ? Math.min(circles, Math.max(1, s.circle)) : 1;
+    if (perCircle[circle] >= MAX_STONES_IN_SCHEME) continue;
     const id = typeof s?.id === 'string' ? s.id.slice(0, 20) : '';
     if (!id || ids.has(id) || !SIGNS.includes(s.sign)) continue;
     ids.add(id);
-    stones.push({ id, sign: s.sign, note: text(s.note, MAX_NOTE) });
+    perCircle[circle]++;
+    stones.push({ id, sign: s.sign, note: text(s.note, MAX_NOTE), circle });
   }
   const seen = new Set();
   const arrows = [];
@@ -60,60 +67,95 @@ export function normalizeScheme(raw) {
     seen.add(key);
     arrows.push({ from: a.from, to: a.to });
   }
-  return { stones, arrows };
+  return { circles, stones, arrows };
 }
 
-// Where every stone stands: Bases side by side in the top row, then one Modifier or Link to a row (with one
-// empty row left under the last), and the Release alone at the bottom. Units are stone cells.
+export const circleOf = (stone) => (Number.isInteger(stone?.circle) && stone.circle >= 1 ? stone.circle : 1);
+export const circlesOf = (scheme) => Math.max(Number.isInteger(scheme?.circles) ? scheme.circles : 1, 1, ...(scheme?.stones ?? []).map(circleOf));
+
+// Where every stone stands: for each Circle (one under the other) the Bases side by side in a row, then one Modifier or Link to a row
+// (with one empty row left under the last), and the Release alone at the bottom. Units are stone cells. `parts` gives each Circle's
+// rows ({ circle, y, height }); a stone's `level` is its row, and arrows only go to a deeper row.
 export function layoutScheme(scheme) {
-  const bases = scheme.stones.filter((s) => stoneInfo(s.sign).kind === 'base');
-  const mids = scheme.stones.filter((s) => ['modifier', 'link'].includes(stoneInfo(s.sign).kind));
-  const releases = scheme.stones.filter((s) => stoneInfo(s.sign).kind === 'release');
-  const width = Math.max(3, bases.length);
+  const circles = circlesOf(scheme);
+  const kindOf = (s) => stoneInfo(s.sign).kind;
+  const per = Array.from({ length: circles }, (_, i) => scheme.stones.filter((s) => circleOf(s) === i + 1));
+  const width = Math.max(3, ...per.map((stones) => stones.filter((s) => kindOf(s) === 'base').length));
   const pos = new Map();
-  bases.forEach((s, i) => pos.set(s.id, { x: ((i + 0.5) * width) / bases.length, y: 0.5, level: 0 }));
-  mids.forEach((s, i) => pos.set(s.id, { x: width / 2, y: 1.5 + i, level: 1 + i }));
-  const midRows = mids.length + 1; // the empty row
-  releases.forEach((s, i) => pos.set(s.id, { x: ((i + 0.5) * width) / releases.length, y: 1 + midRows + 0.5, level: 1 + mids.length }));
-  const lanes = [
-    { kind: 'base', y: 0, height: 1 },
-    { kind: 'mid', y: 1, height: midRows },
-    { kind: 'release', y: 1 + midRows, height: 1 },
-  ];
-  return { pos, width, height: 2 + midRows, lanes };
+  const lanes = [];
+  const parts = [];
+  let row = 0;
+  per.forEach((stones, i) => {
+    const bases = stones.filter((s) => kindOf(s) === 'base');
+    const mids = stones.filter((s) => ['modifier', 'link'].includes(kindOf(s)));
+    const releases = stones.filter((s) => kindOf(s) === 'release');
+    const top = row;
+    bases.forEach((s, j) => pos.set(s.id, { x: ((j + 0.5) * width) / bases.length, y: row + 0.5, level: row }));
+    lanes.push({ kind: 'base', y: row, height: 1, circle: i + 1 });
+    row += 1;
+    mids.forEach((s, j) => pos.set(s.id, { x: width / 2, y: row + 0.5 + j, level: row + j }));
+    const midRows = mids.length + 1; // the empty row
+    lanes.push({ kind: 'mid', y: row, height: midRows, circle: i + 1 });
+    row += midRows;
+    releases.forEach((s, j) => pos.set(s.id, { x: ((j + 0.5) * width) / releases.length, y: row + 0.5, level: row }));
+    lanes.push({ kind: 'release', y: row, height: 1, circle: i + 1 });
+    row += 1;
+    parts.push({ circle: i + 1, y: top, height: row - top });
+  });
+  return { pos, width, height: row, lanes, parts, circles };
 }
 
 // -> { ok, errors: [message] }  each message is { key, params }; params name stones as { t: 'Virgo' }.
+// With more than one Circle every Circle has to be legal on its own: it needs exactly one Release, and the Release of a Circle is the special
+// Base of the next one (exactly one arrow leaves it, into the next Circle). Arrows never reach into a Circle from anywhere else.
 export function validateScheme(rawScheme) {
   const scheme = normalizeScheme(rawScheme);
   const errors = [];
-  const add = (key, params) => errors.push({ key, params });
+  // (named `fail` so the localization scan finds the messages)
+  const fail = (key, params) => errors.push({ key, params });
   const kindOf = (s) => stoneInfo(s.sign).kind;
   const nameOf = (s) => ({ t: stoneInfo(s.sign).name });
   const { pos } = layoutScheme(scheme);
   const byId = new Map(scheme.stones.map((s) => [s.id, s]));
   const inn = (id) => scheme.arrows.filter((a) => a.to === id);
   const out = (id) => scheme.arrows.filter((a) => a.from === id);
+  const many = scheme.circles > 1;
 
-  if (!scheme.stones.some((s) => kindOf(s) === 'base')) add('Add at least one Base stone.');
-  if (scheme.stones.filter((s) => kindOf(s) === 'release').length !== 1) add('Add exactly one Release stone.');
+  for (let c = 1; c <= scheme.circles; c++) {
+    const here = scheme.stones.filter((s) => circleOf(s) === c);
+    // The first Circle needs a Base of its own; a higher one has the Release of the one below.
+    if (c === 1 && !here.some((s) => kindOf(s) === 'base')) fail('Add at least one Base stone.');
+    if (here.filter((s) => kindOf(s) === 'release').length !== 1) {
+      if (many) fail('Circle {n} needs exactly one Release stone.', { n: c });
+      else fail('Add exactly one Release stone.');
+    }
+  }
 
   // Arrows only go down: toward the Release, never up and never sideways.
   for (const a of scheme.arrows) {
     if (pos.get(a.to).level <= pos.get(a.from).level) {
-      add('An arrow from {from} to {to} must go down toward the Release, not up or sideways.', { from: nameOf(byId.get(a.from)), to: nameOf(byId.get(a.to)) });
+      fail('An arrow from {from} to {to} must go down toward the Release, not up or sideways.', { from: nameOf(byId.get(a.from)), to: nameOf(byId.get(a.to)) });
+    }
+    // A Circle only reaches into the next one, through its Release.
+    const from = byId.get(a.from);
+    const to = byId.get(a.to);
+    const lead = circleOf(to) === circleOf(from) + 1 && kindOf(from) === 'release';
+    if (circleOf(from) !== circleOf(to) && !lead) {
+      fail('An arrow from {from} to {to} reaches into another Circle: only the Release of a Circle leads on, into the next one.', { from: nameOf(from), to: nameOf(to) });
     }
   }
   for (const s of scheme.stones) {
     const kind = kindOf(s);
     const nIn = inn(s.id).length;
     const nOut = out(s.id).length;
-    if (kind === 'base' && nIn > 0) add('{stone} is a Base and cannot have an arrow into it.', { stone: nameOf(s) });
-    if (kind === 'modifier' && nIn !== 1) add('{stone} is a Modifier and needs exactly one arrow into it.', { stone: nameOf(s) });
-    if (kind === 'link' && nIn < 2) add('{stone} is a Link and needs two or more arrows into it.', { stone: nameOf(s) });
-    if (kind === 'release' && nIn !== 1) add('The Release needs exactly one arrow into it.');
-    if (kind === 'release' && nOut > 0) add('The Release cannot have an arrow leaving it.');
-    if (kind !== 'release' && nOut !== 1) add('{stone} needs exactly one arrow leaving it.', { stone: nameOf(s) });
+    const top = circleOf(s) === scheme.circles;
+    if (kind === 'base' && nIn > 0) fail('{stone} is a Base and cannot have an arrow into it.', { stone: nameOf(s) });
+    if (kind === 'modifier' && nIn !== 1) fail('{stone} is a Modifier and needs exactly one arrow into it.', { stone: nameOf(s) });
+    if (kind === 'link' && nIn < 2) fail('{stone} is a Link and needs two or more arrows into it.', { stone: nameOf(s) });
+    if (kind === 'release' && nIn !== 1) fail('The Release needs exactly one arrow into it.');
+    if (kind === 'release' && top && nOut > 0) fail('The Release cannot have an arrow leaving it.');
+    if (kind === 'release' && !top && nOut !== 1) fail('The Release of Circle {n} is the Base of the next Circle and needs exactly one arrow leaving it.', { n: circleOf(s) });
+    if (kind !== 'release' && nOut !== 1) fail('{stone} needs exactly one arrow leaving it.', { stone: nameOf(s) });
   }
   // Two Bases can only meet in a Link: that follows from a Modifier taking exactly one arrow.
   return { ok: errors.length === 0, errors };
@@ -130,14 +172,24 @@ export const usesFor = (scheme) => (scheme.stones.some((s) => s.sign === 'taurus
 
 // ---- What a sheet keeps -------------------------------------------------------------------------------------
 
+// Spell Fine Tuning is one row of runes per Circle: [[Circle 1's runes], [Circle 2's runes], ...]. A flat chain (stored before Circles
+// existed) is the row of Circle 1. The result has exactly `circles` rows.
+export function normalizeRows(raw, circles) {
+  const list = Array.isArray(raw) ? raw : [];
+  const rows = list.length && !list.some((x) => Array.isArray(x)) ? [normalizeChain(list)] : list.map((row) => normalizeChain(row));
+  while (rows.length < circles) rows.push([]);
+  return rows.slice(0, circles);
+}
+
 export function normalizeDraft(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
+  const scheme = normalizeScheme(r.scheme);
   return {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX).trim() || 'Spell',
     description: text(r.description, D.TEXT_MAX),
-    scheme: normalizeScheme(r.scheme),
-    runes: normalizeChain(r.runes),
+    scheme,
+    runes: normalizeRows(r.runes, scheme.circles),
   };
 }
 
@@ -151,6 +203,7 @@ export function normalizeEffect(raw, id) {
 
 export function normalizeSpell(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
+  const circles = Number.isInteger(r.circles) ? Math.min(MAX_CIRCLES, Math.max(1, r.circles)) : 1;
   const tattoo = r.tattoo === true;
   const maxUses = tattoo ? 1 : Math.min(D.ITEM_USES_MAX, Math.max(1, Number.isInteger(r.uses?.max) ? r.uses.max : 1));
   const destroyed = !tattoo && r.destroyed === true;
@@ -161,9 +214,11 @@ export function normalizeSpell(raw, id) {
     icon: D.DAMAGE_TYPES.includes(r.icon) ? r.icon : 'fire',
     effect: normalizeEffect(r.effect, id),
     uses: { current: destroyed ? 0 : Math.min(maxUses, Math.max(0, Number.isInteger(r.uses?.current) ? r.uses.current : maxUses)), max: maxUses },
-    // The Spell Fine Tuning chain, the same as that of the draft the spell was crafted from (kept in step with it).
+    // The Circles of the spell (1 for every spell made before Circles existed), and its Spell Fine Tuning: one row per Circle, the same as
+    // the rows of the draft the spell was crafted from (kept in step with them, for the Circles the spell has).
+    circles,
     draftId: typeof r.draftId === 'string' && r.draftId ? r.draftId : null,
-    runes: normalizeChain(r.runes),
+    runes: normalizeRows(r.runes, circles),
     stabilization: Math.min(999, Math.max(0, Number.isInteger(r.stabilization) ? r.stabilization : STABILIZATION_START)),
     tattoo,
     destroyed,

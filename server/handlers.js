@@ -22,6 +22,7 @@ import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { tokenStatuses, tokenEffects } from './battle.js';
 import { hasSelectedCard } from '../shared/manifest.js';
+import { normalizeRows } from '../shared/spells.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
 import { createEffects } from './effects.js';
 import { createSaves, putStatus } from './saves.js';
@@ -233,8 +234,8 @@ export function registerHandlers(io, socket, db, shared) {
         const before = s.spellDrafts.find((d) => d.id === rest.id);
         const after = next.spellDrafts.find((d) => d.id === rest.id);
         if (before && after) {
-          after.runes = before.runes;
-          for (const sp of next.spells) if (sp.draftId === after.id) sp.runes = before.runes;
+          after.runes = normalizeRows(before.runes, after.scheme.circles);
+          for (const sp of next.spells) if (sp.draftId === after.id) sp.runes = normalizeRows(before.runes, sp.circles);
         }
       }
       return next;

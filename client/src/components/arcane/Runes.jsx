@@ -69,6 +69,23 @@ export function RuneChain({ runes, size = 40, selected = null, onPick = null, te
   );
 }
 
+// Spell Fine Tuning as rows, one per Circle (`rows` = [[Circle 1's runes], [Circle 2's runes], ...]). With a single Circle it is just the chain,
+// as it always was; with several each row says which Circle it belongs to.
+export function RuneRows({ rows, size = 40, testId = 'rune-chain' }) {
+  const t = useT();
+  if (rows.length <= 1) return <RuneChain runes={rows[0] ?? []} size={size} testId={testId} />;
+  return (
+    <div className="flex flex-col gap-1" data-testid={`${testId}-rows`}>
+      {rows.map((row, i) => (
+        <div key={i} className="flex items-center gap-2" data-testid="rune-row-view" data-circle={i + 1}>
+          <span className="w-16 shrink-0 text-xs opacity-60">{t('Circle {n}', { n: i + 1 })}</span>
+          {row.length ? <RuneChain runes={row} size={size} testId="rune-row-chain" /> : <span className="text-xs opacity-30">-</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The categories of runes: open one to see its runes, tap a rune to add it to the end of the chain.
 function RunePicker({ onAdd, full }) {
   const t = useT();

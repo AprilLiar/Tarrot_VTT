@@ -29,7 +29,7 @@ describe('lock rules', () => {
     expect(a.tarot).toEqual({ cards: [], active: null });
     expect(a.manifestations).toEqual([]);
     expect(a.spellDrafts).toHaveLength(1);
-    expect(redactSheet(sheet, ['fine_tuning']).spellDrafts[0].runes).toEqual([]);
+    expect(redactSheet(sheet, ['fine_tuning']).spellDrafts[0].runes).toEqual([[]]); // one empty row per Circle
     const magic = redactSheet(sheet, ['tab:magic']);
     expect(magic).toMatchObject({ spells: [], spellDrafts: [] });
     expect(magic.stones.virgo).toBe(0);
@@ -148,7 +148,7 @@ describe('locks', () => {
     await g.call('lock:toggle', { key: 'fine_tuning' });
     const r = await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Y', scheme: good(), runes: ['or', 'then', 'if'] } });
     expect(r.ok).toBe(true);
-    expect((await sheetOf(g, id)).spellDrafts[0]).toMatchObject({ name: 'Y', runes: ['if', 'then', 'or'] });
+    expect((await sheetOf(g, id)).spellDrafts[0]).toMatchObject({ name: 'Y', runes: [['if', 'then', 'or']] });
   });
 
   it('a locked Magic tab stops crafting, and a locked Stance stops attacks that use it', async () => {

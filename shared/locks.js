@@ -25,8 +25,9 @@ export function redactSheet(sheet, locks) {
   if (stonesLocked(locks)) out.stones = Object.fromEntries(Object.keys(sheet.stones).map((k) => [k, 0]));
   if (combinationsLocked(locks)) out.spellDrafts = [];
   if (fineTuningLocked(locks)) {
-    if (!combinationsLocked(locks)) out.spellDrafts = sheet.spellDrafts.map((d) => ({ ...d, runes: [] }));
-    out.spells = sheet.spells.map((sp) => ({ ...sp, runes: [] }));
+    const noRows = (circles) => Array.from({ length: circles ?? 1 }, () => []);
+    if (!combinationsLocked(locks)) out.spellDrafts = sheet.spellDrafts.map((d) => ({ ...d, runes: noRows(d.scheme?.circles) }));
+    out.spells = sheet.spells.map((sp) => ({ ...sp, runes: noRows(sp.circles) }));
   }
   if (magicLocked(locks)) out.spells = [];
   if (tarotLocked(locks)) out.tarot = { cards: [], active: null };

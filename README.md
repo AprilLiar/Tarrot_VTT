@@ -68,7 +68,7 @@ Repository layout:
 | `client/src/components/` | `Picker`, `Shell` (top bar, toasts, trade offers), `Roster` (GM), `ChatPanel`, `Dialog`. |
 | `client/src/music/` | `useMusic` (the synced YouTube player), `MusicContext`, `MusicBar`, `MusicPanel`, `youtube` (API loader). |
 | `client/src/components/scene/` | `ScenePage` (stage, zoom, drag, token menu), `SceneDrawers` (Cast and Scenes), `LibraryTree`, `Pictures`. |
-| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`, `AttackPresets` (the star and the preset list), `useAttackRunner` (Help Dice question, `attack:roll`, range warning; shared by Done and the presets), `attackDraft` (the draft as an `attack:roll` body). |
+| `client/src/components/arcane/` | `ArcanePage` (the tabs, General, the footer, the GM's general tab), `Magic` (stones, editor, drafts, spells), `SchemeView` (the scheme drawing), `SpellZoom` (a draft shown large), `Stances` (signs, tree, band table, GM editor), `Manifest` (Tarot Cards, Manifestations), `Locks` (context, blur, lock tiles), `DamageIcon`, `editors` (weapon and Enhancement forms), `summaries`, `useStances`, `useGlobalEnhancements`, `AttackPresets` (the star and the preset list), `useAttackRunner` (Help Dice question, `attack:roll`, range warning; shared by Done and the presets), `attackDraft` (the draft as an `attack:roll` body). |
 | `client/src/components/effects/` | `EffectEditor` (the Effect dialog), `EffectRefs` (pick Effects in a weapon, Enhancement or band), `EffectsLibrary`, `ActiveEffects` (sheet list), `BasicActions`, `ActionIcon` and `basicActionIconData` (the Basic Actions' icons), `effectText`, `useEffectLibrary`. |
 | `client/src/components/sheet/` | `SheetPage` (vitals, stats, masteries, skills), `SheetLists` (features, inventory), `SheetDefences` (resistances, statuses), `fields` (number field, roll button). |
 | `e2e/` | Playwright specs (Pixel 7 viewport). |
@@ -1026,7 +1026,7 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   be saved as a **Spell Draft** and is marked with red "Illegal".
 - **Notes:** double-tap a stone to give it a free text note. A stone with a note has a blue glow and a
   small "1" at its top right; a press shows the note in a pop-up tied to the "1"; double-tap edits it.
-- **Spell Fine Tuning (decided):** a chain of **runes**, typed like text. The runes come from the rune reference PDF (61
+- **Spell Fine Tuning (decided):** (one chain **for each Circle**, see Spell Circles) a chain of **runes**, typed like text. The runes come from the rune reference PDF (61
   runes with a hand-drawn picture, a name and a category), ported as vector pictures drawn in the text colour. The
   categories are **Logic** (10), **Properties** (15), **Modifiers** (10), **Targeting & Geometry** (9), **Actions** (6)
   and **Elements & Essences** (11), plus a last special category **Spell Stones**: the twelve stones' symbols as
@@ -1058,6 +1058,31 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   adds a **Spell tattoo** tag: no uses, still Stabilization, and the durability check is a Strength Save
   against it; success still adds +3, failure removes no uses but adds 1 stack of the new status
   **Blood Oxidization** (stackable (X) status; the blood becomes much more acidic, no automation).
+
+**Spell Circles (decided).** A spell has **1 to 9 Circles**. Every spell that exists or could be made before Circles is a **Circle 1** spell.
+A new Circle is built on the whole spell below it: **the Release of the previous Circle is the special Base** of the new one, so the new Circle carries the
+previous scheme and its Spell Fine Tuning further. In the Editor the Circles are drawn one under the other, each with its own Bases, Modifiers and Links, and
+Release; the **Release of every Circle but the last has a special faded glow** (in the colour of the Bases) in the editor, in the compendium picture and in the large view.
+- **The rules of a Circle:** the first Circle needs a Base of its own; a higher Circle needs none (it has the special Base) but may add Bases, which meet it in a Link as
+  usual. Every Circle has **exactly one Release**, every stone leads to its own Circle's Release, and the **Release of a Circle that has another Circle under it
+  needs exactly one arrow leaving it** (into that next Circle: it is its Base). **Only a Release leads into the next Circle**: any other arrow between Circles is
+  illegal. A Circle holds at most 24 stones. The scheme is legal only when every Circle is.
+- **Spell Fine Tuning:** one **row of runes per Circle** (each row up to 99 runes, typed like before); every previous row is kept and shown. In the Editor the rows are
+  listed one under the other and the row of the Circle being worked on is the one typed; stones added also go to that Circle (the Circle bar above the table picks
+  it: **Circle 1, Circle 2 ... and Add Circle**, with **Remove last Circle** deleting the top Circle with its stones and its row, after a confirmation).
+- **Adding a Circle afterwards:** from the Editor (Add Circle) or from a saved draft's **large view** (Add Circle opens the Editor on the new, empty Circle). **The draft is
+  upgraded in place**: saving puts the new Circle into the same draft (the Circle 1 version is gone). Nothing is saved until Save. Lower Circles stay **editable** at any
+  time and the higher ones follow along (a change that breaks a higher Circle shows the draft as Illegal).
+- **The magnifying glass:** on every draft's picture in the compendium there is a **magnifying glass with a plus** inside, half transparent, centred, with a diameter of
+  **half the picture's height**. It opens the spell **large (nearly the whole screen)** with everything the small picture can do (a tap on a stone with a note shows it),
+  and the **Spell Fine Tuning along the whole tree**: one row of runes per Circle, beside that Circle's part of the tree on a wide screen and under the tree on a narrow one.
+  The large view has **Add Circle**, **Edit** and **Close**. A draft or spell of Circle 2 or more shows a "Circle N" tag.
+- **Crafting needs all the stones, circle by circle:** crafting a Circle N draft **spends the stones of every Circle at once** (the dialog lists the totals), and makes
+  **one Magic roll per Circle, in order** (Circle 1, then 2 ...), each its own roll card ("Spell crafting, Circle 2 (Magic Roll)"); a single-Circle spell is
+  crafted as before. The result is **one spell of Circle N** with a row of runes per Circle. Spells already held are not used up. Uses are 5 when a Taurus is
+  anywhere in the scheme.
+- **A crafted spell** keeps following the rows of its draft, **only for the Circles the spell has**: a draft that is upgraded to more Circles later does not change a
+  spell crafted before (it stays what it was). A locked Spell Fine Tuning keeps the rows of every Circle where they were and shows none to players.
 
 **Stances tab.** A scrollable list of the 12 Zodiac signs (big sign image, name, a short vibe text).
 Tapping one opens a skill-tree-like screen with the Zodiac's **base Stance** in the centre (globally
@@ -1142,7 +1167,8 @@ Stones, Spell Combinations, Spell Fine Tuning.
   sideways. The reason for each broken rule is listed live; an illegal draft can be saved (marked "Illegal") but not crafted.
 - **Craft:** shows the needed stones (needs / you have), the stones' notes, spends the stones and adds the spell
   (5 uses if Taurus is in the scheme, else 1; Stabilization 10; icon Fire and a default weapon effect until the
-  player fills it in). It posts a Magic roll (d20 + Magic + Experience) titled "Spell crafting" and a chat line.
+  player fills it in). It posts a Magic roll (d20 + Magic + Experience) titled "Spell crafting" and a chat line; a spell of several Circles
+  spends the stones of all of them and posts one such roll per Circle, in order (see Spell Circles).
 - **Created spells:** name, description, damage type **icon** (twelve plain placeholder glyphs drawn in the app, to be
   swapped for real art), effect (Weapon or Enhancement, edited by the owner; the GM also sets uses, Stabilization
   and the **Spell tattoo** tag), uses, Stabilization. A weapon spell is chosen with "Use as weapon" (it rolls the
@@ -1257,8 +1283,8 @@ Implemented:
   `items` (`id, name, description, uses {current, max}, states[], state, weapon`; `weapon` is `null` or
   `{ base, kind, defence, ap, range, statuses, dice, unique }`), `unarmed` (a weapon: 0 Bludgeoning),
   `enhancements` (the character's own, see Arcane tab), `attackPresets` (`id, name, weapon { kind: 'unarmed' | 'item' | 'spell' | 'manifestation', name }, enhancements [{ name, origin, count }], stance { name, sign } | null, advantage, modifier`: names only, see Attack Presets), `helpDice` (list of sides, up to 5), `stones` (count per sign), `spellDrafts`
-  (`id, name, description, scheme { stones: [{ id, sign, note }], arrows: [{ from, to }] }, runes` (rune ids, at most 99, see `shared/runes.js`; Spell Stone runes are `stone_<sign>`)), `spells`
-  (`id, name, description, draftId, runes, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
+  (`id, name, description, scheme { circles (1 to 9), stones: [{ id, sign, note, circle }], arrows: [{ from, to }] }, runes` (one row per Circle: `[[Circle 1's rune ids], [Circle 2's], ...]`, each at most 99 ids, see `shared/runes.js`; Spell Stone runes are `stone_<sign>`; a flat chain stored before Circles is the row of Circle 1)), `spells`
+  (`id, name, description, draftId, circles, runes` (a row per Circle the spell has)`, icon, effect { kind: 'weapon' | 'enhancement', ... }, uses {current, max}, stabilization,
   tattoo, destroyed`), `tarot` (`{ cards: [{ id, name, description, hidden }], active }`, `active` = the selected card's id or null), `manifestations` (`id, name,
   description, effect` like a spell's), `resistances`
   (per damage type), `statuses` (key to stacks), `effects` (running Effects: `id, defId, name, description, icon, duration, rounds?, uses { current, max } | null, parts, source`) and
@@ -1429,7 +1455,7 @@ Battle (Phase 5a):
 - Basic Actions: `basic:list` returns `{ actions }` (`basic:actions` is sent again after every change), GM only `basic:save` `{ id?, action }` and
   `basic:delete` `{ id }`; `basic:use` `{ characterId, actionId }` (the GM, or the player of the character) does the action at once.
 - Spontaneous Action (GM only): `spontaneous:do` `{ characterId, ap: 1|2, roll: 'weapon'|'magic'|'stances'|'manifestation', defence, help?, effects: { damage?: { amount, kind }, help?: { sides }, status?: { key, stacks }, temp?: { value }, effect?: { id, to } } }`: replies `{ instant: true }` (Help Die and Temp HP only, given at once) or sends `attack:pending` like an attack. `combat:roll` also takes `help`.
-- Spells: `spell:craft` `{ characterId, draftId }` (spends the stones, posts a Magic roll and a chat line, adds the
+- Spells: `spell:craft` `{ characterId, draftId }` (spends the stones of every Circle, posts a Magic roll for each Circle in order and a chat line, adds the
   spell; errors `illegal`, `not_enough_stones`), `spell:update` `{ characterId, id, patch }` (the owner: name, description,
   icon, effect; the GM also `uses`, `stabilization`, `tattoo`), `spell:grant` `{ characterId, spell }` (GM only),
   `spell:remove` `{ characterId, id }`. Same permission as editing the sheet.

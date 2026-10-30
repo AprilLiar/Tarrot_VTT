@@ -7,10 +7,11 @@ import { SchemeView } from './SchemeView.jsx';
 import { DamageIcon, ICON_KEYS } from './DamageIcon.jsx';
 import { EffectEditor, enhancementToForm, enhancementValid, formToEnhancement, formToWeapon, isNum, weaponToForm, weaponValid } from './editors.jsx';
 import { weaponSummary, enhancementSummary } from './summaries.js';
-import { KINDS, KIND_COLORS, MAX_NOTE, MAX_STONE_COUNT, STONES, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
+import { KINDS, KIND_COLORS, MAX_CIRCLES, MAX_NOTE, MAX_STONE_COUNT, MAX_STONES_IN_SCHEME, STONES, circleOf, normalizeRows, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
 import * as D from '../../../../shared/rules-data.js';
 import { Lockable } from './Locks.jsx';
-import { RuneChain, RuneEditor } from './Runes.jsx';
+import { RuneChain, RuneEditor, RuneRows } from './Runes.jsx';
+import { SpellZoom } from './SpellZoom.jsx';
 import { useT } from '../../i18n.jsx';
 
 // The Magic tab: Spell Stones, the scheme editor, the compendium of saved drafts, and finished spells.
@@ -19,7 +20,17 @@ const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
 const label = 'flex flex-col gap-1 text-sm';
 const newId = () => crypto.randomUUID().slice(0, 8);
-export const emptyWork = () => ({ id: null, name: '', description: '', scheme: { stones: [], arrows: [] }, runes: [] });
+// `circle` is the Circle the Editor is working on (the stones added go there, and its row of runes is the one typed).
+export const emptyWork = () => ({ id: null, name: '', description: '', scheme: { circles: 1, stones: [], arrows: [] }, runes: [[]], circle: 1 });
+
+// A saved draft as the Editor's work, with `circle` the Circle to work on.
+export const workOf = (d, circle = 1) => ({ id: d.id, name: d.name, description: d.description, scheme: d.scheme, runes: d.runes, circle });
+
+// The draft with one more, empty Circle (not saved until the Editor saves it).
+export const withNewCircle = (d) => {
+  const circles = Math.min(MAX_CIRCLES, d.scheme.circles + 1);
+  return workOf({ ...d, scheme: normalizeScheme({ ...d.scheme, circles }), runes: normalizeRows(d.runes, circles) }, circles);
+};
 
 // A stone as a small round button with its ring, used in the palette and the filters.
 function StoneChip({ sign, size = 44, ...rest }) {
@@ -105,14 +116,26 @@ function Editor({ s, work, setWork }) {
   const [shown, setShown] = useState(null); // stone whose note is shown
   const justClosed = useRef(false); // the click that closed a note must not open another one
   const [busy, setBusy] = useState(false);
+  const [removingCircle, setRemovingCircle] = useState(false);
   const scheme = work.scheme;
+  const circles = scheme.circles;
+  const active = Math.min(Math.max(work.circle ?? 1, 1), circles); // the Circle being worked on
+  const rows = normalizeRows(work.runes, circles);
   const check = useMemo(() => validateScheme(scheme), [scheme]);
   const setScheme = (next) => setWork({ ...work, scheme: normalizeScheme(next) });
   const have = s.sheet.stones;
 
   const addStone = (sign) => {
-    if (scheme.stones.length >= 24) return toast(t('A scheme can have at most {n} stones.', { n: 24 }));
-    setScheme({ ...scheme, stones: [...scheme.stones, { id: newId(), sign, note: '' }] });
+    if (scheme.stones.filter((x) => circleOf(x) === active).length >= MAX_STONES_IN_SCHEME) return toast(t('A Circle can have at most {n} stones.', { n: MAX_STONES_IN_SCHEME }));
+    setScheme({ ...scheme, stones: [...scheme.stones, { id: newId(), sign, note: '', circle: active }] });
+  };
+
+  // A new Circle goes under the others; its special Base is the Release of the Circle above it. Removing the last one takes its stones and runes.
+  const addCircle = () => setWork({ ...work, scheme: normalizeScheme({ ...scheme, circles: circles + 1 }), runes: [...rows, []], circle: circles + 1 });
+  const removeCircle = () => {
+    setWork({ ...work, scheme: normalizeScheme({ ...scheme, circles: circles - 1, stones: scheme.stones.filter((x) => circleOf(x) < circles) }), runes: rows.slice(0, -1), circle: Math.min(active, circles - 1) });
+    setSel(null);
+    setShown(null);
   };
 
   // A shown note closes on any click on anything.
@@ -140,14 +163,14 @@ function Editor({ s, work, setWork }) {
   }
 
   function removeStone(id) {
-    setScheme({ stones: scheme.stones.filter((x) => x.id !== id), arrows: scheme.arrows.filter((a) => a.from !== id && a.to !== id) });
+    setScheme({ ...scheme, stones: scheme.stones.filter((x) => x.id !== id), arrows: scheme.arrows.filter((a) => a.from !== id && a.to !== id) });
     setSel(null);
     setShown(null);
   }
 
   async function save() {
     setBusy(true);
-    const payload = { name: work.name.trim(), description: work.description, scheme, runes: work.runes };
+    const payload = { name: work.name.trim(), description: work.description, scheme, runes: rows };
     const r = await call('sheet:list', { characterId: s.characterId, list: 'spellDrafts', action: work.id ? 'update' : 'add', id: work.id, draft: payload });
     setBusy(false);
     if (!r.ok) return toast(r.error);
@@ -177,6 +200,22 @@ function Editor({ s, work, setWork }) {
       </div>
 
       <div className="flex flex-col gap-3 lg:col-start-1 lg:row-span-3 lg:row-start-1">
+      <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label={t('Circles')} data-testid="circle-bar">
+        {Array.from({ length: circles }, (_, i) => (
+          <button key={i} role="tab" aria-selected={active === i + 1} data-testid={`circle-tab-${i + 1}`} className={`${btn} min-h-10 px-3 ${active === i + 1 ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setWork({ ...work, circle: i + 1 })}>
+            {t('Circle {n}', { n: i + 1 })}
+          </button>
+        ))}
+        <button className={`${btn} min-h-10 px-3`} data-testid="circle-add" disabled={circles >= MAX_CIRCLES} onClick={addCircle}>
+          {t('Add Circle')}
+        </button>
+        {circles > 1 && (
+          <button className={`${btnDanger} min-h-10 px-3`} data-testid="circle-remove" onClick={() => setRemovingCircle(true)}>
+            {t('Remove last Circle')}
+          </button>
+        )}
+      </div>
+      {circles > 1 && <p className="text-xs opacity-60" data-testid="circle-hint">{t('Stones you add go to Circle {n}. The Release of a Circle is the special Base of the Circle below it (it has a faded glow).', { n: active })}</p>}
       <div className="flex gap-2">
         <div
           className="min-w-0 flex-1"
@@ -188,7 +227,7 @@ function Editor({ s, work, setWork }) {
             if (stoneInfo(sign)) addStone(sign);
           }}
         >
-          <SchemeView scheme={scheme} selected={sel} noteOpen={shown} onStone={onStone} onStoneTwice={(id) => setNoteFor(id)} />
+          <SchemeView scheme={scheme} selected={sel} noteOpen={shown} activeCircle={active} onStone={onStone} onStoneTwice={(id) => setNoteFor(id)} />
         </div>
         <div className="flex w-16 shrink-0 flex-col items-center gap-1" data-testid="stone-palette" aria-label={t('Spell Stones')}>
           {palette.map((x) => (
@@ -237,8 +276,19 @@ function Editor({ s, work, setWork }) {
       <Lockable id="fine_tuning">
       <section aria-label={t('Spell Fine Tuning')} className={card}>
         <h3 className={heading}>{t('Spell Fine Tuning')}</h3>
-        <p className="mb-2 text-xs opacity-50">{t('Type the runes of the spell one after another, left to right.')}</p>
-        <RuneEditor runes={work.runes} onChange={(runes) => setWork({ ...work, runes })} />
+        <p className="mb-2 text-xs opacity-50">{circles > 1 ? t('One row of runes for each Circle. Tap a row to type its runes, one after another, left to right.') : t('Type the runes of the spell one after another, left to right.')}</p>
+        {circles > 1 && (
+          <div className="mb-2 flex flex-col gap-1" data-testid="rune-rows">
+            {rows.map((row, i) => (
+              <button key={i} type="button" data-testid="rune-row" data-circle={i + 1} aria-pressed={active === i + 1} className={`flex items-center gap-2 rounded-xl bg-black/30 px-2 py-1 text-left ${active === i + 1 ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setWork({ ...work, circle: i + 1 })}>
+                <span className="w-16 shrink-0 text-xs opacity-60">{t('Circle {n}', { n: i + 1 })}</span>
+                {row.length ? <RuneChain runes={row} size={28} testId="rune-row-chain" /> : <span className="text-xs opacity-40">{t('No runes yet.')}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        {circles > 1 && <p className="mb-1 text-xs">{t('Typing the runes of Circle {n}', { n: active })}</p>}
+        <RuneEditor key={active} runes={rows[active - 1]} onChange={(next) => setWork({ ...work, runes: rows.map((r, i) => (i === active - 1 ? next : r)) })} />
       </section>
       </Lockable>
 
@@ -248,6 +298,11 @@ function Editor({ s, work, setWork }) {
       {!check.ok && <p className="text-xs opacity-60">{t('An illegal scheme is still saved as a draft, marked Illegal, but it cannot be crafted.')}</p>}
       </div>
 
+      {removingCircle && (
+        <FormDialog title={t('Remove Circle {n}', { n: circles })} submitLabel={t('Remove')} danger onClose={() => setRemovingCircle(false)} run={async () => { removeCircle(); return { ok: true }; }}>
+          <p className="text-sm">{t('Remove Circle {n}? Its stones and its row of runes are deleted (until you save, nothing changes in the saved draft).', { n: circles })}</p>
+        </FormDialog>
+      )}
       {noteFor && <NoteDialog stone={scheme.stones.find((x) => x.id === noteFor)} onClose={() => setNoteFor(null)} onSave={(note) => { setScheme({ ...scheme, stones: scheme.stones.map((x) => (x.id === noteFor ? { ...x, note } : x)) }); setShown(note.trim() ? noteFor : null); }} />}
     </div>
   );
@@ -273,6 +328,7 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
   const [signs, setSigns] = useState([]);
   const [craft, setCraft] = useState(null);
   const [remove, setRemove] = useState(null);
+  const [zoom, setZoom] = useState(null); // the draft shown large
   // A stone with a note can be tapped right on the draft's card to read the note; any click closes it again.
   const [shown, setShown] = useState(null); // { draft, stone }
   const justClosed = useRef(false);
@@ -318,6 +374,11 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
           <div key={d.id} className={card} data-testid="draft" data-name={d.name}>
             <div className="flex items-baseline gap-2">
               <span className="min-w-0 flex-1 truncate font-medium">{d.name}</span>
+              {d.scheme.circles > 1 && (
+                <span className="rounded bg-white/10 px-1.5 text-xs" data-testid="draft-circles" data-circles={d.scheme.circles}>
+                  {t('Circle {n}', { n: d.scheme.circles })}
+                </span>
+              )}
               {!ok && (
                 <span className="text-sm font-semibold text-red-400" data-testid="draft-illegal">
                   {t('Illegal')}
@@ -325,10 +386,20 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
               )}
             </div>
             {d.description && <p className="whitespace-pre-wrap text-sm opacity-70">{d.description}</p>}
-            <SchemeView scheme={d.scheme} mini noteOpen={shown?.draft === d.id ? shown.stone : null} onStone={(id) => setShown(justClosed.current ? null : { draft: d.id, stone: id })} />
-            <RuneChain runes={d.runes} size={28} testId="draft-runes" />
+            <div className="relative">
+              <SchemeView scheme={d.scheme} mini noteOpen={shown?.draft === d.id ? shown.stone : null} onStone={(id) => setShown(justClosed.current ? null : { draft: d.id, stone: id })} />
+              {/* A half-transparent magnifying glass with a plus, half as big as the picture is tall: it opens the spell large. */}
+              <button type="button" className="absolute left-1/2 top-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-50 active:opacity-90" data-testid="draft-zoom" aria-label={t('Show the spell large')} title={t('Show the spell large')} onClick={() => setZoom(d)}>
+                <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="20" cy="20" r="13" />
+                  <path d="M30 30l13 13" />
+                  <path d="M20 14v12M14 20h12" />
+                </svg>
+              </button>
+            </div>
+            <RuneRows rows={normalizeRows(d.runes, d.scheme.circles)} size={28} testId="draft-runes" />
             <div className="mt-2 flex flex-wrap gap-2">
-              <button className={btn} data-testid="draft-edit" onClick={() => { setWork({ id: d.id, name: d.name, description: d.description, scheme: d.scheme, runes: d.runes }); goEditor(); }}>
+              <button className={btn} data-testid="draft-edit" onClick={() => { setWork(workOf(d)); goEditor(); }}>
                 {t('Edit')}
               </button>
               <button className={btnPrimary} data-testid="draft-craft" onClick={() => setCraft(d)}>
@@ -341,6 +412,14 @@ function Drafts({ s, setWork, goEditor, goSpells }) {
           </div>
         );
       })}
+      {zoom && (
+        <SpellZoom
+          draft={s.sheet.spellDrafts.find((x) => x.id === zoom.id) ?? zoom}
+          onClose={() => setZoom(null)}
+          onEdit={(d) => { setWork(workOf(d)); setZoom(null); goEditor(); }}
+          onAddCircle={(d) => { setWork(withNewCircle(d)); setZoom(null); goEditor(); }}
+        />
+      )}
       {craft && <CraftDialog s={s} draft={craft} onClose={() => setCraft(null)} onCraft={() => doCraft(craft)} />}
       {remove && (
         <FormDialog title={t('Delete draft')} submitLabel={t('Delete')} danger onClose={() => setRemove(null)} run={() => s.list('spellDrafts', 'remove', { id: remove.id })}>
@@ -377,7 +456,11 @@ function CraftDialog({ s, draft, onClose, onCraft }) {
           ))}
         </div>
       )}
-      <p className="text-xs opacity-60">{t('Crafting spends these stones and makes a Magic roll in the chat (only for the GM to see how skilled you are).')}</p>
+      <p className="text-xs opacity-60">
+        {draft.scheme.circles > 1
+          ? t('Crafting spends these stones of all {n} Circles at once and makes a Magic roll for each Circle, in order, in the chat (only for the GM to see how skilled you are).', { n: draft.scheme.circles })
+          : t('Crafting spends these stones and makes a Magic roll in the chat (only for the GM to see how skilled you are).')}
+      </p>
     </FormDialog>
   );
 }
@@ -403,7 +486,13 @@ function Spells({ s, draft, setDraft }) {
               <DamageIcon kind={sp.icon} size={30} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">
-                  {sp.name} {sp.tattoo && <span className="rounded bg-red-900/60 px-1.5 text-xs" data-testid="spell-tattoo">{t('Spell tattoo')}</span>}
+                  {sp.name}{' '}
+                  {sp.circles > 1 && (
+                    <span className="rounded bg-white/10 px-1.5 text-xs" data-testid="spell-circles" data-circles={sp.circles}>
+                      {t('Circle {n}', { n: sp.circles })}
+                    </span>
+                  )}{' '}
+                  {sp.tattoo && <span className="rounded bg-red-900/60 px-1.5 text-xs" data-testid="spell-tattoo">{t('Spell tattoo')}</span>}
                 </div>
                 <div className="text-xs opacity-70">
                   {sp.destroyed ? t('Destroyed') : sp.tattoo ? t('No uses') : t('Uses {cur}/{max}', { cur: sp.uses.current, max: sp.uses.max })} | {t('Stabilization {n}', { n: sp.stabilization })}
@@ -411,9 +500,9 @@ function Spells({ s, draft, setDraft }) {
               </div>
             </div>
             {sp.description && <p className="mt-1 whitespace-pre-wrap text-sm opacity-70">{sp.description}</p>}
-            {sp.runes.length > 0 && (
+            {sp.runes.some((row) => row.length > 0) && (
               <div className="mt-2 rounded-xl bg-black/30 px-2" data-testid="spell-runes">
-                <RuneChain runes={sp.runes} size={44} />
+                <RuneRows rows={normalizeRows(sp.runes, sp.circles ?? 1)} size={44} />
               </div>
             )}
             <p className="mt-1 text-xs opacity-70">{isWeapon ? `${t('Weapon')}: ${weaponSummary(sp.effect.weapon, t)}` : `${t('Enhancement')}: ${enhancementSummary(sp.effect.enhancement, s.sheet.items, t)}`}</p>

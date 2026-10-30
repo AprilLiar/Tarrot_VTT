@@ -167,11 +167,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Magic | Магия |
 | How many of each Spell Stone this character has. Crafting a spell spends them; drafting does not. | Сколько камней каждого вида у этого персонажа. Создание заклинания тратит их, черновик — нет. |
 | {name} stones | Камни: {name} |
-| A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
+| A Circle can have at most {n} stones. | В одном Круге может быть не больше {n} камней. |
 | Saved to Spell Drafts. | Сохранено в черновики заклинаний. |
 | Saved to Spell Drafts, marked Illegal. | Сохранено в черновики с пометкой «Недопустимо». |
 | New spell | Новое заклинание |
 | Description | Описание |
+| Circles | Круги |
+| Circle {n} | Круг {n} |
+| Add Circle | Добавить Круг |
+| Remove last Circle | Убрать последний Круг |
+| Stones you add go to Circle {n}. The Release of a Circle is the special Base of the Circle below it (it has a faded glow). | Камни, которые вы добавляете, попадают в Круг {n}. Форма Круга — особый Сбор для Круга под ним (она слегка светится). |
 | Add {name} | Добавить: {name} |
 | Tap a stone on the right to add it. Tap a stone in the table, then another one, to draw an arrow between them (again to remove it). Tap a stone twice to write a note. | Коснитесь камня справа, чтобы добавить его. Коснитесь камня в таблице, затем другого — между ними появится стрелка (ещё раз — уберёт её). Дважды коснитесь камня, чтобы написать заметку. |
 | {name} selected | Выбран: {name} |
@@ -179,10 +184,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove stone | Убрать камень |
 | Legal scheme | Схема допустима |
 | Illegal | Недопустимо |
+| One row of runes for each Circle. Tap a row to type its runes, one after another, left to right. | Один ряд рун на каждый Круг. Нажмите на ряд, чтобы набрать его руны одну за другой, слева направо. |
 | Type the runes of the spell one after another, left to right. | Набирайте руны заклинания одну за другой, слева направо. |
+| No runes yet. | Рун пока нет. |
+| Typing the runes of Circle {n} | Набираются руны Круга {n} |
 | Save changes | Сохранить изменения |
 | Save to Spell Drafts | Сохранить в черновики |
 | An illegal scheme is still saved as a draft, marked Illegal, but it cannot be crafted. | Недопустимая схема всё равно сохраняется как черновик с пометкой «Недопустимо», но создать по ней заклинание нельзя. |
+| Remove Circle {n} | Убрать Круг {n} |
+| Remove | Убрать |
+| Remove Circle {n}? Its stones and its row of runes are deleted (until you save, nothing changes in the saved draft). | Убрать Круг {n}? Его камни и ряд рун будут удалены (пока вы не сохраните, сохранённый черновик не меняется). |
 | Note on {name} | Заметка о камне: {name} |
 | Crafted {name}. | Создано: {name}. |
 | Search | Поиск |
@@ -190,12 +201,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Stones used | Использованные камни |
 | No draft matches. | Подходящих черновиков нет. |
 | No drafts yet. | Черновиков пока нет. |
+| Show the spell large | Показать заклинание крупно |
 | Craft | Создать |
 | Delete draft | Удалить черновик |
 | Craft {name} | Создать: {name} |
 | This scheme is illegal, so it cannot be crafted. | Эта схема недопустима, поэтому заклинание создать нельзя. |
 | {name}: needs {need}, you have {have} | {name}: нужно {need}, у вас {have} |
 | Notes | Заметки |
+| Crafting spends these stones of all {n} Circles at once and makes a Magic roll for each Circle, in order, in the chat (only for the GM to see how skilled you are). | Создание тратит эти камни всех {n} Кругов сразу и делает бросок Магии для каждого Круга по порядку в чате (только чтобы ГМ видел, насколько вы искусны). |
 | Crafting spends these stones and makes a Magic roll in the chat (only for the GM to see how skilled you are). | Создание тратит эти камни и делает бросок Магии в чате (только чтобы ГМ увидел ваше мастерство). |
 | No spells yet. Craft one from a draft. | Заклинаний пока нет. Создайте одно из черновика. |
 | Spell tattoo | Татуировка-заклинание |
@@ -374,7 +387,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | What it does | Что делает |
 | Part to add | Какую часть добавить |
 | Add part | Добавить часть |
-| Remove | Убрать |
 | Add Effect | Добавить эффект |
 | Effects for everyone | Эффекты для всех |
 | Effects are modifiers a character has for a while. Put one on this character here; Basic Actions, Enhancements, Stances and weapons can put them on too. | Эффекты — это модификаторы, действующие на персонажа какое-то время. Наложите эффект на этого персонажа здесь; базовые действия, усиления, стойки и оружие тоже могут накладывать их. |
@@ -1318,6 +1330,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That die is no longer there. | Этого кубика уже нет. |
 | Too many spells. | Слишком много заклинаний. |
 | Unknown list. | Неизвестный список. |
+| Spell crafting, Circle 1 (Magic Roll) | Создание заклинания, Круг 1 (бросок Магии) |
+| Spell crafting, Circle 2 (Magic Roll) | Создание заклинания, Круг 2 (бросок Магии) |
+| Spell crafting, Circle 3 (Magic Roll) | Создание заклинания, Круг 3 (бросок Магии) |
+| Spell crafting, Circle 4 (Magic Roll) | Создание заклинания, Круг 4 (бросок Магии) |
+| Spell crafting, Circle 5 (Magic Roll) | Создание заклинания, Круг 5 (бросок Магии) |
+| Spell crafting, Circle 6 (Magic Roll) | Создание заклинания, Круг 6 (бросок Магии) |
+| Spell crafting, Circle 7 (Magic Roll) | Создание заклинания, Круг 7 (бросок Магии) |
+| Spell crafting, Circle 8 (Magic Roll) | Создание заклинания, Круг 8 (бросок Магии) |
+| Spell crafting, Circle 9 (Magic Roll) | Создание заклинания, Круг 9 (бросок Магии) |
 | Spell crafting (Magic Roll) | Создание заклинания (бросок Магии) |
 | That spell no longer exists. | Этого заклинания больше нет. |
 | That draft no longer exists. | Этого черновика больше нет. |
@@ -1425,6 +1446,18 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Unknown skill. | Неизвестный навык. |
 | Unknown Combat Mastery. | Неизвестное боевое мастерство. |
 | Unknown roll type. | Неизвестный вид броска. |
+| Add at least one Base stone. | Добавьте хотя бы один камень-Сбор. |
+| Circle {n} needs exactly one Release stone. | В Круге {n} нужен ровно один камень-Форма. |
+| Add exactly one Release stone. | Добавьте ровно один камень-Форму. |
+| An arrow from {from} to {to} must go down toward the Release, not up or sideways. | Стрелка от {from} к {to} должна идти вниз, к Форме, а не вверх и не вбок. |
+| An arrow from {from} to {to} reaches into another Circle: only the Release of a Circle leads on, into the next one. | Стрелка от {from} к {to} уходит в другой Круг: дальше, в следующий Круг, ведёт только Форма Круга. |
+| {stone} is a Base and cannot have an arrow into it. | {stone} — это Сбор, в него не может входить стрелка. |
+| {stone} is a Modifier and needs exactly one arrow into it. | {stone} — это Модификатор, в него должна входить ровно одна стрелка. |
+| {stone} is a Link and needs two or more arrows into it. | {stone} — это Связь, в неё должны входить две или больше стрелок. |
+| The Release needs exactly one arrow into it. | В Форму должна входить ровно одна стрелка. |
+| The Release cannot have an arrow leaving it. | Из Формы не может выходить стрелка. |
+| The Release of Circle {n} is the Base of the next Circle and needs exactly one arrow leaving it. | Форма Круга {n} — это Сбор следующего Круга, из неё должна выходить ровно одна стрелка. |
+| {stone} needs exactly one arrow leaving it. | Из {stone} должна выходить ровно одна стрелка. |
 | 1 Round | 1 раунд |
 | Repeated | Повторяющийся |
 
@@ -1432,6 +1465,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
 | Swap Card | Сменить карту |
 | Choose the card that becomes active. | Выберите карту, которая станет активной. |
 | Select a target below first. | Сначала выберите цель ниже. |

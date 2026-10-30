@@ -8,6 +8,20 @@ import { createJournal } from './journal.js';
 import { T } from '../shared/localization.js';
 import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, normalizeEffect, MAX_SPELLS, STABILIZATION_START } from '../shared/spells.js';
 
+// The roll card of each Circle of a spell with several Circles (the titles are texts to translate, so they are spelled out).
+const CIRCLE_TITLES = [
+  null,
+  T('Spell crafting, Circle 1 (Magic Roll)'),
+  T('Spell crafting, Circle 2 (Magic Roll)'),
+  T('Spell crafting, Circle 3 (Magic Roll)'),
+  T('Spell crafting, Circle 4 (Magic Roll)'),
+  T('Spell crafting, Circle 5 (Magic Roll)'),
+  T('Spell crafting, Circle 6 (Magic Roll)'),
+  T('Spell crafting, Circle 7 (Magic Roll)'),
+  T('Spell crafting, Circle 8 (Magic Roll)'),
+  T('Spell crafting, Circle 9 (Magic Roll)'),
+];
+
 // Socket events for finished spells (see the Magic tab in the README).
 //  - spell:craft   { characterId, draftId }  turns a legal draft into a spell: spends the stones and posts a
 //                  Magic roll (against nothing, for the GM to judge the crafter's skill).
@@ -49,18 +63,20 @@ export function registerSpellHandlers(ctx) {
       }
       const uses = usesFor(draft.scheme);
       const id = randomUUID();
-      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, draftId: draft.id, runes: draft.runes }, id), id };
+      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, circles: draft.scheme.circles, draftId: draft.id, runes: draft.runes }, id), id };
       next.spells.push(spell);
       return sheets.normalizeSheet(next);
     });
     emitSheet(c.id, sheet);
 
-    // The crafting roll is only for the GM to see how skilled the crafter was.
-    const roll = buildRoll(sheet, { kind: 'mastery', key: 'magic' });
-    roll.title = T('Spell crafting (Magic Roll)');
+    // The crafting rolls are only for the GM to see how skilled the crafter was: one Magic roll, or with several Circles one for each, in order.
     const author = await authorName();
-    const card = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll });
-    io.to(CHAT_ROOM).emit('chat:message', card);
+    for (let circle = 1; circle <= spell.circles; circle++) {
+      const roll = buildRoll(sheet, { kind: 'mastery', key: 'magic' });
+      roll.title = spell.circles > 1 ? CIRCLE_TITLES[circle] : T('Spell crafting (Magic Roll)');
+      const card = shared.chat.add({ type: 'roll', author, characterId: c.id, characterName: c.name, roll });
+      io.to(CHAT_ROOM).emit('chat:message', card);
+    }
     effects.post({
       kind: 'craft',
       blocks: [{ name: c.name, rows: [{ key: '{label} {spell}.', params: { label: { t: 'Crafts', c: 'spell' }, spell: { v: spell.name, c: 'spell' } } }] }],

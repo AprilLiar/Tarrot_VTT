@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { io as connect } from 'socket.io-client';
 import { createDb, initSchema } from '../db.js';
 import { createServer } from '../app.js';
-import { validateScheme, stonesNeeded, usesFor, layoutScheme } from '../../shared/spells.js';
+import { validateScheme, stonesNeeded, usesFor, layoutScheme, normalizeScheme, normalizeRows, MAX_CIRCLES } from '../../shared/spells.js';
 
 const st = (id, sign) => ({ id, sign, note: '' });
 const ar = (from, to) => ({ from, to });
@@ -53,6 +53,83 @@ describe('spell schemes', () => {
     expect(pos.get('m').y).toBeLessThan(pos.get('r').y);
     expect(lanes.map((l) => l.kind)).toEqual(['base', 'mid', 'release']);
     expect(lanes[1].height).toBe(3); // two stones and one empty row under them
+  });
+});
+
+// ---- Spell Circles -----------------------------------------------------------------------------------------------------
+
+const c2 = (id, sign) => ({ id, sign, note: '', circle: 2 });
+// good() is Circle 1 (its Aries Release is the special Base of Circle 2); Circle 2 is a Leo Modifier and a Gemini Release.
+const twoCircles = () => {
+  const g1 = good();
+  return { circles: 2, stones: [...g1.stones, c2('m2', 'leo'), c2('r2', 'gemini')], arrows: [...g1.arrows, ar('r', 'm2'), ar('m2', 'r2')] };
+};
+
+describe('spell Circles', () => {
+  it('everything made before Circles existed is Circle 1', () => {
+    const n = normalizeScheme(good());
+    expect(n.circles).toBe(1);
+    expect(n.stones.every((x) => x.circle === 1)).toBe(true);
+    expect(validateScheme(good()).ok).toBe(true);
+  });
+
+  it('keeps 1 to 9 Circles, each stone in a Circle that exists, and at most 24 stones in one Circle', () => {
+    expect(normalizeScheme({ circles: 99, stones: [] }).circles).toBe(MAX_CIRCLES);
+    expect(normalizeScheme({ circles: 0, stones: [] }).circles).toBe(1);
+    expect(normalizeScheme({ circles: 2, stones: [{ id: 'a', sign: 'virgo', circle: 7 }, { id: 'b', sign: 'virgo', circle: 'x' }] }).stones.map((x) => x.circle)).toEqual([2, 1]);
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: `s${i}`, sign: 'virgo', circle: 1 }));
+    expect(normalizeScheme({ circles: 2, stones: [...many, c2('z', 'leo')] }).stones).toHaveLength(25); // 24 in Circle 1, 1 in Circle 2
+  });
+
+  it('lays the Circles one under the other, each with its own rows', () => {
+    const { pos, parts, lanes, height } = layoutScheme(twoCircles());
+    expect(parts.map((x) => x.circle)).toEqual([1, 2]);
+    expect(lanes.map((l) => `${l.circle}${l.kind}`)).toEqual(['1base', '1mid', '1release', '2base', '2mid', '2release']);
+    expect(pos.get('m2').y).toBeGreaterThan(pos.get('r').y); // Circle 2 is below the Release of Circle 1
+    expect(pos.get('r2').y).toBeGreaterThan(pos.get('m2').y);
+    expect(height).toBe(parts[0].height + parts[1].height);
+  });
+
+  it('is legal when the Release of a Circle leads into the next one, which needs no Base of its own', () => {
+    expect(validateScheme(twoCircles())).toEqual({ ok: true, errors: [] });
+    // Circle 2 may also have Bases of its own, met with the special Base in a Link.
+    const g1 = good();
+    const withBase = { circles: 2, stones: [...g1.stones, c2('b3', 'cancer'), c2('l2', 'libra'), c2('r2', 'gemini')], arrows: [...g1.arrows, ar('r', 'l2'), ar('b3', 'l2'), ar('l2', 'r2')] };
+    expect(validateScheme(withBase).ok).toBe(true);
+    // The Release of Circle 2 can lead straight from the special Base.
+    expect(validateScheme({ circles: 2, stones: [...g1.stones, c2('r2', 'gemini')], arrows: [...g1.arrows, ar('r', 'r2')] }).ok).toBe(true);
+  });
+
+  it('says what is wrong with a Circle', () => {
+    const g1 = good();
+    // The Release of Circle 1 leads nowhere: it has to be the Base of Circle 2.
+    expect(reasons({ circles: 2, stones: [...g1.stones, c2('r2', 'gemini')], arrows: g1.arrows })).toContain('The Release of Circle {n} is the Base of the next Circle and needs exactly one arrow leaving it.');
+    // A Circle needs its own Release.
+    expect(reasons({ circles: 2, stones: [...g1.stones, c2('m2', 'leo')], arrows: [...g1.arrows, ar('r', 'm2')] })).toContain('Circle {n} needs exactly one Release stone.');
+    // Only the Release of a Circle leads on: a Modifier of Circle 1 cannot reach into Circle 2.
+    const reach = { circles: 2, stones: [...g1.stones, c2('r2', 'gemini')], arrows: [...g1.arrows.filter((a) => a.from !== 'm'), ar('m', 'r2'), ar('r', 'r2')] };
+    expect(reasons(reach)).toContain('An arrow from {from} to {to} reaches into another Circle: only the Release of a Circle leads on, into the next one.');
+    // A single Circle keeps the messages it always had.
+    expect(reasons({ stones: [st('b', 'virgo')], arrows: [] })).toContain('Add exactly one Release stone.');
+    // The Release of the top Circle still cannot lead on.
+    const back = twoCircles();
+    back.arrows.push(ar('r2', 'm2'));
+    expect(reasons(back)).toContain('The Release cannot have an arrow leaving it.');
+  });
+
+  it('needs the stones of every Circle, and Taurus anywhere gives the extra uses', () => {
+    expect(stonesNeeded(twoCircles())).toEqual({ virgo: 2, libra: 1, taurus: 1, aries: 1, leo: 1, gemini: 1 });
+    const g = { circles: 2, stones: [st('b', 'virgo'), st('r', 'aries'), c2('t', 'taurus'), c2('r2', 'gemini')], arrows: [] };
+    expect(usesFor(g)).toBe(5);
+  });
+
+  it('Spell Fine Tuning is one row per Circle; a flat chain is the row of Circle 1', () => {
+    expect(normalizeRows(['fire', 'if'], 1)).toEqual([['fire', 'if']]);
+    expect(normalizeRows(['fire'], 3)).toEqual([['fire'], [], []]);
+    expect(normalizeRows([['fire'], ['if', 'nope']], 2)).toEqual([['fire'], ['if']]);
+    expect(normalizeRows([['fire'], ['if'], ['or']], 2)).toEqual([['fire'], ['if']]);
+    expect(normalizeRows(undefined, 2)).toEqual([[], []]);
+    expect(normalizeRows([], 1)).toEqual([[]]);
   });
 });
 
@@ -162,9 +239,59 @@ describe('crafting', () => {
     const { p, id } = await setup();
     const scheme = { stones: [st('a', 'virgo'), st('a', 'leo'), { id: 'x', sign: 'nope' }], arrows: [ar('a', 'ghost')] };
     const d = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'X', scheme, runes: ['fire', 'if', 'stone_aries'] } })).sheet.spellDrafts[0];
-    expect(d.scheme).toEqual({ stones: [{ id: 'a', sign: 'virgo', note: '' }], arrows: [] });
-    expect(d.runes).toEqual(['fire', 'if', 'stone_aries']);
+    expect(d.scheme).toEqual({ circles: 1, stones: [{ id: 'a', sign: 'virgo', note: '', circle: 1 }], arrows: [] });
+    expect(d.runes).toEqual([['fire', 'if', 'stone_aries']]); // one row per Circle (a flat chain is the row of Circle 1)
     expect((await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: ' ' } })).ok).toBe(false);
+  });
+});
+
+describe('crafting a spell of several Circles', () => {
+  const addCircles = (s, id, scheme, runes, name = 'Twin') => s.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name, scheme, runes } });
+
+  it('spends the stones of every Circle at once, rolls Magic once per Circle in order, and gives one Circle 2 spell', async () => {
+    const { g, p, id } = await setup();
+    const draft = (await addCircles(p, id, twoCircles(), [['fire'], ['if', 'then']])).sheet.spellDrafts[0];
+    expect(draft).toMatchObject({ runes: [['fire'], ['if', 'then']], scheme: { circles: 2 } });
+    // Without the stones of Circle 2 nothing is spent.
+    for (const [sign, n] of Object.entries({ virgo: 2, libra: 1, taurus: 1, aries: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
+    expect(await p.call('spell:craft', { characterId: id, draftId: draft.id })).toMatchObject({ ok: false, code: 'not_enough_stones' });
+    expect((await sheetOf(g, id)).stones).toMatchObject({ virgo: 2, libra: 1, taurus: 1, aries: 1 });
+    for (const [sign, n] of Object.entries({ leo: 1, gemini: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
+    expect((await p.call('spell:craft', { characterId: id, draftId: draft.id })).ok).toBe(true);
+    const sheet = await sheetOf(g, id);
+    expect(sheet.stones).toMatchObject({ virgo: 0, libra: 0, taurus: 0, aries: 0, leo: 0, gemini: 0 });
+    expect(sheet.spells[0]).toMatchObject({ name: 'Twin', circles: 2, uses: { current: 5, max: 5 }, runes: [['fire'], ['if', 'then']] });
+    const titles = server.shared.chat.history().filter((m) => m.type === 'roll').map((m) => m.roll.title);
+    expect(titles).toEqual(['Spell crafting, Circle 1 (Magic Roll)', 'Spell crafting, Circle 2 (Magic Roll)']);
+  });
+
+  it('refuses a draft whose higher Circle is illegal', async () => {
+    const { p, id } = await setup();
+    const bad = { circles: 2, stones: [...good().stones, c2('r2', 'gemini')], arrows: good().arrows }; // the Release of Circle 1 leads nowhere
+    const draft = (await addCircles(p, id, bad, [])).sheet.spellDrafts[0];
+    expect(await p.call('spell:craft', { characterId: id, draftId: draft.id })).toMatchObject({ ok: false, code: 'illegal' });
+  });
+
+  it('a spell crafted from a draft that later gets another Circle stays what it was and follows only the rows it has', async () => {
+    const { g, p, id } = await setup();
+    const draft = (await addCircles(p, id, good(), [['fire']], 'Bolt')).sheet.spellDrafts[0];
+    for (const [sign, n] of Object.entries({ virgo: 2, libra: 1, taurus: 1, aries: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
+    await p.call('spell:craft', { characterId: id, draftId: draft.id });
+    expect((await sheetOf(g, id)).spells[0]).toMatchObject({ circles: 1, runes: [['fire']] });
+    // The draft is upgraded in place to two Circles, with a rune row for each.
+    await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Bolt', scheme: twoCircles(), runes: [['water'], ['if']] } });
+    const sheet = await sheetOf(g, id);
+    expect(sheet.spellDrafts[0]).toMatchObject({ scheme: { circles: 2 }, runes: [['water'], ['if']] });
+    expect(sheet.spells[0]).toMatchObject({ circles: 1, runes: [['water']] });
+  });
+
+  it('a locked Fine Tuning leaves the rows of every Circle where they were', async () => {
+    const { g, p, id } = await setup();
+    const draft = (await addCircles(p, id, twoCircles(), [['fire'], ['if']])).sheet.spellDrafts[0];
+    await g.call('lock:toggle', { key: 'fine_tuning' });
+    await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Twin', scheme: twoCircles(), runes: [['x'], ['y']] } });
+    expect((await sheetOf(g, id)).spellDrafts[0].runes).toEqual([['fire'], ['if']]);
+    await g.call('lock:toggle', { key: 'fine_tuning' });
   });
 });
 
@@ -174,11 +301,11 @@ describe('rune chains', () => {
     const many = Array.from({ length: 120 }, (_, i) => (i % 2 ? 'fire' : 'stone_taurus'));
     const d = (await addDraft(p, id, good(), 'Long')).sheet.spellDrafts[0];
     const r = await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: d.id, draft: { name: 'Long', scheme: good(), runes: ['if', 'nope', 'if', 7, 'stone_leo', ...many] } });
-    const runes = r.sheet.spellDrafts[0].runes;
+    const runes = r.sheet.spellDrafts[0].runes[0];
     expect(runes).toHaveLength(99);
     expect(runes.slice(0, 3)).toEqual(['if', 'if', 'stone_leo']);
     expect(runes.every((x) => typeof x === 'string' && x !== 'nope')).toBe(true);
-    expect(r.sheet.spellDrafts[0].runes).not.toContain('1');
+    expect(runes).not.toContain('1');
   });
 
   it('a crafted spell shows the chain of its draft and follows later edits of the draft', async () => {
@@ -186,12 +313,12 @@ describe('rune chains', () => {
     const draft = (await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'add', draft: { name: 'Fire Bolt', description: '', scheme: good(), runes: ['fire', 'then', 'stone_aries'] } })).sheet.spellDrafts[0];
     for (const [sign, n] of Object.entries({ virgo: 3, libra: 1, taurus: 1, aries: 1 })) await g.call('sheet:set', { characterId: id, path: `stones.${sign}`, value: n });
     await p.call('spell:craft', { characterId: id, draftId: draft.id });
-    expect((await sheetOf(g, id)).spells[0]).toMatchObject({ draftId: draft.id, runes: ['fire', 'then', 'stone_aries'] });
+    expect((await sheetOf(g, id)).spells[0]).toMatchObject({ draftId: draft.id, circles: 1, runes: [['fire', 'then', 'stone_aries']] });
     await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'update', id: draft.id, draft: { name: 'Fire Bolt', scheme: good(), runes: ['water'] } });
-    expect((await sheetOf(g, id)).spells[0].runes).toEqual(['water']);
+    expect((await sheetOf(g, id)).spells[0].runes).toEqual([['water']]);
     // The spell keeps the last chain when its draft is deleted.
     await p.call('sheet:list', { characterId: id, list: 'spellDrafts', action: 'remove', id: draft.id });
-    expect((await sheetOf(g, id)).spells[0].runes).toEqual(['water']);
+    expect((await sheetOf(g, id)).spells[0].runes).toEqual([['water']]);
   });
 });
 

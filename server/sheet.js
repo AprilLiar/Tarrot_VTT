@@ -7,7 +7,7 @@ import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../s
 import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
 import { reconcileGroups, DURATIONS, MINUTE_ROUNDS, statusInfo } from '../shared/statuses.js';
 import { normalizeInstances, normalizeDefinition, statMods, MAX_EFFECTS_LIBRARY } from '../shared/effects.js';
-import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell } from '../shared/spells.js';
+import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell, normalizeRows } from '../shared/spells.js';
 import { MAX_PRESETS, MAX_PRESET_NAME, normalizePreset, normalizePresets, presetKey } from '../shared/presets.js';
 
 // The character sheet lives as one JSON document per character
@@ -423,8 +423,8 @@ export function applyList(sheet, list, action, p = {}) {
       const i = find(arr, p.id);
       name(p.draft?.name);
       arr[i] = { ...normalizeDraft(p.draft, p.id), id: p.id };
-      // A crafted spell always shows the chain of the draft it came from.
-      for (const sp of next.spells) if (sp.draftId === p.id) sp.runes = arr[i].runes;
+      // A crafted spell always shows the rows of the draft it came from, for the Circles the spell has.
+      for (const sp of next.spells) if (sp.draftId === p.id) sp.runes = normalizeRows(arr[i].runes, sp.circles);
     } else if (action === 'remove') {
       arr.splice(find(arr, p.id), 1);
     } else throw bad('Unknown action.', 'bad_action');

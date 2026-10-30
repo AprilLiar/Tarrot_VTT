@@ -1,5 +1,5 @@
 import { useId, useRef } from 'react';
-import { KIND_COLORS, KIND_LABELS, layoutScheme, stoneInfo } from '../../../../shared/spells.js';
+import { KIND_COLORS, KIND_LABELS, circleOf, layoutScheme, stoneInfo } from '../../../../shared/spells.js';
 import { useT } from '../../i18n.jsx';
 
 const C = 72; // pixels of one cell in the drawing
@@ -10,14 +10,19 @@ const R = 27; // radius of a stone
 //   selected / source: highlighted stones; noteOpen: the stone whose note is shown
 //   onStone(id), onStoneTwice(id): a tap and a quick second tap on a stone
 //   mini: the small snapshot shown in the compendium (no labels); only the stones with a note can be tapped, to show it
-export function SchemeView({ scheme, selected = null, source = null, noteOpen = null, onStone, onStoneTwice, mini = false }) {
+//   big: no height limit (the spell shown large)     activeCircle: the Circle being worked on gets a dashed outline
+// With several Circles they are drawn one under the other, and the Release of every Circle but the last has a faded glow in the colour of
+// the Bases: it is the special Base of the Circle below it.
+export function SchemeView({ scheme, selected = null, source = null, noteOpen = null, onStone, onStoneTwice, mini = false, big = false, activeCircle = null }) {
   const t = useT();
   const uid = useId().replace(/:/g, '');
   const last = useRef({ id: null, at: 0 });
-  const { pos, width, height, lanes } = layoutScheme(scheme);
+  const { pos, width, height, lanes, parts, circles } = layoutScheme(scheme);
+  const many = circles > 1;
   const tints = { base: KIND_COLORS.base, mid: '#3b82f6', release: KIND_COLORS.release };
   const laneLabel = { base: t('Bases'), mid: t('Modifiers and Links'), release: t('Release') };
   const byId = new Map(scheme.stones.map((s) => [s.id, s]));
+  const special = new Set(scheme.stones.filter((s) => stoneInfo(s.sign).kind === 'release' && circleOf(s) < circles).map((s) => s.id));
 
   function tap(id) {
     const now = Date.now();
@@ -31,7 +36,7 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
   }
 
   const svg = (
-    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
+    <svg viewBox={`0 0 ${width * C} ${height * C}`} className={mini ? 'h-40 w-full' : 'w-full'} style={mini ? undefined : big ? { maxHeight: '75vh' } : many ? undefined : { maxHeight: '28rem' }} data-testid={mini ? 'scheme-mini' : 'scheme'} role="img" aria-label={t('Spell scheme')}>
       <defs>
         <marker id={`${uid}-a`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill="#e2e8f0" />
@@ -48,8 +53,20 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
               {laneLabel[l.kind]}
             </text>
           )}
+          {many && l.kind === 'release' && (
+            <text x="6" y={(l.y + l.height) * C - 6} fontSize="13" fontWeight="600" fill="#e2e8f0" fillOpacity="0.8" data-testid="scheme-circle-label">
+              {t('Circle {n}', { n: l.circle })}
+            </text>
+          )}
         </g>
       ))}
+      {many &&
+        parts.map((p) => (
+          <g key={p.circle} data-testid="scheme-circle" data-circle={p.circle}>
+            {p.circle > 1 && <line x1="0" x2={width * C} y1={p.y * C} y2={p.y * C} stroke="#e2e8f0" strokeOpacity="0.4" strokeWidth="2" />}
+            {activeCircle === p.circle && <rect x="2" y={p.y * C + 2} width={width * C - 4} height={p.height * C - 4} fill="none" stroke="#a78bfa" strokeOpacity="0.8" strokeWidth="2.5" strokeDasharray="7 5" />}
+          </g>
+        ))}
       {scheme.arrows.map((a) => {
         const p = pos.get(a.from);
         const q = pos.get(a.to);
@@ -75,10 +92,13 @@ export function SchemeView({ scheme, selected = null, source = null, noteOpen = 
             data-id={s.id}
             data-sign={s.sign}
             data-note={hasNote ? 'true' : 'false'}
+            data-circle={circleOf(s)}
+            data-base={special.has(s.id) ? 'true' : 'false'}
             data-selected={selected === s.id || source === s.id ? 'true' : 'false'}
             style={mini && !(hasNote && onStone) ? { pointerEvents: 'none' } : { cursor: 'pointer' }}
             onClick={mini ? (hasNote && onStone ? () => onStone(s.id) : undefined) : () => tap(s.id)}
           >
+            {special.has(s.id) && <circle r={R + 5} fill={KIND_COLORS.base} filter={`url(#${uid}-g)`} opacity="0.6" data-testid="special-base-glow" />}
             {hasNote && <circle r={R + 2} fill="#3b82f6" filter={`url(#${uid}-g)`} opacity="0.95" />}
             <circle r={R} fill="#14111d" stroke={color} strokeWidth="4" />
             {(selected === s.id || source === s.id) && <circle r={R + 6} fill="none" stroke={source === s.id ? '#fbbf24' : '#ffffff'} strokeWidth="2.5" strokeDasharray="5 4" />}
