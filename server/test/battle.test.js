@@ -190,12 +190,13 @@ describe('mode and map', () => {
     expect(await g.call('scene:set_grid', { id, cell: 0.1, ox: -0.05, oy: -0.05 })).toMatchObject({ ok: true, cols: 11 });
     // The first square must still touch the picture.
     expect(await g.call('scene:set_grid', { id, cell: 0.1, ox: -0.1, oy: 0 })).toMatchObject({ ok: false, code: 'bad_value' });
-    // A token can stand on the partly visible last column.
+    // A token can stand on the partly visible last column, and on the 2 squares of margin past it, but no further.
     await g.call('scene:set_grid', { id, cell: 0.12, ox: 0, oy: 0 });
     const charId = await withPicture(g, 'Edge');
     const token = (await g.call('battle:add', { characterId: charId })).id;
     expect((await g.call('battle:place', { id: token, col: 8, row: 0 })).ok).toBe(true);
-    expect((await g.call('battle:place', { id: token, col: 9, row: 0 })).ok).toBe(false);
+    expect((await g.call('battle:place', { id: token, col: 10, row: 0 })).ok).toBe(true);
+    expect((await g.call('battle:place', { id: token, col: 11, row: 0 })).ok).toBe(false);
   });
 
   it('the grid is shown or hidden per scene, for everybody, and only the GM and the Display change it', async () => {
@@ -273,7 +274,10 @@ describe('tokens', () => {
     const { id } = await g.call('battle:add', { characterId: a });
     expect((await d.call('battle:place', { id, col: 4, row: 3 })).ok).toBe(true);
     expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 4, row: 3, bank: 0 });
-    expect(await g.call('battle:place', { id, col: 10, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    // The board is the 10 x 5 grid plus 2 squares of margin on every side.
+    expect((await g.call('battle:place', { id, col: -2, row: 6 })).ok).toBe(true);
+    expect(await g.call('battle:place', { id, col: 12, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect(await g.call('battle:place', { id, col: -3, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
     expect(await g.call('battle:place', { id, col: 1.5, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
     // A player drags their own character freely, but nobody else's.
     const p = await player(a);
@@ -292,9 +296,9 @@ describe('tokens', () => {
     expect((await g.call('scene:show_grid', { id: scene, show: false })).ok).toBe(true);
     expect((await d.call('battle:place', { id, col: 3.456, row: 1.5 })).ok).toBe(true);
     expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 3.46, row: 1.5 });
-    expect((await g.call('battle:place', { id, col: 9, row: 4 })).ok).toBe(true); // the last square fits exactly
-    expect(await g.call('battle:place', { id, col: 9.2, row: 4 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
-    expect(await g.call('battle:place', { id, col: -0.1, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect((await g.call('battle:place', { id, col: 11, row: 6 })).ok).toBe(true); // the last square of the margin fits exactly
+    expect(await g.call('battle:place', { id, col: 11.2, row: 4 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
+    expect(await g.call('battle:place', { id, col: -2.1, row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
     expect(await g.call('battle:place', { id, col: 'x', row: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' });
     // Turning the grid back on leaves the token where it is; the next drag has to land on a square.
     await g.call('battle:place', { id, col: 2.25, row: 2.75 });
@@ -342,9 +346,9 @@ describe('tokens', () => {
     const scene = await battleScene(g);
     const a = await withPicture(g, 'Aria');
     const { id } = await g.call('battle:add', { characterId: a });
-    await g.call('battle:place', { id, col: 9, row: 4 });
-    await g.call('scene:set_grid', { id: scene, cell: 0.25, ox: 0, oy: 0 }); // 4 columns, 2 rows
-    expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 3, row: 1 });
+    await g.call('battle:place', { id, col: 11, row: 6 });
+    await g.call('scene:set_grid', { id: scene, cell: 0.25, ox: 0, oy: 0 }); // 4 columns, 2 rows: the board reaches column 5, row 3
+    expect((await stageOf(g)).battle.tokens[0]).toMatchObject({ col: 5, row: 3 });
   });
 });
 
@@ -377,8 +381,8 @@ describe('the D-pad', () => {
     await g.call('battle:place', { id, col: 5.4, row: 2.25 });
     expect((await p.call('battle:move', { tokenId: id, dc: 1, dr: 1 })).moved).toBe(true);
     expect((await stageOf(p)).battle.tokens[0]).toMatchObject({ col: 6.4, row: 3.25 });
-    await g.call('battle:place', { id, col: 8.5, row: 0 });
-    expect(await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' }); // 9.5 + 1 > 10
+    await g.call('battle:place', { id, col: 10.5, row: 0 });
+    expect(await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).toMatchObject({ ok: false, code: 'out_of_bounds' }); // 11.5 + 1 > 12 (the margin's edge)
     await g.call('battle:place', { id, col: 5.4, row: 2.25 });
     await g.call('scene:show_grid', { id: scene, show: true });
     expect((await p.call('battle:move', { tokenId: id, dc: 1, dr: 0 })).moved).toBe(true);
@@ -863,5 +867,84 @@ describe('placing a token where the GM taps', () => {
     expect(await tokenOf(b)).toMatchObject({ col: 9, row: 4 });
     await g.call('battle:add', { characterId: c }); // no tap: the first free square, as before
     expect(await tokenOf(c)).toMatchObject({ col: 0, row: 0 });
+  });
+});
+
+describe('leaving a token out of combat', () => {
+  it('Start combat skips it; switching it on during a combat drops it from the order', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const tree = await withPicture(g, 'Tree', 'npc');
+    const b = await withPicture(g, 'Bob', 'npc');
+    const tokenIdOf = async (owner) => (await stageOf(g)).battle.tokens.find((t) => t.ownerId === owner).id;
+    for (const id of [a, tree, b]) await g.call('battle:add', { characterId: id });
+    expect((await g.call('battle:update', { id: await tokenIdOf(tree), excluded: true })).ok).toBe(true);
+    expect(await g.call('battle:update', { id: await tokenIdOf(tree), excluded: 'yes' })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect((await g.call('combat:start')).ok).toBe(true);
+    const names = async () => (await stageOf(g)).battle.combat.order.map((e) => e.name);
+    expect(await names()).toEqual(['Aria', 'Bob']);
+    await g.call('battle:update', { id: await tokenIdOf(b), excluded: true });
+    expect(await names()).toEqual(['Aria']);
+    expect((await stageOf(g)).battle.tokens.find((t) => t.ownerId === b).excluded).toBe(true);
+    const p = await player(a);
+    expect(await p.call('battle:update', { id: await tokenIdOf(a), excluded: true })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+});
+
+describe('GM Rewind', () => {
+  it('puts token moves and turns back, newest first, at most 5 steps; the GM alone sees the steps', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const b = await withPicture(g, 'Bob', 'npc');
+    const { id } = await g.call('battle:add', { characterId: a });
+    await g.call('battle:add', { characterId: b });
+    const at = async () => {
+      const t = (await stageOf(g)).battle.tokens.find((x) => x.id === id);
+      return [t.col, t.row];
+    };
+    expect(await g.call('battle:rewind')).toMatchObject({ ok: false, code: 'nothing_to_rewind' });
+    for (const col of [1, 2, 3, 4, 5, 6]) await g.call('battle:place', { id, col, row: 0 });
+    expect((await stageOf(g)).battle.rewind).toHaveLength(5);
+    expect((await stageOf(g)).battle.rewind[0]).toEqual({ key: 'Move of {name}', params: { name: 'Aria' } });
+    const d = await display();
+    expect((await stageOf(d)).battle.rewind).toEqual([]);
+    expect(await d.call('battle:rewind')).toMatchObject({ ok: false, code: 'forbidden' });
+
+    expect((await g.call('battle:rewind')).ok).toBe(true);
+    expect(await at()).toEqual([5, 0]);
+    expect((await g.call('battle:rewind')).ok).toBe(true);
+    expect(await at()).toEqual([4, 0]);
+    // A refused move saves nothing.
+    expect((await g.call('battle:place', { id, col: 99, row: 0 })).ok).toBe(false);
+    expect((await stageOf(g)).battle.rewind).toHaveLength(3);
+
+    // A turn: Next turn is undone, whose turn it is comes back.
+    await g.call('combat:start');
+    for (const e of (await stageOf(g)).battle.combat.order) await g.call('combat:set_initiative', { tokenId: e.tokenId, value: e.tokenId === id ? 20 : 5 });
+    await g.call('combat:begin');
+    expect((await stageOf(g)).battle.combat.activeTokenId).toBe(id);
+    await g.call('combat:next');
+    expect((await stageOf(g)).battle.combat.activeTokenId).not.toBe(id);
+    expect((await stageOf(g)).battle.rewind[0]).toEqual({ key: 'Next turn' });
+    await g.call('battle:rewind');
+    expect((await stageOf(g)).battle.combat.activeTokenId).toBe(id);
+    // Ending the combat forgets the steps.
+    await g.call('combat:end');
+    expect((await stageOf(g)).battle.rewind).toEqual([]);
+  });
+
+  it('puts a sheet back too (HP after an applied change is restored with the step)', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const a = await withPicture(g, 'Aria');
+    const { id } = await g.call('battle:add', { characterId: a });
+    await g.call('sheet:set', { characterId: a, path: 'hp.max', value: 10 });
+    await g.call('sheet:set', { characterId: a, path: 'hp.current', value: 10 });
+    await g.call('battle:place', { id, col: 3, row: 0 }); // a step is saved with the sheet as it is now
+    await g.call('sheet:set', { characterId: a, path: 'hp.current', value: 4 });
+    await g.call('battle:rewind');
+    expect((await g.call('sheet:get', { characterId: a })).sheet.hp.current).toBe(10);
   });
 });

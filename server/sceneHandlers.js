@@ -3,6 +3,8 @@ import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as combat from './combat.js';
 import * as audio from './audio.js';
+import * as sceneNotes from './sceneNotes.js';
+import * as rewind from './rewind.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { helpDiceFor, spendHelp } from './help.js';
 import { createJournal } from './journal.js';
@@ -25,7 +27,7 @@ import { T } from '../shared/localization.js';
 //  - Hidden summons are filtered out on the server for everyone but the GM.
 
 export function registerSceneHandlers(ctx) {
-  const { io, socket, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, saves, shared, rooms } = ctx;
+  const { io, socket, db, on, identity, isGm, isPlayer, isDisplay, requireControl, emitSheet, effects, saves, shared, rooms, fx } = ctx;
   const targets = shared.targets;
   const areaPicks = shared.areaPicks; // per character: the characters each area added to their targets last time it was picked
   const { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom } = rooms;
@@ -39,7 +41,8 @@ export function registerSceneHandlers(ctx) {
       scenes.getMode(db),
       battle.buildBattle(db, { forGm, targets, combat: shared.combat ?? null }),
     ]);
-    return { ...stage, mode, battle: battleState };
+    // The GM's Rewind button names what each step would undo (newest first).
+    return { ...stage, mode, battle: battleState && { ...battleState, rewind: forGm ? rewind.labels(shared) : [] } };
   }
 
   async function broadcastStage() {
@@ -122,6 +125,10 @@ export function registerSceneHandlers(ctx) {
     }
   });
   gmLibrary('scene:rename', (p) => scenes.renameScene(db, p.id, p.name));
+  gmLibrary('scene:copy', async (p) => {
+    const scene = await scenes.getScene(db, p.id);
+    return { id: await scenes.copyScene(db, p.id, translate(socket.data.lang, T('{name} (copy)'), { name: scene.name }).slice(0, 60)) };
+  });
   gmLibrary('scene:move', (p) => scenes.moveScene(db, p.id, p.folderId ?? null));
   gmLibrary('scene:set_image', async (p) => {
     await scenes.getScene(db, p.id);
@@ -142,6 +149,7 @@ export function registerSceneHandlers(ctx) {
 
   on('scene:activate', { gmOnly: true }, async (p) => {
     await scenes.setActiveScene(db, p.id ?? null);
+    rewind.clear(shared);
     await broadcastStage();
     await shared.sceneMusic.apply();
   });
@@ -152,6 +160,36 @@ export function registerSceneHandlers(ctx) {
     if (trackId !== null) await audio.getTrack(db, trackId);
     await scenes.setMusic(db, p.id, p.which, trackId);
     if ((await scenes.getActiveSceneId(db)) === p.id) await shared.sceneMusic.apply();
+  });
+
+  // --- scene notes and Cards (GM) -------------------------------------------------------
+  // The notes go to the GM only. Playing a Card sends it to every screen (`card:played`), which shows it full-screen for a few seconds.
+
+  async function broadcastNotes(sceneId) {
+    io.to(GM_ROOM).emit('scene_notes:updated', { sceneId, notes: await sceneNotes.listNotes(db, sceneId) });
+  }
+  on('scene_note:list', { gmOnly: true }, async (p) => {
+    await scenes.getScene(db, p.sceneId);
+    return { notes: await sceneNotes.listNotes(db, p.sceneId) };
+  });
+  on('scene_note:create', { gmOnly: true }, async (p) => {
+    await scenes.getScene(db, p.sceneId);
+    const id = await sceneNotes.createNote(db, p.sceneId, p);
+    await broadcastNotes(p.sceneId);
+    return { id };
+  });
+  on('scene_note:update', { gmOnly: true }, async (p) => {
+    await sceneNotes.updateNote(db, p.id, p);
+    await broadcastNotes((await sceneNotes.getNote(db, p.id)).sceneId);
+  });
+  on('scene_note:delete', { gmOnly: true }, async (p) => {
+    const note = await sceneNotes.deleteNote(db, p.id);
+    await broadcastNotes(note.sceneId);
+  });
+  on('scene_note:play', { gmOnly: true }, async (p) => {
+    const note = await sceneNotes.getNote(db, p.id);
+    if (note.kind !== 'card') throw new AppError('bad_value', 'Only a Card can be shown to everyone.');
+    io.to(GM_ROOM).to(VIEW_ROOM).emit('card:played', { title: note.title, body: note.body });
   });
 
   // --- temp NPCs (GM) -----------------------------------------------------------
@@ -336,10 +374,10 @@ export function registerSceneHandlers(ctx) {
   }
   on('battle:update', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) {
-      const heightOnly = p.pictureId === undefined && p.hidden === undefined && (p.height !== undefined || p.heightBy !== undefined);
+      const heightOnly = p.pictureId === undefined && p.hidden === undefined && p.excluded === undefined && (p.height !== undefined || p.heightBy !== undefined);
       if (!heightOnly || !(await ownsToken(p.id))) throw new AppError('forbidden', 'You can only change the height of your own character.');
     }
-    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height, heightBy: p.heightBy });
+    await battle.updateToken(db, p.id, { pictureId: p.pictureId, hidden: p.hidden, height: p.height, heightBy: p.heightBy, excluded: p.excluded });
     if (p.hidden === true) for (const set of targets.values()) set.delete(p.id);
     await broadcastStage();
   });
@@ -353,7 +391,8 @@ export function registerSceneHandlers(ctx) {
     if (!isGm() && !isDisplay() && !(await ownsToken(p.id))) {
       throw new AppError('forbidden', 'You can only move your own character by dragging.');
     }
-    await battle.placeToken(db, p.id, p.col, p.row);
+    const token = await battle.getToken(db, p.id);
+    await rewind.around(db, shared, { key: 'Move of {name}', params: { name: token.name } }, () => battle.placeToken(db, p.id, p.col, p.row));
     await broadcastStage();
   });
 
@@ -369,14 +408,18 @@ export function registerSceneHandlers(ctx) {
     // Movement is only paid on the character's own turn; outside combat every move is free.
     const turn = combat.activeEntry(shared.combat);
     const isOwnTurn = !!turn && turn.tokenId === token.id && token.ownerKind === 'character';
-    const result = await battle.moveStep(db, {
-      token,
-      dc: p.dc,
-      dr: p.dr,
-      freeChecked: p.free === true,
-      confirmAp: p.confirmAp === true,
-      isOwnTurn,
-    });
+    // Saved for Rewind first; forgotten again when the step does not happen (refused, or waiting for the AP to be confirmed).
+    const result = await rewind.around(db, shared, { key: 'Move of {name}', params: { name: token.name } }, () =>
+      battle.moveStep(db, {
+        token,
+        dc: p.dc,
+        dr: p.dr,
+        freeChecked: p.free === true,
+        confirmAp: p.confirmAp === true,
+        isOwnTurn,
+      }),
+    );
+    if (!result.moved) rewind.dropLast(shared);
     if (result.moved) {
       if (result.sheetChanged) emitSheet(token.ownerId, await sheets.getSheet(db, token.ownerId));
       await broadcastStage();
@@ -459,6 +502,7 @@ export function registerSceneHandlers(ctx) {
     if (!entry) return;
     const token = await battle.getToken(db, entry.tokenId);
     say({ key: "Round {round}: {name}'s turn.", params: { round: c.round, name: token.name } }, token);
+    if (!token.hidden) fx?.send({ kind: 'turn', tokenId: token.id, name: token.name });
     if (entry.ownerKind !== 'character') return;
     let lines = [];
     const journal = createJournal();
@@ -616,9 +660,23 @@ export function registerSceneHandlers(ctx) {
         throw new AppError('forbidden', 'Only the GM or the player whose turn it is can end it.');
       }
       if (p?.tokenId != null && p.tokenId !== entry.tokenId) throw new AppError('stale', 'That turn is already over.');
+      await rewind.record(db, shared, { key: 'Next turn' });
       await finishTurn(entry);
       combat.advance(c);
       await beginTurn(c);
+      await broadcastStage();
+    }),
+  );
+
+  // GM Rewind: puts the battle back as it was before its newest saved step (attack, move or Next turn).
+  on('battle:rewind', { gmOnly: true }, () =>
+    locked(async () => {
+      const changed = await rewind.rewind(db, shared);
+      for (const id of changed) {
+        const sheet = await sheets.getSheet(db, id);
+        shared.fxSheets?.delete(id); // a rewind is not animated as damage or healing
+        emitSheet(id, sheet);
+      }
       await broadcastStage();
     }),
   );
@@ -645,6 +703,7 @@ export function registerSceneHandlers(ctx) {
     for (const entry of c.order) await battle.clearBank(db, entry.tokenId).catch(() => {});
     say(c.phase === 'active' ? { key: 'Combat ends after {n} round(s).', params: { n: c.round } } : { key: 'Combat cancelled.' });
     shared.combat = null;
+    rewind.clear(shared);
   });
 
 

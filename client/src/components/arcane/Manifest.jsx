@@ -70,6 +70,7 @@ function Tarot({ s }) {
           className={`${card} ${active === c.id ? 'border-yellow-400 ring-2 ring-yellow-400' : ''}`}
           style={active === c.id ? { boxShadow: '0 0 22px 4px rgba(234,179,8,0.55)' } : undefined}
           data-testid="tarot-card"
+          data-search-id={`tarot:${c.id}`}
           data-name={c.name}
           data-active={active === c.id ? 'true' : 'false'}
           data-hidden={c.hidden ? 'true' : 'false'}

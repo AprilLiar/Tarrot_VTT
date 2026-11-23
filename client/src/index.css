@@ -9,7 +9,7 @@ body { margin: 0; background: #0f0d14; color: #e8e4f0; }
 /* Scroll bars in the colours of the interface, everywhere. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #5b3fa8 #14111d;
+  scrollbar-color: var(--color-violet-700) #14111d;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -20,7 +20,7 @@ body { margin: 0; background: #0f0d14; color: #e8e4f0; }
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #5b3fa8;
+  background: var(--color-violet-700);
   border-radius: 9999px;
   border: 2px solid #14111d;
 }
@@ -108,4 +108,126 @@ body { margin: 0; background: #0f0d14; color: #e8e4f0; }
 }
 .chat-popup {
   animation: chat-popup 2.3s ease-out forwards;
+}
+
+/* A cutscene Card: fade in, hold, fade out (components/CardCutscene.jsx). */
+@keyframes card-play {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.card-play {
+  animation: card-play 5s ease-in-out forwards;
+}
+
+/* Hide interface on the Scene page (lib/hideUi.js). */
+html[data-hide-ui='true'] .ui-chrome {
+  display: none !important;
+}
+
+/* Board animations (components/scene/BattleFx.jsx). SVG parts turn about their own middle. */
+.fx-part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes fx-charge {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 1; transform: scale(1); }
+  85% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+.fx-charge { animation: fx-charge 0.9s ease-out forwards; opacity: 0; }
+@keyframes fx-spin { to { rotate: 360deg; } }
+.fx-spin { animation: fx-charge 0.9s ease-out forwards, fx-spin 1.2s linear infinite; }
+@keyframes fx-streak {
+  0% { stroke-dashoffset: var(--len); opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.fx-streak { animation: fx-streak 0.4s ease-in 0.6s forwards; stroke-dashoffset: var(--len); }
+@keyframes fx-burst {
+  0% { opacity: 0.95; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1); }
+}
+.fx-burst { animation: fx-burst 0.5s ease-out 0.85s forwards; opacity: 0; }
+@keyframes fx-float {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
+  15% { opacity: 1; transform: translate(-50%, -20%) scale(1.1); }
+  75% { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+}
+.fx-float { animation: fx-float 1.3s ease-out forwards; }
+@keyframes fx-flash {
+  0% { opacity: 0.75; }
+  100% { opacity: 0; }
+}
+.fx-flash { animation: fx-flash 0.45s ease-out forwards; }
+@keyframes fx-shake {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -6% 0; }
+  40% { translate: 5% 0; }
+  60% { translate: -3% 0; }
+  80% { translate: 2% 0; }
+}
+.fx-shake { animation: fx-shake 0.35s ease-in-out; }
+@keyframes fx-pop {
+  0% { opacity: 0; transform: translateY(20%) scale(0.4); }
+  25% { opacity: 1; transform: translateY(0) scale(1.15); }
+  80% { opacity: 1; transform: translateY(-10%) scale(1); }
+  100% { opacity: 0; transform: translateY(-30%) scale(0.9); }
+}
+.fx-pop { animation: fx-pop 1.2s ease-out forwards; }
+@keyframes fx-miss {
+  0% { opacity: 0; transform: translate(-90%, -50%) skewX(-12deg); }
+  30% { opacity: 1; transform: translate(-50%, -50%) skewX(-12deg); }
+  70% { opacity: 1; transform: translate(-40%, -50%) skewX(-12deg); }
+  100% { opacity: 0; transform: translate(10%, -50%) skewX(-12deg); }
+}
+.fx-miss { animation: fx-miss 0.9s ease-out forwards; }
+@keyframes fx-crit {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+}
+.fx-crit { animation: fx-crit 1.2s ease-out forwards; }
+@keyframes fx-ring {
+  0% { opacity: 0; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+.fx-ring { animation: fx-ring 0.7s ease-out 2 forwards; opacity: 0; }
+.fx-once { animation-iteration-count: 1; animation-duration: 1s; }
+@keyframes fx-banner {
+  0% { opacity: 0; transform: translate(-50%, -30%); }
+  20% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 10%); }
+}
+.fx-banner { animation: fx-banner 1.5s ease-out forwards; }
+@keyframes fx-crack {
+  0% { opacity: 0; stroke-dashoffset: 1; }
+  30% { opacity: 1; stroke-dashoffset: 0; }
+  80% { opacity: 1; stroke-dashoffset: 0; }
+  100% { opacity: 0; stroke-dashoffset: 0; }
+}
+.fx-crack { animation: fx-crack 1s ease-out forwards; stroke-dasharray: 1; stroke-dashoffset: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-spin { animation: fx-charge 0.9s ease-out forwards; }
+}
+
+/* A search result just opened: its row flashes once. */
+.search-flash { animation: search-flash 1.5s ease-out; }
+@keyframes search-flash {
+  0%, 40% { box-shadow: 0 0 0 3px var(--color-violet-400); }
+  100% { box-shadow: 0 0 0 3px transparent; }
 }

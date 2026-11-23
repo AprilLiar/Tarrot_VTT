@@ -98,7 +98,7 @@ export async function grantBenefits(db, journal, characterId, name, benefits, em
 // Applies a confirmed attack. `emitSheet(characterId, sheet)` tells the sheets' viewers; `journal` notes every change so the
 // card can be reverted. -> { blocks, rolls }: what happened to each character as blocks of rows (the card shows them
 // in the chat), and the durability rolls to post as roll cards.
-export async function applyAttack(db, pending, clean, { emitSheet, journal, saves }) {
+export async function applyAttack(db, pending, clean, { emitSheet, journal, saves, outcome = null }) {
   const blocks = [];
   const rolls = []; // [{ roll, name, characterId }]: the rolls to post as roll cards
   const attackerName = pending.characterName;
@@ -130,6 +130,7 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
     } else {
       result = work(null);
     }
+    outcome?.(t.tokenId, result);
 
     // One row per fact, so each reader gets them in their own language.
     const rows = [

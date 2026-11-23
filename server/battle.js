@@ -1,5 +1,7 @@
+import { parseCrop } from '../shared/crop.js';
 import { AppError } from './errors.js';
 import { membersOf } from '../shared/templates.js';
+import { MAP_MARGIN } from '../shared/board.js';
 import { hasSelectedCard } from '../shared/manifest.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
@@ -42,6 +44,16 @@ const clampSize = (v) => (Number.isInteger(v) && v >= 1 && v <= scenes.SIZE_MAX 
 
 // ---- Tokens ---------------------------------------------------------------------
 
+// A character at 0 HP or less (with a maximum set) is down: its token sinks and greys (see the README, "Board animations").
+function sheetDown(json) {
+  try {
+    const hp = JSON.parse(json ?? '{}').hp ?? {};
+    return (hp.max ?? 0) > 0 && (hp.current ?? 0) <= 0;
+  } catch {
+    return false;
+  }
+}
+
 function sheetSize(json) {
   try {
     return clampSize(JSON.parse(json ?? '{}').size);
@@ -77,8 +89,8 @@ export function tokenEffects(json) {
 // A token's picture: a character's custom token (`ctoken`) when it has one; otherwise the default token is made (in the browser) from the
 // picture the character shows on this scene's stage, or from its first picture when it is not on the stage.
 const OWNS = (a) => `((t.character_id IS NOT NULL AND ${a}.character_id = t.character_id) OR (t.temp_npc_id IS NOT NULL AND ${a}.temp_npc_id = t.temp_npc_id))`;
-const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
-                          c.name AS cname, c.type AS ctype, c.sheet AS csheet, c.portrait_image_id AS cportrait, c.token_image_id AS ctoken,
+const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height, t.excluded,
+                          c.name AS cname, c.type AS ctype, c.sheet AS csheet, c.portrait_image_id AS cportrait, c.token_image_id AS ctoken, c.portrait_crop AS cpcrop, c.token_crop AS ctcrop,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
                           COALESCE(
                             (SELECT sp.image_id FROM stage_summons s JOIN pictures sp ON sp.id = s.picture_id WHERE s.scene_id = t.scene_id AND ${OWNS('s')} LIMIT 1),
@@ -107,7 +119,13 @@ function toToken(r, targets) {
     tokenImageId: isChar ? (r.ctoken ?? null) : null,
     // A character's Portrait (the combat order shows it before the token's picture).
     portraitImageId: isChar ? (r.cportrait ?? null) : null,
+    // Crops (shared/crop.js): the Portrait's round thumbnail, and the default token's cut.
+    portraitCrop: isChar ? parseCrop(r.cpcrop) : null,
+    tokenCrop: isChar ? parseCrop(r.ctcrop) : null,
     hidden: Number(r.hidden) === 1,
+    // Left out of combat (scenery): Start combat skips it and it has no initiative.
+    excluded: Number(r.excluded ?? 0) === 1,
+    down: isChar ? sheetDown(r.csheet) : false,
     bank: Number(r.bank),
     diagonals: Number(r.diagonals),
     // Spaces the character is in the air (shown above the token).
@@ -152,7 +170,8 @@ const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const inBounds = (scene, size, col, row) => {
   const { cols, rows } = scenes.gridSize(scene);
   const fits = scene.showGrid ? Number.isInteger(col) && Number.isInteger(row) : isNumber(col) && isNumber(row);
-  return fits && col >= 0 && row >= 0 && col + size <= cols && row + size <= rows;
+  // The board reaches MAP_MARGIN squares past the picture's grid on every side.
+  return fits && col >= -MAP_MARGIN && row >= -MAP_MARGIN && col + size <= cols + MAP_MARGIN && row + size <= rows + MAP_MARGIN;
 };
 
 // The first free spot scanning from the top left, so a new token never lands on another.
@@ -171,7 +190,7 @@ function spotAt(scene, size, u, v) {
   const place = scene.showGrid ? Math.round : roundFree;
   const col = place((u - ox) / cell - size / 2);
   const row = place((v - oy) / (cell * scene.battleAspect) - size / 2);
-  return { col: Math.max(0, Math.min(col, cols - size)), row: Math.max(0, Math.min(row, rows - size)) };
+  return { col: Math.max(-MAP_MARGIN, Math.min(col, cols - size + MAP_MARGIN)), row: Math.max(-MAP_MARGIN, Math.min(row, rows - size + MAP_MARGIN)) };
 }
 
 // `at` ({ u, v }): where the GM tapped the map; without it, the first free square.
@@ -235,7 +254,7 @@ export const HEIGHT_MAX = 99;
 
 // `height` sets the number of Spaces; `heightBy` (-1 or 1, from the Up and Down buttons) changes it by one in a single database statement,
 // so quick taps never lose a step however slow the screen is to catch up. The result stays between 0 and HEIGHT_MAX.
-export async function updateToken(db, id, { pictureId, hidden, height, heightBy }) {
+export async function updateToken(db, id, { pictureId, hidden, height, heightBy, excluded }) {
   const token = await getToken(db, id);
   if (pictureId !== undefined) {
     const pictures = await scenes.listPictures(db, { kind: token.ownerKind, id: token.ownerId });
@@ -245,6 +264,10 @@ export async function updateToken(db, id, { pictureId, hidden, height, heightBy 
   if (hidden !== undefined) {
     if (typeof hidden !== 'boolean') throw new AppError('bad_value', 'Hidden must be true or false.');
     await db.execute({ sql: 'UPDATE battle_tokens SET hidden = ? WHERE id = ?', args: [hidden ? 1 : 0, id] });
+  }
+  if (excluded !== undefined) {
+    if (typeof excluded !== 'boolean') throw new AppError('bad_value', 'Leave out of combat must be true or false.');
+    await db.execute({ sql: 'UPDATE battle_tokens SET excluded = ? WHERE id = ?', args: [excluded ? 1 : 0, id] });
   }
   if (height !== undefined) {
     if (!Number.isInteger(height) || height < 0 || height > HEIGHT_MAX) throw new AppError('bad_value', 'Height must be from 0 to {max} Spaces.', { max: HEIGHT_MAX });
@@ -267,8 +290,8 @@ export async function clampTokens(db, sceneId) {
   const { cols, rows } = scenes.gridSize(scene);
   const tokens = await listTokens(db, sceneId, { forGm: true });
   for (const t of tokens) {
-    const col = Math.max(0, Math.min(t.col, Math.max(0, cols - t.size)));
-    const row = Math.max(0, Math.min(t.row, Math.max(0, rows - t.size)));
+    const col = Math.max(-MAP_MARGIN, Math.min(t.col, cols - t.size + MAP_MARGIN));
+    const row = Math.max(-MAP_MARGIN, Math.min(t.row, rows - t.size + MAP_MARGIN));
     if (col !== t.col || row !== t.row) {
       await db.execute({ sql: 'UPDATE battle_tokens SET col = ?, row = ? WHERE id = ?', args: [col, row, t.id] });
       await followTemplates(db, { ...t, col, row });

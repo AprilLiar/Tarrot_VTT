@@ -1,4 +1,6 @@
+import { CroppedImage } from '../Crop.jsx';
 import { useState } from 'react';
+import { RewindButton } from './Rewind.jsx';
 import { call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { btn, btnPrimary } from '../Dialog.jsx';
@@ -25,7 +27,7 @@ export function CombatBar({ battle }) {
   if (!combat) {
     if (!isGm) return null;
     return (
-      <div className="absolute right-2 top-16 z-20" data-no-pan>
+      <div className="ui-chrome absolute right-2 top-16 z-20" data-no-pan>
         <button className={`${btn} bg-black/55 backdrop-blur`} data-testid="combat-start" onClick={() => run('combat:start')}>
           {t('Start combat')}
         </button>
@@ -35,7 +37,7 @@ export function CombatBar({ battle }) {
 
   const { order } = combat;
   const inCombat = new Set(order.map((e) => e.tokenId));
-  const addable = battle.tokens.filter((tk) => tk.kind !== 'prop' && !inCombat.has(tk.id));
+  const addable = battle.tokens.filter((tk) => tk.kind !== 'prop' && !tk.excluded && !inCombat.has(tk.id));
   const move = (i, d) => {
     const ids = order.map((e) => e.tokenId);
     const j = i + d;
@@ -46,7 +48,7 @@ export function CombatBar({ battle }) {
 
   return (
     <div
-      className="absolute right-2 top-16 z-20 flex max-h-[70%] w-56 flex-col gap-1 overflow-y-auto rounded-xl bg-black/60 p-2 text-sm backdrop-blur"
+      className="ui-chrome absolute right-2 top-16 z-20 flex max-h-[70%] w-56 flex-col gap-1 overflow-y-auto rounded-xl bg-black/60 p-2 text-sm backdrop-blur"
       data-no-pan
       data-testid="combat-bar"
       data-phase={combat.phase}
@@ -68,8 +70,8 @@ export function CombatBar({ battle }) {
               data-active={active}
               className={`flex items-center gap-2 rounded-lg p-1 ${active ? 'bg-amber-500/30 ring-2 ring-amber-400' : 'bg-white/5'}`}
             >
-              <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 bg-black/40" style={{ borderColor: RING[e.kind] ?? '#94a3b8' }}>
-                {e.imageId && <img src={imageUrl(e.imageId)} alt="" className="h-full w-full object-cover" draggable={false} />}
+              <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 bg-black/40" style={{ borderColor: RING[e.kind] ?? '#94a3b8' }}>
+                {e.imageId && (e.portrait ? <CroppedImage imageId={e.imageId} kind="portrait" crop={e.crop} /> : <img src={imageUrl(e.imageId)} alt="" className="h-full w-full object-cover" draggable={false} />)}
               </span>
               <span className="min-w-0 flex-1 truncate">{e.name}</span>
               {isGm && editing === e.tokenId ? (
@@ -146,9 +148,12 @@ export function CombatBar({ battle }) {
               </button>
             </>
           ) : (
-            <button className={`${btnPrimary} min-h-9 text-sm`} data-testid="combat-next" onClick={() => run('combat:next', { tokenId: combat.activeTokenId ?? undefined })}>
-              {t('Next turn')}
-            </button>
+            <div className="flex gap-1">
+              <button className={`${btnPrimary} min-h-9 flex-1 text-sm`} data-testid="combat-next" onClick={() => run('combat:next', { tokenId: combat.activeTokenId ?? undefined })}>
+                {t('Next turn')}
+              </button>
+              <RewindButton />
+            </div>
           )}
           <button className={small} data-testid="combat-end" onClick={() => run('combat:end')}>
             {combat.phase === 'active' ? t('End combat') : t('Cancel combat')}

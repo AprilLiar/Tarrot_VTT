@@ -9,6 +9,10 @@ import { STANCE_SCHEMA } from './stances.js';
 import { EFFECT_SCHEMA } from './effectRuntime.js';
 import { ACTION_SCHEMA } from './basicActions.js';
 import { LOCK_SCHEMA } from './locks.js';
+import { SCENE_NOTE_SCHEMA } from './sceneNotes.js';
+import { COUNTER_SCHEMA } from './counters.js';
+import { EVENTS_SCHEMA } from './eventsBoard.js';
+import { RELATIONSHIP_SCHEMA } from './relationships.js';
 
 // Turso in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN); a local libSQL
 // file otherwise. Same client and same SQL either way.
@@ -36,6 +40,10 @@ const SCHEMA = [
   ...EFFECT_SCHEMA,
   ...ACTION_SCHEMA,
   ...LOCK_SCHEMA,
+  ...SCENE_NOTE_SCHEMA,
+  ...COUNTER_SCHEMA,
+  ...EVENTS_SCHEMA,
+  ...RELATIONSHIP_SCHEMA,
 ];
 
 // New columns on existing tables cannot use IF NOT EXISTS, so each one is
@@ -44,6 +52,9 @@ const COLUMNS = [
   { table: 'characters', column: 'sheet', ddl: 'sheet TEXT' },
   { table: 'characters', column: 'portrait_image_id', ddl: 'portrait_image_id TEXT' },
   { table: 'characters', column: 'token_image_id', ddl: 'token_image_id TEXT' }, // a custom Battle token (null: the default one)
+  // Crops (shared/crop.js, JSON; null: the automatic cut): the Portrait's round thumbnail and the default token.
+  { table: 'characters', column: 'portrait_crop', ddl: 'portrait_crop TEXT' },
+  { table: 'characters', column: 'token_crop', ddl: 'token_crop TEXT' },
   { table: 'scenes', column: 'battle_aspect', ddl: 'battle_aspect REAL' },
   { table: 'scenes', column: 'grid_cell', ddl: 'grid_cell REAL' },
   { table: 'scenes', column: 'grid_ox', ddl: 'grid_ox REAL' },
@@ -53,6 +64,7 @@ const COLUMNS = [
   { table: 'stage_summons', column: 'pos_x', ddl: 'pos_x REAL' },
   { table: 'stage_summons', column: 'pos_y', ddl: 'pos_y REAL' },
   { table: 'battle_tokens', column: 'height', ddl: 'height INTEGER NOT NULL DEFAULT 0' },
+  { table: 'battle_tokens', column: 'excluded', ddl: 'excluded INTEGER NOT NULL DEFAULT 0' }, // left out of combat (scenery)
   { table: 'temp_npcs', column: 'is_prop', ddl: 'is_prop INTEGER NOT NULL DEFAULT 0' },
   { table: 'temp_npcs', column: 'size', ddl: 'size INTEGER NOT NULL DEFAULT 1' },
   // The size of a figure on the Scene belongs to its picture (every figure using the picture, in any scene, is that big). Before this column

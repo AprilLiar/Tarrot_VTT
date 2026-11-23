@@ -17,7 +17,7 @@ export function ActiveEffects({ s }) {
       <div className="flex flex-col gap-2">
         {list.length === 0 && <p className="text-sm opacity-60">{t('No Effects running.')}</p>}
         {list.map((e) => (
-          <div key={e.id} className={card} data-testid="active-effect" data-name={e.name}>
+          <div key={e.id} className={card} data-testid="active-effect" data-search-id={`effect:${e.id}`} data-name={e.name}>
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1 truncate font-medium">{e.name}</div>
               <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs" data-testid="active-effect-duration">

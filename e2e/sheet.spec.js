@@ -300,3 +300,44 @@ test('the GM can open any sheet and clear the chat; the player cannot', async ({
   await p.context.close();
   await gm.context.close();
 });
+
+test('counters: the GM adds one with Gates, the player fills it, a Gate reached is told in the chat, a secret one only to the GM', async ({ browser }) => {
+  const name = `Clock-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+  // No counters: the player does not see the section at all.
+  await expect(p.page.getByTestId('counters')).toHaveCount(0);
+
+  await gm.page.getByTestId('character-row').filter({ hasText: name }).click();
+  await gm.page.getByTestId('open-sheet').click();
+  await gm.page.getByTestId('counter-add').click();
+  await gm.page.getByTestId('counter-name').fill('Ritual');
+  await gm.page.getByTestId('counter-pips').fill('3');
+  await gm.page.getByTestId('gate-add').click();
+  await gm.page.getByTestId('gate-name').fill('Candles lit');
+  await gm.page.getByTestId('gate-text').fill('The room grows cold.');
+  await gm.page.getByTestId('gate-add').click();
+  await gm.page.getByTestId('gate-name').nth(1).fill('Ambush');
+  await gm.page.getByTestId('gate-secret').nth(1).check();
+  await gm.page.getByTestId('counter-save').click();
+  await expect(gm.page.getByTestId('counter-pip')).toHaveCount(3);
+  await expect(gm.page.locator('[data-testid="counter-pip"][data-gate="secret"]')).toHaveCount(1);
+
+  // The player sees it, without the secret Gate.
+  const counter = p.page.getByTestId('counter');
+  await expect(counter).toHaveAttribute('data-name', 'Ritual');
+  await expect(p.page.getByTestId('counter-gate')).toHaveCount(1);
+  await expect(p.page.getByTestId('counter-edit')).toHaveCount(0);
+  await p.page.getByTestId('counter-plus').click();
+  await expect(counter).toHaveAttribute('data-value', '1');
+  await expect(gm.page.getByTestId('counter')).toHaveAttribute('data-value', '1');
+  await p.page.getByTestId('chat-toggle').click();
+  await expect(p.page.getByTestId('chat-text').last()).toContainText(`${name} reached Candles lit on Ritual: The room grows cold.`);
+  await p.page.getByTestId('counter-plus').click();
+  await expect(gm.page.getByRole('status').filter({ hasText: 'reached the secret Gate Ambush' })).toBeVisible();
+  await expect(p.page.getByTestId('chat-text').filter({ hasText: 'Ambush' })).toHaveCount(0);
+
+  await p.context.close();
+  await gm.context.close();
+});

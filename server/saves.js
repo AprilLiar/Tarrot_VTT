@@ -42,7 +42,7 @@ export function statusMsg(apply) {
   };
 }
 
-export function createSaves({ io, db, shared, emitSheet, effects, rooms }) {
+export function createSaves({ io, db, shared, emitSheet, effects, rooms, fx = null }) {
   const { GM_ROOM, CHAT_ROOM, charRoom } = rooms;
   const pending = (shared.saves ??= new Map());
 
@@ -92,6 +92,7 @@ export function createSaves({ io, db, shared, emitSheet, effects, rooms }) {
       return sheets.normalizeSheet(next);
     });
     emitSheet(req.characterId, out);
+    fx?.send({ kind: 'save', characterId: req.characterId, passed: pass });
     const rows = [
       {
         key: '{save} against {status}: {total} vs DC {dc}, {result}.',

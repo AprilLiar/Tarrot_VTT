@@ -1,10 +1,14 @@
-import { randomUUID } from 'node:crypto';
+import { cleanCrop } from '../shared/crop.js';
+import { randomUUID, randomInt } from 'node:crypto';
 import * as roster from './roster.js';
+import * as counters from './counters.js';
+import { search } from './search.js';
 import * as sheets from './sheet.js';
 import { buildRoll } from './rolls.js';
-import { cleanChatText } from './chat.js';
+import { cleanChatText, cleanTray } from './chat.js';
 import { AppError } from './errors.js';
-import { t, isLang } from './i18n.js';
+import { t, isLang, line as chatLine } from './i18n.js';
+import { T } from '../shared/localization.js';
 import * as scenes from './scenes.js';
 import { registerSceneHandlers } from './sceneHandlers.js';
 import { registerAttackHandlers } from './attackHandlers.js';
@@ -17,11 +21,15 @@ import { registerBasicHandlers } from './basicHandlers.js';
 import { spendRollUses } from './effectRuntime.js';
 import * as fxRuntime from './effectRuntime.js';
 import { registerLockHandlers } from './lockHandlers.js';
+import { registerEventsHandlers } from './eventsHandlers.js';
+import { registerRelationshipHandlers } from './relationshipHandlers.js';
+import { deleteBoardOf } from './relationships.js';
 import { registerManifestHandlers } from './manifestHandlers.js';
 import * as lockStore from './locks.js';
 import { lockedError } from './locks.js';
 import { tokenStatuses, tokenEffects } from './battle.js';
-import { storeImage, deleteImageIfUnused } from './images.js';
+import { storeImage, deleteImageIfUnused, storeChatImage } from './images.js';
+import { createFx, sheetFx } from './fx.js';
 import { hasSelectedCard } from '../shared/manifest.js';
 import { normalizeRows } from '../shared/spells.js';
 import { redactSheet, stonesLocked, combinationsLocked, fineTuningLocked } from '../shared/locks.js';
@@ -73,20 +81,31 @@ export function registerHandlers(io, socket, db, shared) {
   }
 
   // The GM sees the whole sheet; the player's devices get it with the locked parts of the Arcane tab emptied.
+  const fx = createFx(io, { GM_ROOM, VIEW_ROOM });
+  // A sheet not sent since the server started is remembered as it was just before its first change, so that change is animated too.
+  sheets.watchSheetChanges((id, prev) => {
+    const seenSheets = (shared.fxSheets ??= new Map());
+    if (!seenSheets.has(id)) seenSheets.set(id, { hp: { ...prev.hp }, statuses: { ...prev.statuses } });
+  });
   const emitSheet = async (characterId, sheet) => {
+    // Board animations: what changed on the sheet since it was last sent (HP lost or healed, statuses gained or lost).
+    const seenSheets = (shared.fxSheets ??= new Map());
+    for (const f of sheetFx(characterId, seenSheets.get(characterId), sheet)) fx.send(f);
+    seenSheets.set(characterId, { hp: { ...sheet.hp }, statuses: { ...sheet.statuses } });
     io.to(GM_ROOM).emit('sheet:updated', { characterId, sheet });
     io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
-    // The statuses are shown on the character's token, so the stage is sent again when they change.
+    // The statuses are shown on the character's token (and a character at 0 HP is drawn down), so the stage is sent again when they change.
     const seen = (shared.statusSeen ??= new Map());
     const json = JSON.stringify(sheet);
-    const sig = JSON.stringify([tokenStatuses(json), tokenEffects(json), hasSelectedCard(json)]);
-    const was = seen.get(characterId) ?? '[[],[],false]';
+    const down = (sheet.hp?.max ?? 0) > 0 && (sheet.hp?.current ?? 0) <= 0;
+    const sig = JSON.stringify([tokenStatuses(json), tokenEffects(json), hasSelectedCard(json), down]);
+    const was = seen.get(characterId) ?? '[[],[],false,false]';
     seen.set(characterId, sig);
     if (sig !== was) await stage.broadcast();
   };
 
   const effects = createEffects({ io, db, shared, emitSheet, chatRoom: CHAT_ROOM });
-  const saves = createSaves({ io, db, shared, emitSheet, effects, rooms: { GM_ROOM, CHAT_ROOM, charRoom } });
+  const saves = createSaves({ io, db, shared, emitSheet, effects, fx, rooms: { GM_ROOM, CHAT_ROOM, charRoom } });
 
   // The GM controls every character; a player controls only their own PC.
   async function requireControl(characterId) {
@@ -186,6 +205,8 @@ export function registerHandlers(io, socket, db, shared) {
     await scenes.removeOwnerArt(db, { kind: 'character', id: gone.id });
     await deleteImageIfUnused(db, gone.portraitImageId);
     await deleteImageIfUnused(db, gone.tokenImageId);
+    await counters.deleteCharacterCounters(db, gone.id);
+    await deleteBoardOf(db, gone.id);
     await stage.broadcast();
     // Anyone playing the deleted character is sent back to the picker.
     for (const s of io.sockets.sockets.values()) {
@@ -360,6 +381,25 @@ export function registerHandlers(io, socket, db, shared) {
     io.to(CHAT_ROOM).emit('chat:message', message);
   });
 
+  // A picture or a GIF in the chat, with an optional line of text.
+  on('chat:picture', { needsIdentity: true }, async ({ data, text }) => {
+    requireChatSeat();
+    const caption = typeof text === 'string' && text.trim() ? cleanChatText(text) : '';
+    const imageId = await storeChatImage(db, data);
+    const message = chat.add({ type: 'picture', author: await authorName(), imageId, text: caption });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+  });
+
+  // The Dice Tray: the dice and modifier chosen, rolled on the server and posted.
+  on('dice:roll', { needsIdentity: true }, async ({ dice, modifier }) => {
+    requireChatSeat();
+    const tray = cleanTray(dice, modifier);
+    const rolled = tray.dice.map((sides) => ({ sides, value: randomInt(1, sides + 1) }));
+    const total = rolled.reduce((sum, d) => sum + d.value, 0) + tray.modifier;
+    const message = chat.add({ type: 'dice', author: await authorName(), dice: rolled, modifier: tray.modifier, total });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+  });
+
   on('chat:clear', { gmOnly: true }, () => {
     chat.clear();
     effects.store.clear();
@@ -421,7 +461,72 @@ export function registerHandlers(io, socket, db, shared) {
     effects,
     saves,
     shared,
+    fx,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
+  });
+
+  // ---- Search (see server/search.js) ----------------------------------------------
+  on('search', { needsIdentity: true }, async ({ q }) => {
+    if (!isGm() && !isPlayer()) return { results: [] };
+    return { results: await search(db, { q, gm: isGm(), characterId: identity().characterId }) };
+  });
+
+  // ---- Counters (see server/counters.js) ----------------------------------------
+  // Everyone who can see the sheet gets the list: the GM whole, the player without the secret Gates.
+
+  async function countersChanged(characterId) {
+    const list = await counters.listCounters(db, characterId);
+    io.to(GM_ROOM).emit('counters:updated', { characterId, counters: list });
+    io.to(charRoom(characterId)).except(GM_ROOM).emit('counters:updated', { characterId, counters: counters.forPlayer(list) });
+    return list;
+  }
+
+  on('counter:list', { needsIdentity: true }, async ({ characterId }) => {
+    const c = await requireControl(characterId);
+    const list = await counters.listCounters(db, c.id);
+    return { counters: isGm() ? list : counters.forPlayer(list) };
+  });
+
+  on('counter:create', { gmOnly: true }, async ({ characterId, name, pips }) => {
+    const c = await requireControl(characterId);
+    const id = await counters.createCounter(db, c.id, { name, pips });
+    await countersChanged(c.id);
+    return { id };
+  });
+
+  on('counter:update', { gmOnly: true }, async ({ id, name, pips, gates }) => {
+    const counter = await counters.updateCounter(db, id, { name, pips, gates });
+    await countersChanged(counter.characterId);
+  });
+
+  on('counter:delete', { gmOnly: true }, async ({ id }) => {
+    const counter = await counters.getCounter(db, id);
+    await counters.deleteCounter(db, id);
+    await countersChanged(counter.characterId);
+  });
+
+  on('counter:step', { needsIdentity: true }, async ({ id, by }) => {
+    const before = await counters.getCounter(db, id);
+    const c = await requireControl(before.characterId);
+    const { reached } = await counters.stepCounter(db, id, by);
+    await countersChanged(c.id);
+    for (const gate of reached) {
+      if (gate.secret) {
+        // Only the GM hears of a secret Gate.
+        io.to(GM_ROOM).emit('counter:secret_gate', { character: c.name, counter: before.name, gate: gate.name });
+        continue;
+      }
+      const message = chat.add({
+        type: 'text',
+        author: { role: 'gm', name: T('Counters') },
+        ...chatLine(
+          gate.text
+            ? { key: T('{name} reached {gate} on {counter}: {text}'), params: { name: c.name, gate: gate.name, counter: before.name, text: gate.text } }
+            : { key: T('{name} reached {gate} on {counter}.'), params: { name: c.name, gate: gate.name, counter: before.name } },
+        ),
+      });
+      io.to(CHAT_ROOM).emit('chat:message', message);
+    }
   });
 
   // ---- Portraits ---------------------------------------------------------------
@@ -447,6 +552,14 @@ export function registerHandlers(io, socket, db, shared) {
     await deleteImageIfUnused(db, before);
     await portraitChanged(c.id);
     return { imageId };
+  });
+
+  // The crop of the Portrait's round thumbnail or of the default token (the Crop editor on the sheet); null: the automatic cut.
+  on('crop:set', { needsIdentity: true, broadcast: true }, async ({ characterId, which, crop }) => {
+    const c = await requireControl(characterId);
+    if (which !== 'portrait' && which !== 'token') throw new AppError('bad_value', 'Choose a picture to crop.');
+    await roster.setCrop(db, c.id, which, cleanCrop(crop));
+    await portraitChanged(c.id);
   });
 
   on('portrait:clear', { needsIdentity: true, broadcast: true }, async ({ characterId }) => {
@@ -482,11 +595,13 @@ export function registerHandlers(io, socket, db, shared) {
 
   // ---- Attacks ---------------------------------------------------------------
 
-  registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, saves, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
+  registerAttackHandlers({ io, db, on, requireControl, emitSheet, effects, saves, authorName, shared, isGm, fx, rooms: { GM_ROOM, CHAT_ROOM } });
 
   registerSpellHandlers({ io, db, on, requireControl, emitSheet, effects, authorName, shared, isGm, rooms: { GM_ROOM, CHAT_ROOM } });
   registerManifestHandlers({ io, db, on, requireControl, emitSheet, isGm, identity });
   registerLockHandlers({ io, db, on, emitSheet });
+  registerEventsHandlers({ io, db, on, isGm, isPlayer, identity, authorName });
+  registerRelationshipHandlers({ io, db, on, isGm, requireControl, rooms: { GM_ROOM, charRoom } });
 
   registerStanceHandlers({ io, db, on, isGm, identity });
   registerEffectHandlers({ io, db, on, requireControl, emitSheet, effects });

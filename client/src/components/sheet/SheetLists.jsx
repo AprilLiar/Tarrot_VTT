@@ -293,7 +293,7 @@ function ItemCard({ s, item }) {
   const empty = item.uses.current === 0;
 
   return (
-    <div className={`${card} ${item.weapon ? '!border-amber-400/40 !bg-amber-500/10' : ''}`} data-testid="item" data-weapon={item.weapon ? 'true' : 'false'}>
+    <div className={`${card} ${item.weapon ? '!border-amber-400/40 !bg-amber-500/10' : ''}`} data-search-id={`item:${item.id}`} data-testid="item" data-weapon={item.weapon ? 'true' : 'false'}>
       <button className="flex w-full items-center gap-2 text-left" onClick={() => setOpen(!open)}>
         <span className={`min-w-0 flex-1 truncate font-medium ${empty ? 'opacity-50' : ''}`}>{item.name}</span>
         {item.weapon && <span className="shrink-0 rounded bg-amber-500/30 px-1.5 text-xs">{t('Weapon')}</span>}

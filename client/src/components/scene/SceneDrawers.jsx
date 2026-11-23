@@ -241,7 +241,7 @@ function ConfirmDialog({ title, text, label, run, onClose }) {
 
 export function ScenesDrawer({ onClose }) {
   const t = useT();
-  const { library, stage } = useApp();
+  const { library, stage, toast } = useApp();
   const [dialog, setDialog] = useState(null);
   const done = () => setDialog(null);
   const playlists = useMusicLibrary();
@@ -300,6 +300,16 @@ export function ScenesDrawer({ onClose }) {
                 )}
                 <button className={btn} onClick={() => setDialog({ kind: 'move', scene })}>
                   {t('Move')}
+                </button>
+                <button
+                  className={btn}
+                  data-testid="copy-scene"
+                  onClick={async () => {
+                    const r = await call('scene:copy', { id: scene.id });
+                    if (!r.ok) toast(r.error);
+                  }}
+                >
+                  {t('Copy')}
                 </button>
                 <button className={btnDanger} onClick={() => setDialog({ kind: 'delete', scene })}>
                   {t('Delete')}

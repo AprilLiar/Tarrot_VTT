@@ -1,12 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useFocusRequest } from '../../lib/searchFocus.js';
 import { StageView, call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { useOpaqueBounds } from '../../lib/opaqueBounds.js';
+import { setUiHidden, useApplyHideUi } from '../../lib/hideUi.js';
 import Dialog, { btn, btnDanger, input } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
+import { SceneNotes } from './SceneNotes.jsx';
+import { GmTools } from './GmTools.jsx';
 import BattleView from './BattleView.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 import { TarotStar } from '../TarotStar.jsx';
@@ -357,7 +361,7 @@ function SceneView() {
       )}
 
       {/* Overlays live outside the zoomed world so they stay put. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
+      <div className="ui-chrome pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
         <div className="pointer-events-auto flex gap-1 rounded-full bg-black/50 p-1 backdrop-blur">
           <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom out')} data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
             -
@@ -419,11 +423,16 @@ function SceneChrome({ chrome, onExit }) {
   const { identity, stage } = useApp();
   const isGm = identity.role === 'gm';
   const [drawer, setDrawer] = useState(null); // 'cast' | 'scenes' | null
+  // A scene found with Search opens the Scenes list.
+  const focus = useFocusRequest();
+  useEffect(() => {
+    if (focus?.scenes && isGm) setDrawer('scenes');
+  }, [focus, isGm]);
   const battle = stage.mode === 'battle';
   return (
     <>
       {isGm && chrome && (
-        <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex items-start justify-between px-2">
+        <div className="ui-chrome pointer-events-none absolute inset-x-0 top-2 z-30 flex items-start justify-between px-2">
           <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-cast" onClick={() => setDrawer('cast')}>
             {t('Cast')}
           </button>
@@ -448,6 +457,7 @@ function SceneChrome({ chrome, onExit }) {
                 </button>
               ))}
             </div>
+            {stage.scene && <SceneNotes sceneId={stage.scene.id} />}
           </div>
           <button className={`${btn} pointer-events-auto bg-black/50 backdrop-blur`} data-testid="open-scenes" onClick={() => setDrawer('scenes')}>
             {t('Scenes')}
@@ -457,7 +467,7 @@ function SceneChrome({ chrome, onExit }) {
 
       {!chrome && onExit && (
         <button
-          className="absolute left-2 top-2 z-30 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
+          className="ui-chrome absolute left-2 top-2 z-30 rounded-full bg-black/40 px-3 py-1 text-xs opacity-30 transition-opacity hover:opacity-100 focus:opacity-100"
           data-testid="display-exit"
           onClick={onExit}
         >
@@ -498,8 +508,30 @@ function useSceneFade(stage) {
 }
 
 // `chrome`: false on the Display Screen (no drawers). `onExit`: how the Display gets back to the picker.
+// The eye at the bottom left: hides (and brings back) every control over the scene on this screen only.
+function HideUiButton() {
+  const t = useT();
+  const hidden = useApplyHideUi();
+  return (
+    <button
+      className={`absolute bottom-3 left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur active:bg-black/70 ${hidden ? 'opacity-30 hover:opacity-100' : ''}`}
+      data-testid="hide-ui"
+      data-hidden={hidden ? 'true' : 'false'}
+      aria-label={hidden ? t('Show the interface') : t('Hide the interface')}
+      title={hidden ? t('Show the interface') : t('Hide the interface')}
+      onClick={() => setUiHidden(!hidden)}
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+        {hidden && <path d="M3 3l18 18" />}
+      </svg>
+    </button>
+  );
+}
+
 export default function ScenePage({ chrome = true, onExit }) {
-  const { stage } = useApp();
+  const { stage, identity } = useApp();
   const { view, dark } = useSceneFade(stage);
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -511,6 +543,8 @@ export default function ScenePage({ chrome = true, onExit }) {
         data-dark={dark ? 'true' : 'false'}
       />
       <SceneChrome chrome={chrome} onExit={onExit} />
+      <HideUiButton />
+      {chrome && identity.role === 'gm' && <GmTools />}
     </div>
   );
 }

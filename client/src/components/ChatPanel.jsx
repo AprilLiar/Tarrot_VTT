@@ -7,6 +7,72 @@ import { useT, useParts } from '../i18n.jsx';
 import { formatExpression } from '../../../shared/roll-plan.js';
 import Dialog, { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
 import { T } from '../../../shared/localization.js';
+import { imageUrl, prepareImage } from '../lib/image.js';
+
+const TRAY_SIDES = [4, 6, 8, 10, 12, 20];
+const TRAY_MAX = 20;
+const GIF_MAX = 8 * 1024 * 1024;
+
+// The Dice Tray (under the message box): tap dice to add them, set a modifier, Roll. The server rolls and posts the result.
+function DiceTray({ onError }) {
+  const t = useT();
+  const [dice, setDice] = useState([]);
+  const [modifier, setModifier] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const add = (sides) => setDice((list) => (list.length >= TRAY_MAX ? list : [...list, sides]));
+  async function roll() {
+    setBusy(true);
+    const r = await call('dice:roll', { dice, modifier });
+    setBusy(false);
+    if (!r.ok) return onError(r.error);
+    setDice([]);
+    setModifier(0);
+  }
+  const count = (s) => dice.filter((d) => d === s).length;
+  return (
+    <div className="flex flex-col gap-2 border-t border-white/10 p-2" data-testid="dice-tray">
+      <div className="flex flex-wrap gap-1.5">
+        {TRAY_SIDES.map((s) => (
+          <button key={s} className={`${btn} relative min-h-10 px-3`} data-testid="tray-die" data-sides={s} onClick={() => add(s)}>
+            d{s}
+            {count(s) > 0 && (
+              <span className="absolute -right-1 -top-1 rounded-full bg-violet-600 px-1.5 text-xs" data-testid="tray-count">
+                {count(s)}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <button className={`${btn} min-h-10 px-3`} aria-label={t('Less')} onClick={() => setModifier((m) => Math.max(-99, m - 1))}>
+          -
+        </button>
+        <span className="w-10 text-center font-semibold" data-testid="tray-modifier">
+          {modifier >= 0 ? `+${modifier}` : modifier}
+        </span>
+        <button className={`${btn} min-h-10 px-3`} aria-label={t('More')} data-testid="tray-plus" onClick={() => setModifier((m) => Math.min(99, m + 1))}>
+          +
+        </button>
+        <div className="flex-1" />
+        <button className={`${btn} min-h-10 px-3`} disabled={!dice.length} data-testid="tray-clear" onClick={() => setDice([])}>
+          {t('Clear')}
+        </button>
+        <button className={`${btnPrimary} min-h-10`} disabled={!dice.length || busy} data-testid="tray-roll" onClick={roll}>
+          {t('Roll')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Reads a picture for the chat: a GIF is sent as it is (so it keeps moving), anything else is resized like character art.
+async function chatPictureData(file) {
+  if (file.type === 'image/gif') {
+    if (file.size > GIF_MAX) throw new Error(T('A GIF can be at most {mb} MB.'));
+    return file.arrayBuffer();
+  }
+  return prepareImage(file, 'character');
+}
 
 // A die is tinted green on a natural 20 and red on a natural 1.
 const dieTint = (v) => (v === 20 ? 'text-green-400' : v === 1 ? 'text-red-400' : '');
@@ -198,8 +264,65 @@ function EffectsCard({ m }) {
   );
 }
 
+// The Dice Tray's roll: the total, big, and each die under it (a die at its highest green, at 1 red).
+function DiceCard({ m }) {
+  const t = useT();
+  return (
+    <div data-testid="dice-card" className="rounded-xl border border-white/15 bg-white/5 p-3">
+      <div className="text-xs opacity-70">{authorLabel(m, t)}</div>
+      <div className="text-sm font-medium uppercase tracking-wide" data-testid="dice-expression">
+        {diceExpression(m)}
+      </div>
+      <div className="text-4xl font-bold leading-tight" data-testid="dice-total">
+        {m.total}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-1.5 text-sm">
+        {m.dice.map((d, i) => (
+          <span key={i} className={`rounded bg-black/30 px-1.5 ${d.value === d.sides ? 'text-green-400' : d.value === 1 ? 'text-red-400' : ''}`} data-testid="dice-die" data-sides={d.sides}>
+            <span className="text-xs opacity-50">d{d.sides} </span>
+            {d.value}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// "2d6 + d20 + 3"
+function diceExpression(m) {
+  const counts = new Map();
+  for (const d of m.dice) counts.set(d.sides, (counts.get(d.sides) ?? 0) + 1);
+  const parts = [...counts].map(([sides, n]) => `${n > 1 ? n : ''}d${sides}`);
+  if (m.modifier) parts.push(String(Math.abs(m.modifier)));
+  return parts.reduce((s, p, i) => (i === 0 ? p : `${s} ${i === parts.length - 1 && m.modifier < 0 ? '-' : '+'} ${p}`), '');
+}
+
+const authorLabel = (m, t) => (m.author.role === 'gm' ? t(m.author.name) : m.author.name);
+
+// A picture or a GIF posted in the chat; a tap opens it full size.
+function PictureMessage({ m }) {
+  const t = useT();
+  const [big, setBig] = useState(false);
+  return (
+    <div data-testid="chat-picture" className="rounded-lg bg-white/5 px-3 py-2 text-sm">
+      <div className={`font-semibold ${m.author.role === 'gm' ? 'text-violet-300' : ''}`}>{authorLabel(m, t)}</div>
+      {m.text && <div className="whitespace-pre-wrap break-words">{m.text}</div>}
+      <button className="mt-1 block" onClick={() => setBig(true)} aria-label={t('Open the picture')}>
+        <img src={imageUrl(m.imageId)} alt="" className="max-h-60 max-w-full rounded-md" data-testid="chat-picture-image" />
+      </button>
+      {big && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4" onClick={() => setBig(false)} data-testid="chat-picture-full">
+          <img src={imageUrl(m.imageId)} alt="" className="max-h-full max-w-full" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // One line for the popup that shows a new message while the chat is closed.
 function popupText(m, t) {
+  if (m.type === 'dice') return `${authorLabel(m, t)}: ${diceExpression(m)} = ${m.total}`;
+  if (m.type === 'picture') return `${authorLabel(m, t)}: ${m.text || t('a picture')}`;
   if (m.type === 'roll') {
     const vs = m.roll.against ? ` ${t('vs')} ${m.roll.against.targets.map((x) => x.value).join(', ')}` : '';
     return `${m.characterName}: ${t(m.roll.title)} ${m.roll.total}${vs}`;
@@ -233,7 +356,7 @@ function ChatPopups({ chatOpen }) {
   }, []);
   if (chatOpen || popups.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed bottom-20 right-4 z-30 flex w-72 max-w-[calc(100vw-2rem)] flex-col items-end gap-1" data-testid="chat-popups">
+    <div className="ui-chrome pointer-events-none fixed bottom-20 right-4 z-30 flex w-72 max-w-[calc(100vw-2rem)] flex-col items-end gap-1" data-testid="chat-popups">
       {popups.map((p) => (
         <div key={p.key} data-testid="chat-popup" className="chat-popup w-full rounded-lg bg-slate-800/95 px-3 py-2 text-sm shadow-lg">
           {popupText(p.m, t)}
@@ -250,6 +373,8 @@ function Message({ m }) {
   const t = useT();
   if (m.type === 'roll') return <RollCard m={m} />;
   if (m.type === 'effects') return <EffectsCard m={m} />;
+  if (m.type === 'dice') return <DiceCard m={m} />;
+  if (m.type === 'picture') return <PictureMessage m={m} />;
   return (
     <div data-testid="chat-text" className="rounded-lg bg-white/5 px-3 py-2 text-sm">
       <span className={`font-semibold ${m.author.role === 'gm' ? 'text-violet-300' : ''}`}>{m.author.role === 'gm' ? t(m.author.name) : m.author.name}: </span>
@@ -266,7 +391,28 @@ export default function ChatPanel() {
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [tray, setTray] = useState(false);
+  const [sending, setSending] = useState(false);
+  const fileRef = useRef(null);
   const endRef = useRef(null);
+
+  async function sendPicture(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setSending(true);
+    let r;
+    try {
+      r = await call('chat:picture', { data: await chatPictureData(file), text });
+    } catch (err) {
+      r = { ok: false, error: t(err.message, { mb: GIF_MAX / 1024 / 1024 }) };
+    }
+    setSending(false);
+    if (r.ok) {
+      setText('');
+      setError(null);
+    } else setError(r.error);
+  }
 
   useEffect(() => {
     if (chatOpen) endRef.current?.scrollIntoView({ block: 'end' });
@@ -287,7 +433,7 @@ export default function ChatPanel() {
   const toggle = (
     <button
       data-testid="chat-toggle"
-      className={slot ? 'min-h-11 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium active:bg-violet-600' : 'fixed bottom-4 right-4 z-30 min-h-12 rounded-full bg-violet-700 px-5 text-sm font-medium shadow-lg active:bg-violet-600'}
+      className={slot ? 'ui-chrome min-h-11 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium active:bg-violet-600' : 'ui-chrome fixed bottom-4 right-4 z-30 min-h-12 rounded-full bg-violet-700 px-5 text-sm font-medium shadow-lg active:bg-violet-600'}
       onClick={() => setChatOpen(!chatOpen)}
     >
       {t('Chat')}{unread > 0 ? ` (${unread})` : ''}
@@ -324,7 +470,22 @@ export default function ChatPanel() {
             ))}
             <div ref={endRef} />
           </div>
+          {tray && <DiceTray onError={setError} />}
           <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-2">
+            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden data-testid="chat-picture-file" onChange={sendPicture} />
+            <button type="button" className={`${btn} shrink-0 px-3`} title={t('Attach a picture or a GIF')} aria-label={t('Attach a picture or a GIF')} disabled={sending} data-testid="chat-attach" onClick={() => fileRef.current?.click()}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="9" cy="10" r="1.6" />
+                <path d="M21 16l-5-5-8 8" />
+              </svg>
+            </button>
+            <button type="button" className={`${btn} shrink-0 px-3 ${tray ? 'ring-2 ring-violet-400' : ''}`} aria-pressed={tray} title={t('Dice Tray')} aria-label={t('Dice Tray')} data-testid="dice-tray-toggle" onClick={() => setTray(!tray)}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 2l9 5v10l-9 5-9-5V7z" />
+                <path d="M12 2v20M3 7l18 10M21 7L3 17" opacity="0.5" />
+              </svg>
+            </button>
             <input
               className={input}
               aria-label={t('Message')}

@@ -1,6 +1,7 @@
 import { useApp } from '../AppContext.jsx';
 import { useT } from '../i18n.jsx';
 import { Avatar } from './Avatar.jsx';
+import { PATCH } from '../lib/patchNotes.js';
 
 // Deterministic color per name so the initial badge is stable.
 function hue(name) {
@@ -35,6 +36,13 @@ export default function Picker({ onSettings }) {
         </button>
       </div>
       <h1 className="text-center text-3xl font-semibold">Tarrot VTT</h1>
+      <p className="text-center text-xs opacity-60" data-testid="patch-note">
+        <span className="font-semibold" data-testid="patch-version">
+          v{PATCH.version}
+        </span>
+        {' · '}
+        {t(PATCH.note)}
+      </p>
       <p className="text-center text-sm opacity-70">{t('Who are you?')}</p>
 
       {notice && (
@@ -76,7 +84,7 @@ export default function Picker({ onSettings }) {
           data-testid="pick-pc"
           onClick={() => choose({ role: 'player', characterId: pc.id })}
         >
-          <Avatar name={pc.name} imageId={pc.portraitImageId} testId="picker-portrait" />
+          <Avatar name={pc.name} imageId={pc.portraitImageId} crop={pc.portraitCrop} testId="picker-portrait" />
           <span className="text-lg">{pc.name}</span>
         </button>
       ))}

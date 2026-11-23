@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { socket } from './socket.js';
 import { useT } from './i18n.jsx';
+import { T } from '../../shared/localization.js';
 
 // Identity is remembered per device in localStorage; the server re-validates
 // it on every (re)connect and is the only authority on what it may do.
@@ -164,6 +165,9 @@ export function AppProvider({ children }) {
       );
     };
 
+    // A secret Gate of a counter was reached: only the GM is told.
+    const onSecretGate = (g) => toast(tRef.current(T('{character} reached the secret Gate {gate} on {counter}.'), g));
+    socket.on('counter:secret_gate', onSecretGate);
     socket.on('connect', claim);
     socket.on('disconnect', onDisconnect);
     socket.on('pcs:updated', onPcs);
@@ -178,6 +182,7 @@ export function AppProvider({ children }) {
     socket.on('trade:resolved', onResolved);
     if (socket.connected) claim();
     return () => {
+      socket.off('counter:secret_gate', onSecretGate);
       socket.off('connect', claim);
       socket.off('disconnect', onDisconnect);
       socket.off('pcs:updated', onPcs);

@@ -41,4 +41,10 @@ describe('status icons on tokens', () => {
     expect(cleanSetting('statusIconSize', 5)).toBeNull();
     expect(cleanSetting('statusIconSize', 60)).toBeNull();
   });
+
+  it('the accent colour is a #rrggbb colour', () => {
+    expect(cleanSetting('accent', '#2563EB')).toBe('#2563eb');
+    expect(cleanSetting('accent', 'blue')).toBeNull();
+    expect(cleanSetting('accent', '#123')).toBeNull();
+  });
 });

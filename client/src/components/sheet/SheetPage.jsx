@@ -19,6 +19,9 @@ import ArcanePage, { emptyDraft } from '../arcane/ArcanePage.jsx';
 import { AttackPresets } from '../arcane/AttackPresets.jsx';
 import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
+import { Counters } from './Counters.jsx';
+import { Relations } from './Relations.jsx';
+import { useFocusRequest } from '../../lib/searchFocus.js';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
 // A small block of the vitals: tight, so more of the sheet fits on the screen.
@@ -47,7 +50,12 @@ export default function SheetPage({ characterId }) {
   const { identity, toast, setChatOpen } = useApp();
   const [data, setData] = useState(null); // { character, sheet }
   const [error, setError] = useState(null);
-  const [view, setView] = useState('sheet'); // 'sheet' | 'arcane'
+  const [view, setView] = useState('sheet'); // 'sheet' | 'arcane' | 'relations' (PCs only)
+  // A search result opened here picks its view.
+  const focus = useFocusRequest();
+  useEffect(() => {
+    if (focus?.view) setView(focus.view);
+  }, [focus]);
   const [draft, setDraft] = useState(emptyDraft); // the attack being drafted in the Arcane tab
 
   useEffect(() => {
@@ -136,8 +144,8 @@ export default function SheetPage({ characterId }) {
           {character.name}
         </h1>
         <span className="rounded bg-slate-700 px-2 py-0.5 text-xs">{character.type === 'pc' ? t('PC') : t('NPC')}</span>
-        <div className="ml-auto grid w-full max-w-xs grid-cols-2 gap-2 sm:w-auto sm:min-w-[16rem]" role="tablist" aria-label={t('View')}>
-          {[['sheet', t('Sheet')], ['arcane', t('Arcane')]].map(([id, text]) => (
+        <div className={`ml-auto grid w-full gap-2 sm:w-auto ${character.type === 'pc' ? 'max-w-sm grid-cols-3 sm:min-w-[22rem]' : 'max-w-xs grid-cols-2 sm:min-w-[16rem]'}`} role="tablist" aria-label={t('View')}>
+          {[['sheet', t('Sheet')], ['arcane', t('Arcane')], ...(character.type === 'pc' ? [['relations', t('Relations')]] : [])].map(([id, text]) => (
             <button key={id} role="tab" aria-selected={view === id} data-testid={`view-${id}`} className={`${btn} min-h-10 ${view === id ? 'ring-2 ring-violet-400' : ''}`} onClick={() => setView(id)}>
               {text}
             </button>
@@ -145,7 +153,9 @@ export default function SheetPage({ characterId }) {
         </div>
       </div>
 
-      {view === 'arcane' ? (
+      {view === 'relations' && character.type === 'pc' ? (
+        <Relations pcId={s.characterId} />
+      ) : view === 'arcane' ? (
         <div className="pb-24">
           <ArcanePage s={s} draft={draft} setDraft={setDraft} />
         </div>
@@ -272,6 +282,7 @@ export default function SheetPage({ characterId }) {
           <Resistances s={s} />
           <Statuses s={s} />
           <ActiveEffects s={s} />
+          <Counters s={s} />
           <StageSection s={s} />
           <PicturesSection s={s} />
           <TokenSection s={s} />

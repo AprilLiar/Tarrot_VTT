@@ -11,6 +11,7 @@ import Dialog, { btn, btnPrimary } from './Dialog.jsx';
 import { useT } from '../i18n.jsx';
 import { SettingsBody } from './Settings.jsx';
 import { useState } from 'react';
+import { SearchBox } from './SearchBox.jsx';
 
 // Top bar shown once an identity is chosen: who you are, connection state,
 // and the way back to the picker. Also hosts the chat, toasts and incoming
@@ -25,11 +26,12 @@ export default function Shell({ children }) {
   const desktop = useIsDesktop();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The GM can view the scene on any device; players only on a desktop (phones stay on the controls).
+  // The Events board is for everyone, on every device.
   const links = isGm
-    ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')], ['/arcane', 'Arcane', t('Arcane')]]
+    ? [['/', 'Characters', t('Characters')], ['/scene', 'Scene', t('Scene')], ['/arcane', 'Arcane', t('Arcane')], ['/events', 'Events', t('Events')]]
     : desktop
-      ? [['/', 'Sheet', t('Sheet')], ['/scene', 'Scene', t('Scene')]]
-      : [];
+      ? [['/', 'Sheet', t('Sheet')], ['/scene', 'Scene', t('Scene')], ['/events', 'Events', t('Events')]]
+      : [['/', 'Sheet', t('Sheet')], ['/events', 'Events', t('Events')]];
 
   return (
     <div className="flex min-h-full flex-col">
@@ -46,7 +48,7 @@ export default function Shell({ children }) {
         </span>
         <MusicBar />
         {links.length > 0 && (
-          <nav className="flex gap-1" aria-label={t('Sections')}>
+          <nav className="flex min-w-0 shrink gap-1 overflow-x-auto [scrollbar-width:none]" aria-label={t('Sections')}>
             {links.map(([to, id, text]) => (
               <NavLink
                 key={to}
@@ -54,7 +56,7 @@ export default function Shell({ children }) {
                 end
                 data-testid={`nav-${id.toLowerCase()}`}
                 className={({ isActive }) =>
-                  `flex min-h-10 items-center rounded-lg px-2.5 text-sm sm:px-3 ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
+                  `flex min-h-10 shrink-0 items-center rounded-lg px-2.5 text-sm sm:px-3 ${isActive ? 'bg-violet-700' : 'bg-white/10 active:bg-white/20'}`
                 }
               >
                 {text}
@@ -67,6 +69,7 @@ export default function Shell({ children }) {
             {t('Reconnecting...')}
           </span>
         )}
+        <SearchBox />
         {isGm && (
           <button data-testid="open-settings-gm" aria-label={t('Settings')} title={t('Settings')} className="flex min-h-11 shrink-0 items-center rounded-lg bg-white/10 px-2.5 text-sm active:bg-white/20 sm:px-3" onClick={() => setSettingsOpen(true)}>
             {/* On a narrow screen only the sliders icon, so the top bar still fits. */}

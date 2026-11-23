@@ -5,6 +5,8 @@ import { imageUrl, prepareImage } from '../../lib/image.js';
 import { PicturesManager, usePictures } from '../scene/Pictures.jsx';
 import { TokenFace } from '../scene/TokenFace.jsx';
 import { useT } from '../../i18n.jsx';
+import { CropDialog } from '../Crop.jsx';
+import { Avatar } from '../Avatar.jsx';
 
 const heading = 'mb-2 text-sm uppercase tracking-wide opacity-60';
 
@@ -28,6 +30,7 @@ export function PortraitSection({ s }) {
   const { toast } = useApp();
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState(false);
   const imageId = s.character.portraitImageId;
 
   async function onFile(e) {
@@ -53,7 +56,15 @@ export function PortraitSection({ s }) {
         <button className="absolute bottom-2 right-2 min-h-8 rounded-lg bg-black/70 px-2.5 text-xs active:bg-black/90" disabled={busy} data-testid="portrait-set" onClick={() => fileRef.current?.click()}>
           {busy ? t('Uploading...') : imageId ? t('Change Portrait') : t('Set Portrait')}
         </button>
+        {imageId && (
+          // The round thumbnail (roster, picker, combat order) and its Crop editor.
+          <button className="absolute bottom-2 left-2 flex items-center gap-2 rounded-lg bg-black/70 py-1 pl-1 pr-2.5 text-xs active:bg-black/90" data-testid="portrait-crop" onClick={() => setCropping(true)}>
+            <Avatar name={s.character.name} imageId={imageId} crop={s.character.portraitCrop} size="h-7 w-7 text-xs" testId="portrait-thumb" />
+            {t('Crop')}
+          </button>
+        )}
       </div>
+      {cropping && <CropDialog characterId={s.characterId} which="portrait" imageId={imageId} crop={s.character.portraitCrop} onClose={() => setCropping(false)} />}
     </section>
   );
 }
@@ -66,6 +77,7 @@ export function TokenSection({ s }) {
   const pictures = usePictures({ characterId: s.characterId });
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState(false);
   const custom = s.character.tokenImageId ?? null;
   const onScene = stage.summons.find((x) => x.ownerKind === 'character' && x.ownerId === s.characterId);
   const source = onScene?.imageId ?? pictures?.[0]?.imageId ?? null;
@@ -91,7 +103,7 @@ export function TokenSection({ s }) {
       <h2 className={heading}>{t('Token')}</h2>
       <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3" data-testid="token-section">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-black/35" style={{ boxShadow: `0 0 0 3px ${ring}` }} data-testid="token-preview" data-kind={custom ? 'custom' : 'default'}>
-          {custom || source ? <TokenFace imageId={source} tokenImageId={custom} alt={t('Token')} /> : null}
+          {custom || source ? <TokenFace imageId={source} tokenImageId={custom} crop={s.character.tokenCrop} alt={t('Token')} /> : null}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <p className="text-xs opacity-60">{custom ? t('A custom token.') : source ? t('Made from the picture on the scene, or the first picture.') : t('Add a picture or a custom token.')}</p>
@@ -100,6 +112,11 @@ export function TokenSection({ s }) {
             <button className={btn} disabled={busy} data-testid="token-set" onClick={() => fileRef.current?.click()}>
               {busy ? t('Uploading...') : custom ? t('Change token') : t('Set token')}
             </button>
+            {!custom && source && (
+              <button className={btn} data-testid="token-crop" onClick={() => setCropping(true)}>
+                {t('Crop')}
+              </button>
+            )}
             {custom && (
               <button
                 className={btn}
@@ -115,6 +132,7 @@ export function TokenSection({ s }) {
           </div>
         </div>
       </div>
+      {cropping && <CropDialog characterId={s.characterId} which="token" imageId={source} crop={s.character.tokenCrop} onClose={() => setCropping(false)} />}
     </section>
   );
 }

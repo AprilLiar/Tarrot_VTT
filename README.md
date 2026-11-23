@@ -1422,6 +1422,18 @@ Battle (Phase 5a):
 - Sheet JSON gains `movement` (0 to 99, default 5) and `size` (1 to 6, default 1).
 - Targets and the combat state are server memory only (`shared.targets`, `shared.combat`; see the Combat tracker).
 
+Added in 0.2.0 (Features from Custom-VTT):
+- `characters` gains `token_image_id` (a custom Battle token), `portrait_crop` and `token_crop` (JSON `{ x, y, zoom }` or null, see
+  Crop editor); `battle_tokens` gains `excluded` (left out of combat).
+- `scene_notes(id, scene_id, position 1-9, kind 'note' | 'card', title, body)`.
+- `counters(id, character_id, name, pips 2-20, value, gates JSON [{ pip, name, text, secret }])`.
+- `event_lanes(id, name, position, visibility 'all' | 'gm')` and `event_notes(id, lane_id, position, text, color, author_role,
+  author_character_id, author_name)`.
+- `rel_nodes(id, pc_id, character_id | null, name, note, x, y)` (a card; `character_id` null for a made-up person) and
+  `rel_edges(id, pc_id, from_id, to_id, label, color, note)`.
+- `chat_images(id)`: the images posted in the chat (deleted with their messages and at start).
+- Server memory only: the Rewind steps (`shared.rewind`) and the last sheet sent per character (`shared.fxSheets`, for animations).
+
 Planned (not final): character-local spells.
 
 ## Real-time events
@@ -1595,12 +1607,39 @@ Battle (Phase 5a):
   AP), `save:list` returns the `{ saves }` waiting for me. The statuses of `attack:apply` and of a Spontaneous Action's
   `effects.status` are `{ key, stacks, duration, dc: 'auto' | number }`.
 
-HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
+Added in 0.2.0 (all with the usual ack):
+- Scene notes (GM): `scene_note:list` `{ sceneId }`, `scene_note:create` `{ sceneId, kind, title, body }`, `scene_note:update`
+  `{ id, kind, title, body }`, `scene_note:delete` `{ id }` (`scene_notes:updated` to the GM), `scene_note:play` `{ id }` sends
+  `card:played` `{ title, body }` to the GM and every viewer. `scene:copy` `{ id }` (GM).
+- `battle:update` accepts `excluded`. `battle:rewind` (GM) undoes the last step; `stage.battle.rewind` (GM only) lists the steps' labels.
+- `battle:fx` (to the GM and viewers): `{ kind: 'attack', from, to: [tokenIds], sources: ['stance' | 'spell' | 'manifestation'] }`,
+  `{ kind: 'outcome', tokenId, outcome: 'hit' | 'miss' | 'crit' }`, `{ kind: 'hp', characterId, loss, tempLoss, heal }`, `{ kind: 'status',
+  characterId, key, delta }`, `{ kind: 'save', characterId, passed }`, `{ kind: 'turn', tokenId, name }`. Tokens carry `down`,
+  `portraitCrop` and `tokenCrop`.
+- `crop:set` `{ characterId, which: 'portrait' | 'token', crop | null }` (GM or the PC's player).
+- `dice:roll` `{ dice: [sides], modifier }` posts a chat message `{ type: 'dice', dice: [{ sides, value }], modifier, total }`;
+  `chat:picture` `{ data, text? }` posts `{ type: 'picture', imageId, text }`.
+- Counters: `counter:list` `{ characterId }` (secret Gates left out for a player), `counter:create` `{ characterId, name, pips }`,
+  `counter:update` `{ id, name?, pips?, gates? }`, `counter:delete` `{ id }` (GM), `counter:step` `{ id, by: 1 | -1 }` (GM or the PC's
+  player); `counters:updated` `{ characterId, counters }` to the GM and (without secret Gates) the PC's devices; `counter:secret_gate`
+  `{ character, counter, gate }` to the GM.
+- Events board: `events:get` -> `{ lanes, notes }` (what I may see); `lane:create` `{ name, visibility }`, `lane:update`, `lane:shift`
+  `{ id, by }`, `lane:delete` (GM); `event_note:create` `{ laneId, text, color }`, `event_note:update` `{ id, text?, color? }`,
+  `event_note:delete` `{ id }` (author or GM), `event_note:move` `{ id, laneId, index }` (anyone, lanes they see). Any change sends
+  `events:changed` to everyone, who ask again.
+- Relationships: `rel:get` `{ pcId }` -> `{ cards, arrows }`, `rel:card_add` `{ pcId, characterId? | name, x?, y? }`, `rel:card_update`
+  `{ id, name?, note?, x?, y? }`, `rel:card_delete`, `rel:arrow_add` `{ pcId, from, to, label, color, note }`, `rel:arrow_update`,
+  `rel:arrow_delete` (the PC's player or the GM); `rel:changed` `{ pcId }` to those two.
+- `search` `{ q }` -> `{ results: [{ kind, id, name, characterId?, owner?, library? }] }`.
+- Settings gain `accent` (`#rrggbb`).
+
+HTTP: `GET /api/pcs` returns `[{ id, name, portraitImageId, portraitCrop }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
 
-### Features from Custom-VTT (reviewed with the user, decided; to be built)
+### Features from Custom-VTT (reviewed with the user, decided; all the "Yes" ones implemented in 0.2.0)
 The user's other project (`AprilLiar/Custom-VTT`, "Dogfight") was gone through feature by feature (its Panic at the Dojo rules left
-out). Each answer is the user's; "No" means it is not wanted. Nothing here is built yet; details marked "to confirm" are asked when built.
+out). Each answer is the user's; "No" means it is not wanted. How each one was built is described after the list, in "Built from the
+Custom-VTT review"; a detail marked "chosen while building" there was not asked and is open to change.
 1. **Players follow the active scene:** No. Nobody is moved (as decided before).
 2. **Copy a scene:** Yes, **settings only**: a Copy in the Scenes list makes a new scene with the same pictures (shared, no second upload),
    fits, music, battle map and grid; no figures, tokens or drawings.
@@ -1650,6 +1689,86 @@ out). Each answer is the user's; "No" means it is not wanted. Nothing here is bu
 26. **Crash screen:** Yes: a page that breaks shows "Something went wrong" with a Reload button instead of a blank screen.
 27. **Search:** Yes, **for everyone**: one box in the top bar finds by name characters, items, spells, Stances, Effects, Tarot cards and
     scenes, and opens them; players find only what they may see.
+
+### Built from the Custom-VTT review (implemented)
+- **Crash screen:** an error boundary (`CrashScreen.jsx`) round the whole app shows "Something went wrong." with a Reload button.
+- **Patch note:** the picker shows the version and one sentence (`client/src/lib/patchNotes.js`, English key with its Russian row). Every
+  push to main bumps the patch number in both `package.json` files and their lockfiles and rewrites the sentence
+  (`server/test/patchNotes.test.js` checks the versions match).
+- **Scene notes and Cards:** GM only, up to 9 per scene, the same 9 in Scene and Battle mode. A row of small round numbered buttons sits
+  under the Scene / Battle switch (notes outlined, Cards amber); a dotted + adds the next. A note's dialog has a **Note / Card** toggle: a
+  Note is a text; a Card has a **title** and an optional **second line**, and **Show to everyone** (saves, then plays it). A played Card
+  covers every screen (GM, players, Display) with a 90% black layer, the title big and the second line smaller, fading in, holding and
+  fading out over **5 seconds**. Deleting a note (with a confirm step) moves the later ones down a number.
+- **Copy a scene:** Copy in a scene's row makes "<name> (copy)" with the same pictures, fits, music, battle map and grid (no figures,
+  tokens, drawings or notes).
+- **Hide interface:** an eye button at the bottom left of the Scene page hides every control over the scene on this device only (the
+  `ui-chrome` elements; remembered per device) and brings them back.
+- **Leave out of combat:** a Token Settings switch (GM); such a token is skipped by Start combat, has no initiative and cannot be added to
+  the order.
+- **Board margin:** the grid runs 2 squares past every edge of the battle map through a darker ring; tokens may stand and be dropped there
+  (`shared/board.js` `MAP_MARGIN`).
+- **GM Rewind:** a "Rewind (n)" button next to Next turn (and in the GM Tools panel) steps the battle back, up to **5 steps**, to just
+  before the last applied attack, token move or Next turn: positions, marks, HP, AP, statuses and whose turn all return. Its tooltip names
+  what the next step undoes ("Undo: Attack by Ada"). The steps are kept in server memory and cleared when combat ends or the scene changes;
+  a rewind is not animated.
+- **GM Tools button:** a round "GM" button at the bottom left of the Scene page (Scene and Battle modes, GM only) opens a small panel of
+  the GM's tools (Rewind in Battle mode).
+- **Board animations** (`server/fx.js` sends `battle:fx` to the GM and every viewer; `BattleFx.jsx` draws them over the map, the same speed
+  for everyone):
+  - **Attacks** are one combined animation whatever they use: the attacker charges for 0.6 s with one layer per source, each in its own
+    place so they never cover each other (a **Stance**: a red dashed sigil on the ground under the token; a **Spell**: a violet rune ring
+    turning round it; a **Manifestation**: a golden halo behind it), then one streak per target flies out, braided from the colours of the
+    sources (white for a plain attack), and a burst of the same colours lands at 0.85 s.
+  - Everything that happens to a target of that attack waits for the impact: **damage** (a red number, the Temp HP part blue, and a red
+    flash), **healing** (a green number), **statuses** gained or lost (the icon pops up with + or -, side by side), **Miss** ("MISS" sweeps
+    past) and **Critical** ("CRITICAL" and a gold burst).
+  - **Saves:** a blue shield ring (passed) or red cracks (failed). **Turn start:** a gold ring round the token and its name across the top.
+  - **Movement:** a moved token slides to its square (0.3 s). **Down:** a character at 0 HP or less (with a maximum above 0) is greyed,
+    sinks a little and carries a red cross.
+  - HP and status animations come from comparing each sheet sent with the one sent before (a sheet not yet sent since the server started
+    is remembered just before its first change).
+- **Crop editor** (`shared/crop.js`, `Crop.jsx`): a **Crop** button over the Portrait (with the round thumbnail it sets) and one in the
+  Token section (for the default token only, not a custom token) open a round frame: drag the picture to move it, the slider or the
+  mouse wheel to zoom (0.5x to 5x), Reset for the automatic cut. A crop is `{ x, y, zoom }` relative to the automatic square (the
+  Portrait: the top square of the picture; the token: the head-and-shoulders square of the visible character) and is kept per character;
+  a new Portrait starts from the automatic cut again. The Portrait crop is used wherever the round Portrait is shown (roster, picker,
+  combat order, Relationships cards).
+- **Accent colour:** Settings has an **Accent colour** row (per device; the GM can Apply to everyone): eight presets and Other (any colour).
+  The interface's violet shades are CSS variables; a chosen colour replaces them all, keeping each shade's lightness and taking the
+  colour's hue (and its strength: a greyish colour gives greyish shades).
+- **Dice Tray** (chat): a dice button beside the message box opens a tray of d4, d6, d8, d10, d12 and d20; each tap adds a die (up to 20,
+  counts shown on the buttons), - and + set a modifier (-99 to 99), **Roll** has the server roll them and post one card ("2d6 + d20 + 2",
+  the total big, every die under it; a die at its highest green, at 1 red). Chosen while building: dice are gathered before rolling
+  rather than rolled one tap at a time.
+- **Pictures and GIFs in the chat:** a picture button beside the message box sends a PNG, JPEG, WebP (resized like character art) or a
+  **GIF** (sent as it is, so it keeps moving; at most **8 MB**, chosen while building), with what is typed in the box as its caption. A tap
+  opens it full size. GIFs are accepted only in the chat. The chat lives in memory, so its pictures are deleted when their message leaves
+  the log (trimmed or cleared) and all of them when the server starts.
+- **Counters** (a section on the sheet): named clocks of 2 to 20 pips with - and +. The **GM** adds, edits and deletes them (at most 12 per
+  character); the GM and the PC's player move them one pip at a time. In a counter's editor the GM adds **Gates**: a pip, a name, an
+  optional text and **Secret from the player**. Gates are drawn as gold-ringed pips (a secret one dashed, and only for the GM). When a
+  counter fills up to a Gate's pip, a chat line says "<character> reached <Gate> on <counter>: <text>"; a secret Gate is told only to the
+  GM, as a notice. Chosen while building: a counter may have several Gates (one per pip); a player does not see the section while the
+  character has no counters.
+- **Events board:** an **Events** page in the top bar for everyone (on a phone the player's top bar shows Sheet and Events; the top bar's
+  links scroll sideways when they do not fit). The GM adds lanes (a name and **Everyone** or **GM only**), renames them, moves them left
+  and right, and deletes them with their notes. Anyone adds a note to a lane they can see (up to **280 characters**, five colours:
+  yellow, pink, blue, green, violet), shown with its author. A tap opens a note: its author or the GM changes or deletes it, anyone else
+  only reads it. Anyone drags any note they can see, within a lane or into another lane they can see (by mouse or finger; a press that
+  moves less than 6 pixels is a tap). At most 12 lanes and 400 notes.
+- **Relationships board:** a **Relations** tab on a PC's sheet (beside Sheet and Arcane), seen only by that PC's player and the GM. The
+  PC's own card is always there (in the middle at first, and the board opens on it). **Add a card** puts on a made-up person (a name) or a
+  character of the roster; cards are dragged around a 1600 x 1000 board and a tap opens a card's notes. **Connect**, then two taps (from,
+  then to), makes an arrow with a name, one of six colours (green, red, amber, blue, violet, grey) and a note; a tap on an arrow's name
+  opens it. Two arrows between the same cards in opposite directions are drawn side by side. Chosen while building: a **player** can add
+  PCs and made-up people only, and NPCs of the roster are added by the **GM** (so a player's list never shows NPCs they may not know).
+- **Search:** a magnifier button in the top bar (everyone) opens a box; from two letters, the server finds by name: characters, items,
+  spells, Tarot cards and Effects (running ones and each character's own library), Stances, the global Effects and scenes. The GM finds
+  everything; a player finds only their own character and what is on its sheet (the Arcane locks and hidden Tarot cards left out) and the
+  Stances they know. A tap (or Enter for the first) opens it: a character's sheet; an item or a running Effect on the sheet, scrolled to
+  and flashed; a spell or a Tarot card on the sheet's Arcane tab (Magic or Manifest); a Stance or a global Effect on the Arcane tab; a
+  scene opens the Scenes list on the Scene page. Up to 30 results, names starting with the text first.
 
 ## Phases
 

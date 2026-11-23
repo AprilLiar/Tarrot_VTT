@@ -1,3 +1,4 @@
+import { MAP_MARGIN } from '../../../shared/board.js';
 // Battle map geometry, shared by the map, the ruler and the tests.
 //
 // A map is drawn in "picture widths": x runs 0..1 across the picture and y runs
@@ -48,8 +49,8 @@ export function dropCell(u, v, size, grid, aspect, cols, rows, free = false) {
   const r = (v - grid.oy) / cellHeight(grid, aspect) - size / 2;
   const place = free ? (x) => Math.round(x * 100) / 100 : Math.round;
   return {
-    col: Math.max(0, Math.min(place(c), cols - size)),
-    row: Math.max(0, Math.min(place(r), rows - size)),
+    col: Math.max(-MAP_MARGIN, Math.min(place(c), cols - size + MAP_MARGIN)),
+    row: Math.max(-MAP_MARGIN, Math.min(place(r), rows - size + MAP_MARGIN)),
   };
 }
 

@@ -637,3 +637,66 @@ describe('how a scene picture fits the screen', () => {
     expect(await d.call('scene:set_fit', { id, which: 'scene', fit: 'fill' })).toMatchObject({ ok: false, code: 'forbidden' });
   });
 });
+
+describe('scene notes and Cards', () => {
+  it('up to 9 per scene, numbered in order; deleting one moves the later ones down; GM only', async () => {
+    const g = await gm();
+    const scene = (await g.call('scene:create', { name: 'Notes', data: png() })).id;
+    const ids = [];
+    for (let i = 1; i <= 9; i++) ids.push((await g.call('scene_note:create', { sceneId: scene, kind: 'note', body: `n${i}` })).id);
+    expect(await g.call('scene_note:create', { sceneId: scene, kind: 'note', body: 'ten' })).toMatchObject({ ok: false, code: 'limit' });
+    await g.call('scene_note:delete', { id: ids[2] });
+    const notes = (await g.call('scene_note:list', { sceneId: scene })).notes;
+    expect(notes.map((n) => [n.number, n.body])).toEqual([[1, 'n1'], [2, 'n2'], [3, 'n4'], [4, 'n5'], [5, 'n6'], [6, 'n7'], [7, 'n8'], [8, 'n9']]);
+    const d = await display();
+    expect(await d.call('scene_note:list', { sceneId: scene })).toMatchObject({ ok: false, code: 'forbidden' });
+    const aria = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const p = await player(aria);
+    expect(await p.call('scene_note:create', { sceneId: scene, kind: 'note' })).toMatchObject({ ok: false, code: 'forbidden' });
+  });
+
+  it('a Card needs a title and is shown to every screen; a note cannot be shown', async () => {
+    const g = await gm();
+    const scene = (await g.call('scene:create', { name: 'Cards', data: png() })).id;
+    expect(await g.call('scene_note:create', { sceneId: scene, kind: 'card', title: '  ' })).toMatchObject({ ok: false, code: 'bad_value' });
+    const card = (await g.call('scene_note:create', { sceneId: scene, kind: 'card', title: 'Three days later', body: 'The rain stopped.' })).id;
+    const note = (await g.call('scene_note:create', { sceneId: scene, kind: 'note', body: 'secret' })).id;
+    const d = await display();
+    const aria = (await g.call('character:create', { name: 'Aria', type: 'pc' })).id;
+    const p = await player(aria);
+    const seen = (sock) => new Promise((resolve) => sock.once('card:played', resolve));
+    const [onD, onP] = [seen(d), seen(p)];
+    expect((await g.call('scene_note:play', { id: card })).ok).toBe(true);
+    expect(await onD).toEqual({ title: 'Three days later', body: 'The rain stopped.' });
+    expect(await onP).toMatchObject({ title: 'Three days later' });
+    expect(await g.call('scene_note:play', { id: note })).toMatchObject({ ok: false, code: 'bad_value' });
+    // Changing a note into a Card (and back) is an edit.
+    expect((await g.call('scene_note:update', { id: note, kind: 'card', title: 'Dawn', body: '' })).ok).toBe(true);
+    expect((await g.call('scene_note:list', { sceneId: scene })).notes[1]).toMatchObject({ kind: 'card', title: 'Dawn' });
+  });
+});
+
+describe('copying a scene', () => {
+  it('copies its settings (pictures shared, fits, battle map, grid), not its figures or notes', async () => {
+    const g = await gm();
+    const id = (await g.call('scene:create', { name: 'Hall', data: png(), fit: 'fill' })).id;
+    await g.call('scene:set_battle_image', { id, data: png(1), aspect: 2, fit: 'fill' });
+    await g.call('scene:set_grid', { id, cell: 0.1, ox: 0, oy: 0 });
+    await g.call('scene:activate', { id });
+    const aria = await pcWithPicture(g, 'Aria');
+    await g.call('stage:summon', { characterId: aria.id });
+    await g.call('scene_note:create', { sceneId: id, kind: 'note', body: 'x' });
+    const copy = (await g.call('scene:copy', { id })).id;
+    const lib = (await g.call('library:get')).library.scenes;
+    const a = lib.find((s) => s.id === id);
+    const b = lib.find((s) => s.id === copy);
+    expect(b.name).toBe('Hall (copy)');
+    expect(b).toMatchObject({ imageId: a.imageId, fit: 'fill', battleImageId: a.battleImageId, battleFit: 'fill', battleAspect: 2, grid: a.grid });
+    expect((await g.call('scene_note:list', { sceneId: copy })).notes).toEqual([]);
+    await g.call('scene:activate', { id: copy });
+    expect((await g.call('stage:get')).stage.summons).toEqual([]);
+    // Deleting the original keeps the shared picture for the copy.
+    await g.call('scene:delete', { id });
+    expect((await fetch(`${base}/api/images/${b.imageId}`)).status).toBe(200);
+  });
+});

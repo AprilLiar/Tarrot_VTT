@@ -1,4 +1,4 @@
-/* global document */
+/* global document, getComputedStyle */
 import { test, expect } from '@playwright/test';
 import { addPicturesOnSheet, placeTokenAt } from './helpers.js';
 
@@ -152,4 +152,26 @@ test('Combat lines and server errors are shown in the language of each reader', 
   await expect(en.getByTestId('chat-log')).toContainText('Combat begins. Roll for Initiative.');
   await enCtx.close();
   await gmCtx.close();
+});
+
+test('the accent colour is chosen in Settings, recolours the buttons on this device only, and is remembered', async ({ browser }) => {
+  const ctx = await desktop(browser);
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await page.getByTestId('open-settings').click();
+  const shade = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-violet-600').trim());
+  const violet = await shade();
+  await page.locator('[data-testid="accent-preset"][data-color="#16a34a"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-accent', '#16a34a');
+  await expect.poll(shade).not.toBe(violet);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-accent', '#16a34a');
+
+  // Another device keeps violet.
+  const otherCtx = await desktop(browser);
+  const other = await otherCtx.newPage();
+  await other.goto('/');
+  await expect(other.locator('html')).toHaveAttribute('data-accent', '#7c3aed');
+  await otherCtx.close();
+  await ctx.close();
 });

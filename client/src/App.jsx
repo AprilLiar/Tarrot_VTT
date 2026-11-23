@@ -1,3 +1,4 @@
+import { useApplyAccent } from './lib/accent.js';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppProvider, useApp } from './AppContext.jsx';
 import { useState } from 'react';
@@ -10,9 +11,12 @@ import Roster from './components/Roster.jsx';
 import SheetPage from './components/sheet/SheetPage.jsx';
 import ScenePage from './components/scene/ScenePage.jsx';
 import ArcanePage from './components/arcane/ArcanePage.jsx';
+import EventsPage from './components/EventsPage.jsx';
 import { useIsDesktop } from './lib/useMedia.js';
 import { MusicProvider } from './music/MusicContext.jsx';
 import MusicBar from './music/MusicBar.jsx';
+import { CrashScreen } from './components/CrashScreen.jsx';
+import { CardCutscene } from './components/CardCutscene.jsx';
 
 function GmSheetRoute() {
   const { id } = useParams();
@@ -51,7 +55,7 @@ function Screen() {
         <ScenePage chrome={false} onExit={switchIdentity} />
         <TarotInfo />
         {/* Top right, and see-through everywhere else so it never blocks the scene. */}
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-end p-2">
+        <div className="ui-chrome pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-end p-2">
           <MusicBar />
         </div>
       </div>
@@ -65,6 +69,7 @@ function Screen() {
         <Routes>
           <Route path="/" element={<SheetPage characterId={identity.characterId} />} />
           {desktop && <Route path="/scene" element={<SceneFrame />} />}
+          <Route path="/events" element={<EventsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Shell>
@@ -76,6 +81,7 @@ function Screen() {
         <Route path="/" element={<Roster />} />
         <Route path="/character/:id" element={<GmSheetRoute />} />
         <Route path="/scene" element={<SceneFrame />} />
+        <Route path="/events" element={<EventsPage />} />
         <Route path="/arcane" element={<main className="w-full p-3"><ArcanePage s={null} /></main>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -83,11 +89,21 @@ function Screen() {
   );
 }
 
+// Applies the device's accent colour (Settings) to the whole page.
+function Accent() {
+  useApplyAccent();
+  return null;
+}
+
 export default function App() {
   return (
     <AppProvider>
       <MusicProvider>
-        <Screen />
+        <CrashScreen>
+          <Accent />
+          <Screen />
+          <CardCutscene />
+        </CrashScreen>
       </MusicProvider>
     </AppProvider>
   );

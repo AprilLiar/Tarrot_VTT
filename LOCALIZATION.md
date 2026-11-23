@@ -15,6 +15,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Connecting... | Подключение... |
+| {character} reached the secret Gate {gate} on {counter}. | {character} достигает тайных Врат «{gate}» на счётчике «{counter}». |
 | on the user | на пользователя |
 | on the targets | на цели |
 | Base damage | Базовый урон |
@@ -26,13 +27,43 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add a status | Добавить состояние |
 | Add status... | Добавить состояние... |
 | Later | Позже |
+| More | Больше |
+| Clear | Очистить |
+| Roll | Бросок |
 | Advantage | Преимущество |
 | Attack | Атака |
 | Spontaneous Action | Спонтанное действие |
 | Edit | Изменить |
-| Clear | Очистить |
 | Close | Закрыть |
 | Cancel | Отмена |
+| Something went wrong. | Что-то пошло не так. |
+| This page stopped working. Reloading it usually helps; nothing you saved is lost. | Эта страница перестала работать. Обычно помогает перезагрузка; ничего сохранённого не пропадёт. |
+| Reload | Перезагрузить |
+| Crop the Portrait | Кадрировать портрет |
+| Crop the token | Кадрировать жетон |
+| Zoom | Масштаб |
+| Drag the picture to move it. | Перетащите картинку, чтобы сдвинуть её. |
+| Reset | Сбросить |
+| Save | Сохранить |
+| Events | События |
+| Add a lane | Добавить колонку |
+| No lanes yet. Add one to start the board. | Колонок пока нет. Добавьте первую, чтобы начать доску. |
+| The GM has not made the board yet. | Мастер ещё не создал доску. |
+| GM only | Только мастер |
+| Move left | Сдвинуть влево |
+| Move right | Сдвинуть вправо |
+| Add a note | Добавить заметку |
+| Edit lane | Изменить колонку |
+| New lane | Новая колонка |
+| Name | Имя |
+| Who sees it | Кто видит |
+| Everyone | Для всех |
+| Delete the lane and its notes | Удалить колонку и её заметки |
+| Delete | Удалить |
+| Note | Заметка |
+| Written by {name}. Only its author or the GM can change it. | Автор: {name}. Изменить её может только автор или мастер. |
+| Edit note | Изменить заметку |
+| New note | Новая заметка |
 | Use Help Dice? | Использовать кубики помощи? |
 | Tap a die to add it to this roll, tap it again to put it back. A die you use is gone afterwards. | Коснитесь кубика, чтобы добавить его к этому броску, и коснитесь ещё раз, чтобы вернуть. Использованный кубик исчезает. |
 | Proceed with {n} | Продолжить ({n}) |
@@ -51,14 +82,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Shows the current scene on the table screen | Показывает текущую сцену на экране стола |
 | Player characters | Персонажи игроков |
 | No characters yet. Ask the GM to create one. | Персонажей пока нет. Попросите мастера создать персонажа. |
-| Name | Имя |
 | PC | Игрок |
 | NPC | НПС |
-| Delete | Удалить |
 | Saves waiting: {n} | Ожидают спасброски: {n} |
 | Save for {name} | Спасбросок: {name} |
 | Save against a status | Спасбросок против статуса |
-| Save | Сохранить |
 | DC | Сл |
 | Modifiers | Модификаторы |
 | Advantage {n} | Преимущество {n} |
@@ -73,6 +101,16 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Other Saves | Другие спасброски |
 | Roll for them | Бросить за них |
 | Roll Save | Бросить спасбросок |
+| Character | Персонаж |
+| Item | Предмет |
+| Spell | Заклинание |
+| Stance | Стойка |
+| Effect | Эффект |
+| Tarot Card | Карта Таро |
+| Scene | Сцена |
+| Search | Поиск |
+| Search by name | Поиск по имени |
+| Nothing found. | Ничего не найдено. |
 | Sent to everyone. | Отправлено всем. |
 | Set this for everyone, to the value you have now | Установить это всем на текущее значение |
 | Apply to everyone | Применить ко всем |
@@ -81,10 +119,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | While dragging a new area, the striped Deadzone starts this many times the size of the area away from where you pressed. Letting go inside it cancels the area. | При создании области полосатая мёртвая зона начинается на столько размеров области от места нажатия. Отпустите кнопку внутри неё, чтобы отменить создание. |
 | Status icon size in Battle | Размер значков статусов в бою |
 | The size of the status icons on tokens, as a share of one grid square. A token shows as many icons as fit inside its square, the first applied. | Размер значков статусов на фишках в долях одной клетки сетки. Фишка показывает столько значков, сколько помещается в её квадрате, начиная с первых наложенных. |
+| Accent colour | Цвет акцента |
+| The colour of buttons and highlights on this device. | Цвет кнопок и выделений на этом устройстве. |
+| Other | Другой |
 | These settings are saved on this device only. | Эти настройки сохраняются только на этом устройстве. |
 | Back | Назад |
 | Characters | Персонажи |
-| Scene | Сцена |
 | Arcane | Аркана |
 | Sheet | Лист |
 | GM | МИ |
@@ -101,7 +141,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Automatic | Автоматически |
 | Manual | Вручную |
 | {save} Save, DC | {save}, Сл |
-| Tarot Card | Карта Таро |
 | {name}: Tarot Card | {name}: карта Таро |
 | This character has an unknown Tarot Card | У этого персонажа неизвестная карта Таро |
 | This character has no Tarot Card selected. | У этого персонажа не выбрана карта Таро. |
@@ -116,10 +155,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Manifestations | Проявления |
 | Unarmed Attack | Атака без оружия |
 | Default | Стандартное |
-| Everyone | Для всех |
 | This character | Этот персонаж |
 | Fewer | Меньше |
-| More | Больше |
 | Chosen | Выбрано |
 | Choose | Выбрать |
 | Weapons | Оружие |
@@ -180,7 +217,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add {name} | Добавить: {name} |
 | Tap a stone on the right to add it. Tap a stone in the table, then another one, to draw an arrow between them (again to remove it). Tap a stone twice to write a note. | Коснитесь камня справа, чтобы добавить его. Коснитесь камня в таблице, затем другого — между ними появится стрелка (ещё раз — уберёт её). Дважды коснитесь камня, чтобы написать заметку. |
 | {name} selected | Выбран: {name} |
-| Note | Заметка |
 | Remove stone | Убрать камень |
 | Legal scheme | Схема допустима |
 | Illegal | Недопустимо |
@@ -196,7 +232,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Remove Circle {n}? Its stones and its row of runes are deleted (until you save, nothing changes in the saved draft). | Убрать Круг {n}? Его камни и ряд рун будут удалены (пока вы не сохраните, сохранённый черновик не меняется). |
 | Note on {name} | Заметка о камне: {name} |
 | Crafted {name}. | Создано: {name}. |
-| Search | Поиск |
 | Search names and descriptions | Поиск по названиям и описаниям |
 | Stones used | Использованные камни |
 | No draft matches. | Подходящих черновиков нет. |
@@ -241,7 +276,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Delete Tarot Card | Удалить карту Таро |
 | Edit Tarot Card | Изменить карту Таро |
 | Add | Добавить |
-| Effect | Эффект |
 | Hide this card from the other players (they only see that the character has an unknown card) | Скрыть эту карту от остальных игроков (они увидят только, что у персонажа неизвестная карта) |
 | Transfer {name} | Передать: {name} |
 | Nobody to send it to. | Некому отправить. |
@@ -261,7 +295,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Spell scheme | Схема заклинания |
 | Weapon attack (Prime + Experience) | Атака оружием (Главная + Опыт) |
 | Cancelled. | Отменено. |
-| Roll | Бросок |
 | Give | Передать |
 | Goes to the {n} selected targets. | Достаётся всем выбранным целям: {n}. |
 | Nobody is selected: it is for the acting character. | Никто не выбран: действие для самого персонажа. |
@@ -331,7 +364,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Damage taken | Получаемый урон |
 | You gain these statuses | Вы получаете эти статусы |
 | It spends uses of an item | Тратит использования предмета |
-| Item | Предмет |
 | Uses spent | Потрачено использований |
 | Repeatable (can be used several times in one attack) | Повторяемое (можно использовать несколько раз за атаку) |
 | Damage is added to the weapon's damage of its own type. Advantage counts levels (negative is Disadvantage). | Урон добавляется к урону оружия его собственного типа. Преимущество считается в уровнях (отрицательное — помеха). |
@@ -423,6 +455,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
+| Scene notes and cutscene cards, GM Rewind, board animations, a crop editor, an accent colour, a Dice Tray and pictures in the chat, counters, an Events board, a Relationships board and Search. | Заметки сцены и заставки, перемотка мастера, анимации на карте, кадрирование, цвет акцента, лоток для кубиков и картинки в чате, счётчики, доска событий, доска отношений и поиск. |
 
 ## Characters and roster (GM)
 
@@ -451,19 +484,20 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add character | Добавить персонажа |
 | Add subfolder | Добавить подпапку |
 | Nothing here yet. Create your first character. | Здесь пока пусто. Создайте первого персонажа. |
-| Something went wrong. | Что-то пошло не так. |
 | (top level) | (верхний уровень) |
 
 ## Character sheet
 
 | English | Russian |
 | --- | --- |
+| Less | Меньше |
 | Disadvantage | Помеха |
 | Send | Отправить |
 | Area | Область |
 | Upload failed. | Не удалось загрузить. |
 | Picture | Картинка |
 | Uploading... | Загрузка... |
+| Copy | Копировать |
 | Choose a picture | Выберите картинку |
 | Battle | Бой |
 | AP: {current} of {max} | ОД: {current} из {max} |
@@ -489,6 +523,27 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
 | Yes | Да |
 | Height (Spaces in the air, shown above the token) | Высота (клеток над землёй, показывается над фишкой) |
+| Counters | Счётчики |
+| secret | тайный |
+| No counters yet. | Счётчиков пока нет. |
+| Edit counter | Изменить счётчик |
+| New counter | Новый счётчик |
+| Pips | Деления |
+| Gates | Врата |
+| Add a Gate | Добавить Врата |
+| Pip | Деление |
+| What happens (optional) | Что происходит (необязательно) |
+| Secret from the player | Тайна от игрока |
+| Delete for good | Удалить навсегда |
+| Relationships | Отношения |
+| Add a card | Добавить карточку |
+| Connect | Связать |
+| Tap the card the arrow starts from. | Нажмите карточку, от которой идёт стрелка. |
+| Now tap the card it points to. | Теперь нажмите карточку, на которую она указывает. |
+| Person | Человек |
+| A made-up person | Выдуманный человек |
+| Remove from the board | Убрать с доски |
+| e.g. trusts, owes, hunts | например: доверяет, должен, охотится |
 | Consumption | Поглощение |
 | Resistance ({n}) | Сопротивление ({n}) |
 | Resistance (Half) | Сопротивление (половина) |
@@ -535,7 +590,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} uses | Использования: {name} |
 | State | Состояние |
 | (none) | (нет) |
-| Copy | Копировать |
 | Delete item | Удалить предмет |
 | Inventory | Инвентарь |
 | Add item | Добавить предмет |
@@ -546,6 +600,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Loading sheet... | Загрузка листа... |
 | Back to roster | Назад к списку |
 | View | Вид |
+| Relations | Связи |
 | Vitals | Показатели |
 | Action Points | Очки действий |
 | Minion | Приспешник |
@@ -574,6 +629,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No Portrait yet. | Портрета пока нет. |
 | Change Portrait | Сменить портрет |
 | Set Portrait | Задать портрет |
+| Crop | Кадрировать |
 | Token | Фишка |
 | A custom token. | Своя фишка. |
 | Made from the picture on the scene, or the first picture. | Сделана из картинки на сцене или из первой картинки. |
@@ -607,6 +663,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| A GIF can be at most {mb} MB. | GIF может весить не больше {mb} МБ. |
 | Attack Value | Значение атаки |
 | Target Value | Значение цели |
 | Critical | Критический |
@@ -616,9 +673,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Replaced | Заменено |
 | Reverted | Отменено |
 | Revert | Отменить |
+| Open the picture | Открыть картинку |
+| a picture | картинка |
 | vs | против |
 | Chat | Чат |
 | No messages yet. Rolls show up here. | Сообщений пока нет. Здесь появляются броски. |
+| Attach a picture or a GIF | Прикрепить картинку или GIF |
+| Dice Tray | Лоток для кубиков |
 | Message | Сообщение |
 | Clear chat | Очистить чат |
 | Delete every message for everyone? This cannot be undone. | Удалить все сообщения у всех? Это нельзя отменить. |
@@ -660,11 +721,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Token Settings: {name} | Настройки фишки: {name} |
 | The token shows the custom token set on the sheet, or the head of the picture the character has on the scene. | Фишка показывает свою фишку с листа персонажа или голову картинки, с которой персонаж стоит на сцене. |
 | The token shows the head of the picture the character has on the scene, or of its first picture. | Фишка показывает голову картинки, с которой персонаж стоит на сцене, или его первой картинки. |
+| Leave out of combat | Не участвует в бою |
+| Scenery: Start combat skips it and it gets no initiative. | Декорация: «Начать бой» пропускает её, инициативы у неё нет. |
 | Size: {n} x {n} squares (set on the character sheet or the temp NPC). | Размер: {n} x {n} клеток (задаётся в листе персонажа или у временного НПС). |
 | Banked Movement: {n}. | Накопленное движение: {n}. |
 | Remove from the map | Убрать с карты |
 | Clear banked Movement | Сбросить накопленное движение |
-| Less | Меньше |
 | Grid | Сетка |
 | {cols} x {rows} squares. Line the grid up with the map. Sizes are in pixels of the map picture; Ctrl + mouse wheel changes the square size by 1. The grid may reach past the picture, only its lines over the picture are shown. | Клеток: {cols} x {rows}. Совместите сетку с картой. Размеры в пикселях картинки карты; Ctrl + колесо мыши меняет размер клетки на 1. Сетка может выходить за картинку, но показываются только её линии над картинкой. |
 | Square size (px) | Размер клетки (пикс.) |
@@ -731,12 +793,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Spaces | Клеток |
 | Raise by one Space | Выше на одну клетку |
 | Up | Вверх |
-| Reset | Сбросить |
 
 ## Scenes, stage and library
 
 | English | Russian |
 | --- | --- |
+| CRITICAL | КРИТ |
+| MISS | ПРОМАХ |
+| GM Tools | Инструменты ГМа |
+| Rewind works in Battle mode. | Перемотка работает в режиме боя. |
 | Add here | Добавить сюда |
 | Subfolder | Подпапка |
 | No pictures yet. Add one to use this character on a scene. | Картинок пока нет. Добавьте одну, чтобы вывести персонажа на сцену. |
@@ -746,6 +811,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add pictures | Добавить картинки |
 | Copy from Portrait | Копировать из портрета |
 | Rename picture | Переименовать картинку |
+| Undo: {what} | Отменить: {what} |
+| Nothing to rewind. | Нечего отменять. |
+| Rewind ({n}) | Назад ({n}) |
 | Fit | Вписывание |
 | Best Fit shows the whole picture with black bars; Fill covers the screen and cuts off the edges; Stretch takes the shape of the screen. | «Целиком» показывает всю картинку с чёрными полосами; «Заполнить» закрывает весь экран и обрезает края; «Растянуть» подгоняет картинку под форму экрана. |
 | No music | Без музыки |
@@ -801,12 +869,24 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Delete temp NPC | Удалить временного НПС |
 | Delete {name} and its pictures? This cannot be undone. | Удалить {name} и его картинки? Это нельзя отменить. |
 | Rename temp NPC | Переименовать временного НПС |
+| Card {n} | Заставка {n} |
+| Note {n} | Заметка {n} |
+| Card | Заставка |
+| A Card is shown to everyone full-screen for a few seconds, like a cutscene. | Заставка показывается всем на весь экран на несколько секунд, как в кино. |
+| Title | Заголовок |
+| Three days later | Три дня спустя |
+| Second line (optional) | Вторая строка (необязательно) |
+| Only you see this note. | Эту заметку видите только вы. |
+| Delete it | Удалить |
+| Show to everyone | Показать всем |
 | Size: {n} | Размер: {n} |
 | The size is saved with the picture, for every scene. | Размер запоминается для картинки и действует на каждой сцене. |
 | Remove from stage | Убрать со сцены |
 | Reset position | Сбросить положение |
 | No scene | Нет сцены |
 | Mode | Режим |
+| Show the interface | Показать интерфейс |
+| Hide the interface | Скрыть интерфейс |
 
 ## Music
 
@@ -1178,6 +1258,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {effect} on {name} is not added to the roll: the targets differ. Use Edit on the card if it should count. | Эффект «{effect}» у цели {name} не учтён в броске: у целей он разный. Если он должен учитываться, используйте «Изменить» на карточке. |
 | {name} uses the {stance} Stance: rolled {total}, band {band}. | {name} использует Стойку «{stance}»: выпало {total}, диапазон {band}. |
 | {name} uses a Spontaneous Action ({ap} AP). | {name} использует спонтанное действие ({ap} ОД). |
+| Attack by {name} | Атака: {name} |
 | Invalid track. | Неверный трек. |
 | That track no longer exists. | Этого трека больше нет. |
 | Invalid playlist. | Неверный плейлист. |
@@ -1201,6 +1282,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Already on the map. | Уже на карте. |
 | That is off the map. | Это за пределами карты. |
 | Hidden must be true or false. | Значение «скрыт» должно быть «да» или «нет». |
+| Leave out of combat must be true or false. | «Не участвует в бою» должно быть включено или выключено. |
 | Height must be from 0 to {max} Spaces. | Высота должна быть от 0 до {max} клеток. |
 | A height step is one Space up or down. | Высота меняется на одну клетку вверх или вниз. |
 | This character has no Movement. | У этого персонажа нет движения. |
@@ -1220,13 +1302,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Unknown kind of mark. | Неизвестный вид отметки. |
 | Type a message first. | Сначала введите сообщение. |
 | Messages can be at most {max} characters. | Сообщение может содержать не более {max} символов. |
+| Choose from 1 to {max} dice. | Выберите от 1 до {max} кубиков. |
+| The modifier is a whole number from -99 to 99. | Модификатор — целое число от -99 до 99. |
 | There are no characters on the map to fight. | На карте нет персонажей для боя. |
 | That character is not in the combat. | Этого персонажа нет в бою. |
 | Initiative must be a whole number. | Инициатива должна быть целым числом. |
 | Combat has already begun. | Бой уже начался. |
 | Combat has not begun. | Бой ещё не начался. |
 | The order must list everyone in the combat exactly once. | В порядке должен быть каждый участник боя ровно один раз. |
-| Props cannot fight. | Объекты не могут сражаться. |
 | That character is already in the combat. | Этот персонаж уже в бою. |
 | Surprised 2 | Застигнут врасплох 2 |
 | {effect} ends. | Эффект «{effect}» заканчивается. |
@@ -1235,6 +1318,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {name} is healed {n} by {source} ({detail}). HP {from} to {to}. | {name} исцеляется на {n} от источника: {source} ({detail}). ОЗ {from} → {to}. |
 | {name} takes no damage from {source} ({detail}). | {name} не получает урона от источника: {source} ({detail}). |
 | {name} starts with {ap} AP instead of {max} ({reasons}). | {name} начинает ход с {ap} ОД вместо {max} ({reasons}). |
+| Give the counter a name. | Назовите счётчик. |
+| A counter has from {min} to {max} pips. | У счётчика от {min} до {max} делений. |
+| Invalid counter. | Неверный счётчик. |
+| That counter no longer exists. | Этого счётчика больше нет. |
+| A character can have at most {n} counters. | У персонажа может быть не больше {n} счётчиков. |
+| A counter moves one pip at a time. | Счётчик сдвигается на одно деление за раз. |
 | That Effect no longer exists. | Этого эффекта больше нет. |
 | That Effect is no longer running. | Этот эффект уже не действует. |
 | Too many Effects. | Слишком много эффектов. |
@@ -1246,10 +1335,26 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {effect} ends (no uses left). | Эффект «{effect}» заканчивается (использования закончились). |
 | That card can no longer be reverted. | Эту карточку больше нельзя отменить. |
 | That card has already been reverted. | Эта карточка уже отменена. |
+| Give the lane a name. | Назовите колонку. |
+| A lane is for Everyone or for the GM only. | Колонка видна всем или только мастеру. |
+| Write something first. | Сначала напишите что-нибудь. |
+| A note can be at most {max} characters. | Заметка может быть не длиннее {max} символов. |
+| Choose one of the five colours. | Выберите один из пяти цветов. |
+| Invalid lane. | Неверная колонка. |
+| That lane no longer exists. | Этой колонки больше нет. |
+| Invalid note. | Неверная заметка. |
+| That note no longer exists. | Этой заметки больше нет. |
+| The board can have at most {n} lanes. | На доске может быть не больше {n} колонок. |
+| A lane moves one place at a time. | Колонка сдвигается на одно место за раз. |
+| The board can have at most {n} notes. | На доске может быть не больше {n} заметок. |
+| The Display Screen has no Events board. | У экрана стола нет доски событий. |
+| Only its author or the GM can change this note. | Эту заметку может изменить только её автор или мастер. |
 | Invalid folder. | Неверная папка. |
 | That folder no longer exists. | Этой папки больше нет. |
 | A folder cannot be moved inside itself. | Папку нельзя переместить внутрь самой себя. |
 | Move or delete what is inside this folder first. | Сначала переместите или удалите содержимое папки. |
+| {name} reached {gate} on {counter}: {text} | {name} достигает Врат «{gate}» на счётчике «{counter}»: {text} |
+| {name} reached {gate} on {counter}. | {name} достигает Врат «{gate}» на счётчике «{counter}». |
 | The Display Screen has no chat. | У экрана стола нет чата. |
 | Choose who you are first. | Сначала выберите, кто вы. |
 | That character no longer exists. | Этого персонажа больше нет. |
@@ -1265,6 +1370,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | This status has no Save, so it cannot be Repeated. | У этого статуса нет спасброска, поэтому он не может быть повторяющимся. |
 | A Repeated status needs a DC for its Save. | Повторяющемуся статусу нужна Сл для спасброска. |
 | That Save is no longer waiting. | Этот спасбросок больше не ожидается. |
+| Choose a picture to crop. | Выберите картинку для кадрирования. |
 | Those Help Dice are not available. | Эти кубики помощи недоступны. |
 | No image was sent. | Изображение не было отправлено. |
 | Images can be at most {mb} MB after resizing. | После уменьшения изображение может занимать не более {mb} МБ. |
@@ -1275,6 +1381,20 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | A name is required. | Нужно указать имя. |
 | Too many cards. | Слишком много карт. |
 | Too many Manifestations. | Слишком много Проявлений. |
+| Only a PC has a Relationships board. | Доска отношений есть только у персонажа игрока. |
+| Only the GM can put an NPC on the board. | Только мастер может добавить NPC на доску. |
+| Choose one of the arrow colours. | Выберите один из цветов стрелки. |
+| Invalid card. | Неверная карточка. |
+| That card no longer exists. | Этой карточки больше нет. |
+| Invalid arrow. | Неверная стрелка. |
+| That arrow no longer exists. | Этой стрелки больше нет. |
+| A board can have at most {n} cards. | На доске может быть не больше {n} карточек. |
+| That character is already on the board. | Этот персонаж уже на доске. |
+| Give the person a name. | Дайте человеку имя. |
+| The character itself stays on its board. | Сам персонаж всегда остаётся на своей доске. |
+| An arrow joins two different cards. | Стрелка соединяет две разные карточки. |
+| A board can have at most {n} arrows. | На доске может быть не больше {n} стрелок. |
+| There is nothing to rewind. | Нечего отменять. |
 | Advantage levels must be a whole number from -{max} to {max}. | Уровни преимущества должны быть целым числом от -{max} до {max}. |
 | Names can be at most {max} characters. | Имя может содержать не более {max} символов. |
 | Invalid id. | Неверный идентификатор. |
@@ -1287,7 +1407,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {save} against {status}: {total} vs DC {dc}, {result}. | {save} против {status}: {total} против Сл {dc}, {result}. |
 | {status}: {save} against DC {dc}, waiting for {name}. | {status}: {save} против Сл {dc}, ждём {name}. |
 | {name}: {status} | {name}: {status} |
+| {name} (copy) | {name} (копия) |
 | GM only. | Только для мастера. |
+| Only a Card can be shown to everyone. | Всем можно показать только заставку. |
 | Only the GM or the Display can change a size. | Менять размер могут только мастер и экран стола. |
 | This character has no Portrait yet. | У этого персонажа ещё нет портрета. |
 | The Portrait is already one of the Pictures. | Портрет уже есть среди картинок. |
@@ -1317,6 +1439,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Only the GM or the Display can clean the map. | Очищать карту могут только мастер и экран стола. |
 | Only the GM or the Display can ping. | Ставить метки могут только мастер и экран стола. |
 | Ping the map. | Поставьте метку на карте. |
+| Move of {name} | Перемещение: {name} |
 | Round {round}: {name}'s turn. | Раунд {round}: ход — {name}. |
 | {status} ends. | {status} заканчивается. |
 | End of turn | Конец хода |
@@ -1325,6 +1448,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Combat begins. Round 1. | Бой начинается. Раунд 1. |
 | Combat ends after {n} round(s). | Бой окончен (раундов: {n}). |
 | Combat cancelled. | Бой отменён. |
+| A note is a Note or a Card. | Заметка бывает заметкой или заставкой. |
+| A Card needs a title. | Заставке нужен заголовок. |
+| A scene can have at most {n} notes. | У сцены может быть не больше {n} заметок. |
 | Choose a character or a temp NPC. | Выберите персонажа или временного НПС. |
 | Invalid picture. | Неверная картинка. |
 | That picture no longer exists. | Этой картинки больше нет. |
@@ -1403,7 +1529,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Immune to Opportunity Attacks. | Неуязвим для атак по возможности. |
 | Make an attack from the footer of the Arcane tab. Its AP is the cost of the weapon and the Enhancements you choose. | Совершите атаку из нижней панели вкладки «Тайное». Её ОД — это цена оружия и выбранных усилений. |
 | Spend 1 AP to move up to your Movement in Spaces. Use the D-pad or drag your token; the AP is spent for you. | Потратьте 1 ОД, чтобы переместиться на расстояние до вашего Движения в клетках. Используйте крестовину или перетащите фишку; ОД тратится само. |
-| Spell | Заклинание |
 | Spend AP to cast a crafted spell: choose it as the weapon in the Magic tab and attack. | Потратьте ОД, чтобы применить созданное заклинание: выберите его оружием во вкладке «Магия» и атакуйте. |
 | Spend 1 AP: the next attack made against you before the start of your next turn has Disadvantage. | Потратьте 1 ОД: следующая атака против вас до начала вашего следующего хода совершается с помехой. |
 | Spend 2 AP: all attacks made against you until the start of your next turn have Disadvantage. | Потратьте 2 ОД: все атаки против вас до начала вашего следующего хода совершаются с помехой. |
@@ -1501,6 +1626,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Props cannot fight. | Объекты не могут сражаться. |
 | This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map. | У этой сцены пока нет боевой карты. Откройте «Сцены», выберите сцену и добавьте боевую карту. |
 | Reset spot | Сбросить место |
 | No pictures yet. Add one with the Pictures button. | Картинок пока нет. Добавьте одну кнопкой «Картинки». |
@@ -1519,8 +1645,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Choose how many targets it has. | Выберите, сколько у него целей. |
 | Select exactly one target first. | Сначала выберите ровно одну цель. |
 | Runes are a placeholder for now: put them in the order you want. | Руны пока заглушка: расставьте их в нужном порядке. |
-| Move left | Сдвинуть влево |
-| Move right | Сдвинуть вправо |
 | {name} gains a Help Die (d{sides}). | {name} получает кубик помощи (d{sides}). |
 | {name} gains a Help Die (d{sides}) in place of a d{old}. | {name} получает кубик помощи (d{sides}) вместо d{old}. |
 | {name} holds too many Help Dice: the new d{sides} is lost. | У {name} слишком много кубиков помощи: новый d{sides} пропадает. |

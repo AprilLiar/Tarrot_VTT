@@ -483,10 +483,18 @@ export async function saveSheet(db, id, sheet) {
   });
 }
 
+// Told the sheet as it was before each change (the board animations compare against it, see server/fx.js).
+let beforeChange = null;
+export function watchSheetChanges(fn) {
+  beforeChange = fn;
+}
+
 // Read, change, save: returns the saved sheet.
 export function updateSheet(db, id, fn) {
   return withLock(id, async () => {
-    const next = await fn(await getSheet(db, id));
+    const prev = await getSheet(db, id);
+    beforeChange?.(id, prev);
+    const next = await fn(prev);
     await saveSheet(db, id, next);
     return next;
   });

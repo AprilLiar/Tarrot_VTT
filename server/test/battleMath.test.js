@@ -13,10 +13,10 @@ describe('free movement with the grid off', () => {
     expect(dropCell(0.375, 0.4, 2, grid, aspect, 10, 5, true)).toEqual({ col: 2.75, row: 1 });
   });
 
-  it('both ways keep the token on the map', () => {
-    expect(dropCell(-0.2, 2, 1, grid, aspect, 10, 5, true)).toEqual({ col: 0, row: 4 });
-    expect(dropCell(1.5, -1, 2, grid, aspect, 10, 5, true)).toEqual({ col: 8, row: 0 });
-    expect(dropCell(1.5, -1, 2, grid, aspect, 10, 5)).toEqual({ col: 8, row: 0 });
+  it('both ways keep the token on the board (the map and its 2 squares of margin)', () => {
+    expect(dropCell(-0.5, 2, 1, grid, aspect, 10, 5, true)).toEqual({ col: -2, row: 6 });
+    expect(dropCell(1.5, -1, 2, grid, aspect, 10, 5, true)).toEqual({ col: 10, row: -2 });
+    expect(dropCell(1.5, -1, 2, grid, aspect, 10, 5)).toEqual({ col: 10, row: -2 });
   });
 
   it('areas snap to half a square with the grid on and are placed exactly with it off', () => {

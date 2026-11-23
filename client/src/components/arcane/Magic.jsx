@@ -489,7 +489,7 @@ function Spells({ s, draft, setDraft }) {
         const isWeapon = sp.effect.kind === 'weapon';
         const enhId = `spell:${sp.id}`;
         return (
-          <div key={sp.id} className={`${card} ${sp.destroyed ? 'opacity-50' : ''} ${chosenWeapon === `spell:${sp.id}` || (draft.counts[enhId] ?? 0) > 0 ? 'ring-2 ring-blue-400' : ''}`} data-testid="spell" data-name={sp.name} data-destroyed={sp.destroyed ? 'true' : 'false'}>
+          <div key={sp.id} className={`${card} ${sp.destroyed ? 'opacity-50' : ''} ${chosenWeapon === `spell:${sp.id}` || (draft.counts[enhId] ?? 0) > 0 ? 'ring-2 ring-blue-400' : ''}`} data-testid="spell" data-search-id={`spell:${sp.id}`} data-name={sp.name} data-destroyed={sp.destroyed ? 'true' : 'false'}>
             <div className="flex items-center gap-2">
               <DamageIcon kind={sp.icon} size={30} />
               <div className="min-w-0 flex-1">

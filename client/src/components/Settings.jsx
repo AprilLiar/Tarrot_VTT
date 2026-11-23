@@ -78,6 +78,37 @@ function StatusIconSetting() {
   );
 }
 
+// Presets for the accent colour (any colour can be picked too).
+const ACCENTS = ['#7c3aed', '#2563eb', '#0d9488', '#16a34a', '#d97706', '#dc2626', '#db2777', '#64748b'];
+
+function AccentSetting() {
+  const t = useT();
+  const [value, setValue] = useSetting('accent');
+  return (
+    <SettingRow settingKey="accent" title={t('Accent colour')} value={value}>
+      <p className="mb-2 text-sm opacity-70">{t('The colour of buttons and highlights on this device.')}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {ACCENTS.map((c) => (
+          <button
+            key={c}
+            aria-label={c}
+            aria-pressed={value === c}
+            data-testid="accent-preset"
+            data-color={c}
+            className={`h-9 w-9 rounded-full ${value === c ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1626]' : ''}`}
+            style={{ background: c }}
+            onClick={() => setValue(c)}
+          />
+        ))}
+        <label className={`${btn} flex min-h-9 cursor-pointer items-center gap-2 px-3 text-xs`}>
+          <input type="color" className="h-6 w-6 cursor-pointer border-0 bg-transparent p-0" value={value} data-testid="accent-input" onChange={(e) => setValue(e.target.value)} />
+          {t('Other')}
+        </label>
+      </div>
+    </SettingRow>
+  );
+}
+
 // The settings themselves: used on the page of the picker and in the dialog the GM opens from the top bar.
 export function SettingsBody() {
   const t = useT();
@@ -85,6 +116,7 @@ export function SettingsBody() {
     <div className="flex flex-col gap-4">
       <p className="text-sm opacity-70">{t('These settings are saved on this device only.')}</p>
       <LanguageSetting />
+      <AccentSetting />
       <DeadzoneSetting />
       <StatusIconSetting />
     </div>

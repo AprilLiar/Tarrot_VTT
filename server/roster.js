@@ -4,6 +4,7 @@
 // SQLite does not enforce foreign keys by default, so every relationship
 // rule (no cycles, no deleting non-empty folders) is checked here.
 
+import { parseCrop } from '../shared/crop.js';
 import { AppError } from './errors.js';
 
 export const NAME_MAX = 60;
@@ -54,12 +55,14 @@ const toCharacter = (r) => ({
   folderId: r.folder_id == null ? null : Number(r.folder_id),
   portraitImageId: r.portrait_image_id ?? null,
   tokenImageId: r.token_image_id ?? null,
+  portraitCrop: parseCrop(r.portrait_crop),
+  tokenCrop: parseCrop(r.token_crop),
 });
 
 export async function listRoster(db) {
   const [folders, characters] = await Promise.all([
     db.execute('SELECT id, parent_id, name FROM character_folders ORDER BY name COLLATE NOCASE'),
-    db.execute('SELECT id, name, type, folder_id, portrait_image_id, token_image_id FROM characters ORDER BY name COLLATE NOCASE'),
+    db.execute('SELECT id, name, type, folder_id, portrait_image_id, token_image_id, portrait_crop, token_crop FROM characters ORDER BY name COLLATE NOCASE'),
   ]);
   return { folders: folders.rows.map(toFolder), characters: characters.rows.map(toCharacter) };
 }
@@ -67,15 +70,15 @@ export async function listRoster(db) {
 // What the picker needs: PCs only, never NPCs.
 export async function listPcs(db) {
   const r = await db.execute(
-    "SELECT id, name, portrait_image_id FROM characters WHERE type = 'pc' ORDER BY name COLLATE NOCASE",
+    "SELECT id, name, portrait_image_id, portrait_crop FROM characters WHERE type = 'pc' ORDER BY name COLLATE NOCASE",
   );
-  return r.rows.map((row) => ({ id: Number(row.id), name: row.name, portraitImageId: row.portrait_image_id ?? null }));
+  return r.rows.map((row) => ({ id: Number(row.id), name: row.name, portraitImageId: row.portrait_image_id ?? null, portraitCrop: parseCrop(row.portrait_crop) }));
 }
 
 export async function getCharacter(db, id) {
   if (!Number.isInteger(id)) return null;
   const r = await db.execute({
-    sql: 'SELECT id, name, type, folder_id, portrait_image_id, token_image_id FROM characters WHERE id = ?',
+    sql: 'SELECT id, name, type, folder_id, portrait_image_id, token_image_id, portrait_crop, token_crop FROM characters WHERE id = ?',
     args: [id],
   });
   return r.rows.length ? toCharacter(r.rows[0]) : null;
@@ -133,8 +136,16 @@ export async function renameCharacter(db, id, name) {
 // Sets (or, with null, clears) the character's Portrait. Returns the image it had before, which the caller deletes when nothing uses it.
 export async function setPortrait(db, id, imageId) {
   const c = await requireCharacter(db, id);
-  await db.execute({ sql: 'UPDATE characters SET portrait_image_id = ? WHERE id = ?', args: [imageId, id] });
+  // A new picture starts with the automatic cut.
+  await db.execute({ sql: 'UPDATE characters SET portrait_image_id = ?, portrait_crop = NULL WHERE id = ?', args: [imageId, id] });
   return c.portraitImageId;
+}
+
+// Sets the crop of the Portrait's round thumbnail or of the default token (`which`: 'portrait' | 'token'); null is the automatic cut.
+export async function setCrop(db, id, which, crop) {
+  await requireCharacter(db, id);
+  const column = which === 'portrait' ? 'portrait_crop' : 'token_crop';
+  await db.execute({ sql: `UPDATE characters SET ${column} = ? WHERE id = ?`, args: [crop ? JSON.stringify(crop) : null, id] });
 }
 
 // Sets (or, with null, clears) the character's custom Battle token. Returns the image it had before.

@@ -10,6 +10,7 @@ import { BattleMapDialog } from './SceneDrawers.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 import { HeightControl } from './HeightControl.jsx';
 import { TokenFace } from './TokenFace.jsx';
+import { MAP_MARGIN } from '../../../../shared/board.js';
 import { setPlacing, usePlacing } from '../../lib/placing.js';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
@@ -18,6 +19,7 @@ import { StatusIcon, TokenStatuses } from './StatusIcon.jsx';
 import { TarotStar } from '../TarotStar.jsx';
 import { areaName } from '../../lib/areaName.js';
 import { membersOf } from '../../../../shared/templates.js';
+import { BattleFx } from './BattleFx.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -55,12 +57,31 @@ function TokenConditions({ token }) {
 
 function TokenSettings({ token, onClose }) {
   const t = useT();
+  const { toast } = useApp();
   return (
     <Dialog title={t('Token Settings: {name}', { name: token.name })} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <p className="text-sm opacity-70">
           {token.ownerKind === 'character' ? t('The token shows the custom token set on the sheet, or the head of the picture the character has on the scene.') : t('The token shows the head of the picture the character has on the scene, or of its first picture.')}
         </p>
+        {token.kind !== 'prop' && (
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              data-testid="token-excluded"
+              checked={token.excluded}
+              onChange={async (e) => {
+                const r = await call('battle:update', { id: token.id, excluded: e.target.checked });
+                if (!r.ok) toast(r.error);
+              }}
+            />
+            <span>
+              {t('Leave out of combat')}
+              <span className="block text-xs opacity-60">{t('Scenery: Start combat skips it and it gets no initiative.')}</span>
+            </span>
+          </label>
+        )}
         <p className="text-sm opacity-70">
           {t('Size: {n} x {n} squares (set on the character sheet or the temp NPC).', { n: token.size })}
           {token.ownerKind === 'character' && ` ${t('Banked Movement: {n}.', { n: token.bank })}`}
@@ -150,7 +171,7 @@ function GridPanel({ scene, battle, natural, onClose }) {
     </div>
   );
   return (
-    <div className="absolute bottom-16 left-2 z-30 w-80 rounded-xl bg-[#1a1626]/95 p-3 shadow-xl" data-no-pan data-testid="grid-panel">
+    <div className="ui-chrome absolute bottom-16 left-2 z-30 w-80 rounded-xl bg-[#1a1626]/95 p-3 shadow-xl" data-no-pan data-testid="grid-panel">
       <div className="mb-2 flex items-center justify-between">
         <strong>{t('Grid')}</strong>
         <button className={`${btn} min-h-9 px-3`} onClick={onClose}>
@@ -250,7 +271,12 @@ export default function BattleView() {
   const ready = !!(scene && battle?.imageId);
   // Best Fit: the picture is shown whole, as large as fits (black bars beside it); Fill: it covers the screen and what sticks out is cut off.
   const fill = battle?.fit === 'fill';
-  const fw = fill ? Math.max(w, h * aspect) : Math.min(w, h * aspect);
+  // The board is the picture plus MAP_MARGIN squares on every side: that is what is fitted to the screen.
+  const mW = MAP_MARGIN * (battle?.grid.cell ?? 0); // the margin, in picture widths on each side
+  const mH = mW * aspect; // and in picture heights
+  const fitW = w / (1 + 2 * mW);
+  const fitH = (h / (1 + 2 * mH)) * aspect;
+  const fw = fill ? Math.max(fitW, fitH) : Math.min(fitW, fitH);
   const fh = fw / aspect;
   const unit = battle ? battle.grid.cell : 0.05; // one square, in picture widths
   const ppu = fw || 1; // pixels per picture width
@@ -276,7 +302,13 @@ export default function BattleView() {
     const r = mapRef.current.getBoundingClientRect();
     return { u: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height };
   }
-  const inside = ({ u, v }) => u >= 0 && u <= 1 && v >= 0 && v <= 1;
+  // On the board: the grid's squares and the margin round them (picture fractions).
+  const inside = ({ u, v }) => {
+    if (!battle) return false;
+    const { cell, ox, oy } = battle.grid;
+    const cellV = cell * aspect;
+    return u >= ox - MAP_MARGIN * cell && u <= ox + (battle.cols + MAP_MARGIN) * cell && v >= oy - MAP_MARGIN * cellV && v <= oy + (battle.rows + MAP_MARGIN) * cellV;
+  };
 
   // ---- tools on the map surface ------------------------------------------------
 
@@ -509,16 +541,25 @@ export default function BattleView() {
     };
   };
 
+  // The same box in pixels of the map (for the animations, drawn in pixels).
+  const tokenPx = (tk) => ({
+    left: (battle.grid.ox + tk.col * battle.grid.cell) * fw,
+    top: (battle.grid.oy + tk.row * battle.grid.cell * aspect) * fh,
+    width: tk.size * battle.grid.cell * fw,
+    height: tk.size * battle.grid.cell * aspect * fh,
+  });
+
   const gridLines = useMemo(() => {
     if (!battle) return [];
     const lines = [];
     const { grid, cols, rows } = battle;
-    const x0 = grid.ox;
-    const y0 = grid.oy / aspect;
-    const x1 = x0 + cols * grid.cell;
-    const y1 = y0 + rows * grid.cell;
-    for (let i = 0; i <= cols; i++) lines.push(<line key={`c${i}`} x1={x0 + i * grid.cell} y1={y0} x2={x0 + i * grid.cell} y2={y1} />);
-    for (let j = 0; j <= rows; j++) lines.push(<line key={`r${j}`} x1={x0} y1={y0 + j * grid.cell} x2={x1} y2={y0 + j * grid.cell} />);
+    // The lines run on through the margin round the picture.
+    const x0 = grid.ox - MAP_MARGIN * grid.cell;
+    const y0 = grid.oy / aspect - MAP_MARGIN * grid.cell;
+    const x1 = grid.ox + (cols + MAP_MARGIN) * grid.cell;
+    const y1 = grid.oy / aspect + (rows + MAP_MARGIN) * grid.cell;
+    for (let i = 0; i <= cols + 2 * MAP_MARGIN; i++) lines.push(<line key={`c${i}`} x1={x0 + i * grid.cell} y1={y0} x2={x0 + i * grid.cell} y2={y1} />);
+    for (let j = 0; j <= rows + 2 * MAP_MARGIN; j++) lines.push(<line key={`r${j}`} x1={x0} y1={y0 + j * grid.cell} x2={x1} y2={y0 + j * grid.cell} />);
     return lines;
   }, [battle, aspect]);
 
@@ -552,10 +593,22 @@ export default function BattleView() {
             onPointerCancel={() => setDraft(null)}
             data-pan-surface
           >
+            {/* The margin: a darker ring of squares past the picture's edges, part of the board. */}
+            <div
+              className="absolute rounded-sm bg-white/[0.06] ring-1 ring-white/15"
+              data-testid="battle-margin"
+              data-pan-surface
+              style={{
+                left: (battle.grid.ox - MAP_MARGIN * battle.grid.cell) * fw,
+                top: (battle.grid.oy - MAP_MARGIN * battle.grid.cell * aspect) * fh,
+                width: (battle.cols + 2 * MAP_MARGIN) * battle.grid.cell * fw,
+                height: (battle.rows + 2 * MAP_MARGIN) * battle.grid.cell * aspect * fh,
+              }}
+            />
             <img src={imageUrl(battle.imageId)} alt="" draggable={false} className="absolute inset-0 h-full w-full" data-testid="battle-background" onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
 
             <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
+              className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
               viewBox={`0 0 1 ${1 / aspect}`}
               data-testid="battle-overlay"
               style={{ pointerEvents: eraseMode || isMove ? 'auto' : 'none' }}
@@ -696,7 +749,17 @@ export default function BattleView() {
                 data-targeted={tk.targetedBy.length > 0 ? 'true' : 'false'}
                 data-no-pan
                 className={`absolute select-none ${tk.hidden ? 'opacity-50' : ''} ${canDragToken(tk) && tool === 'select' ? 'cursor-grab' : ''}`}
-                style={{ ...tokenBox(tk), zIndex: drag?.id === tk.id ? 20 : 5, pointerEvents: tool === 'select' || !tools ? 'auto' : 'none', touchAction: 'none' }}
+                data-down={tk.down ? 'true' : 'false'}
+                style={{
+                  ...tokenBox(tk),
+                  zIndex: drag?.id === tk.id ? 20 : 5,
+                  pointerEvents: tool === 'select' || !tools ? 'auto' : 'none',
+                  touchAction: 'none',
+                  // A moved token glides to its square (not while it is being dragged); a character at 0 HP sinks and greys.
+                  transition: drag?.id === tk.id ? 'filter 0.6s, opacity 0.6s' : 'left 0.3s ease-out, top 0.3s ease-out, filter 0.6s, translate 0.6s',
+                  filter: tk.down ? 'grayscale(1) brightness(0.65)' : undefined,
+                  translate: tk.down ? '0 8%' : undefined,
+                }}
                 onPointerDown={(e) => tokenDown(e, tk)}
                 onPointerMove={(e) => tokenMove(e, tk)}
                 onPointerUp={(e) => tokenUp(e, tk)}
@@ -713,8 +776,13 @@ export default function BattleView() {
                   className="absolute inset-[6%] overflow-hidden rounded-full bg-black/35"
                   style={{ boxShadow: `0 0 0 ${Math.max(2, ppu * unit * 0.06)}px ${tk.targetedBy.length ? '#fbbf24' : RING[tk.kind]}` }}
                 >
-                  <TokenFace imageId={tk.imageId} tokenImageId={tk.tokenImageId} alt={tk.name} />
+                  <TokenFace imageId={tk.imageId} tokenImageId={tk.tokenImageId} crop={tk.tokenCrop} alt={tk.name} />
                 </div>
+                {tk.down && (
+                  <svg className="pointer-events-none absolute inset-[22%]" viewBox="0 0 10 10" data-testid="token-down" aria-hidden="true">
+                    <path d="M1 1L9 9M9 1L1 9" stroke="#f87171" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                )}
                 {tk.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
                 {inDraft?.has(tk.id) && <div data-testid="token-in-area" className="pointer-events-none absolute -inset-1 rounded-full border-4 border-cyan-300 shadow-[0_0_14px_6px_rgba(103,232,249,0.85)]" />}
                 {tk.height > 0 && (
@@ -737,6 +805,7 @@ export default function BattleView() {
                 </div>
               </div>
             ))}
+            <BattleFx tokens={battle.tokens} boxOf={tokenPx} width={fw} height={fh} />
           </div>
         )}
       </div>
@@ -777,7 +846,7 @@ export default function BattleView() {
       )}
 
       {/* Overlays live outside the zoomed world so they stay put. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
+      <div className="ui-chrome pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-2" data-no-pan>
         <div className="pointer-events-auto flex gap-1 rounded-full bg-black/50 p-1 backdrop-blur">
           <button className="h-10 w-10 rounded-full active:bg-white/20" aria-label={t('Zoom out')} data-testid="zoom-out" onClick={() => zoomBy(0.8)}>
             -
@@ -797,7 +866,7 @@ export default function BattleView() {
         <>
           {/* The tool bar never changes; a tool's options open in their own panel beside it. */}
           <div
-            className="absolute left-2 top-1/2 z-20 flex max-h-[80%] w-24 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-black/55 p-1 backdrop-blur"
+            className="ui-chrome absolute left-2 top-1/2 z-20 flex max-h-[80%] w-24 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-black/55 p-1 backdrop-blur"
             data-no-pan
             data-testid="battle-tools"
           >
@@ -837,7 +906,7 @@ export default function BattleView() {
 
           {(tool === 'draw' || tool === 'template' || tool === 'erase') && (
             <div
-              className="absolute left-28 top-1/2 z-20 flex max-h-[80%] w-44 -translate-y-1/2 flex-col gap-2 overflow-y-auto rounded-xl bg-black/55 p-2 text-xs backdrop-blur"
+              className="ui-chrome absolute left-28 top-1/2 z-20 flex max-h-[80%] w-44 -translate-y-1/2 flex-col gap-2 overflow-y-auto rounded-xl bg-black/55 p-2 text-xs backdrop-blur"
               data-no-pan
               data-testid="tool-options"
             >

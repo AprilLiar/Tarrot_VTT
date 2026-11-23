@@ -86,10 +86,20 @@ test('Portrait: big at the start of the sheet, shown in the roster and the picke
   await expect(gm.getByRole('status').filter({ hasText: 'The Portrait is already one of the Pictures.' })).toBeVisible();
   await expect(gm.getByTestId('picture')).toHaveCount(1);
 
+  // The Crop editor sets what the round thumbnail shows: zoom in, Save; the thumbnail on the sheet and in the roster follows.
+  await expect(gm.getByTestId('portrait-thumb').locator('img')).toHaveAttribute('data-crop', 'auto');
+  await gm.getByTestId('portrait-crop').click();
+  await expect(gm.getByTestId('crop-dialog')).toHaveAttribute('data-which', 'portrait');
+  await gm.getByTestId('crop-zoom').fill('2');
+  await gm.getByTestId('crop-save').click();
+  await expect(gm.getByTestId('crop-dialog')).toHaveCount(0);
+  await expect(gm.getByTestId('portrait-thumb').locator('img')).toHaveAttribute('data-crop', 'custom');
+
   // The roster shows it small, only for the character that has one.
   await gm.getByText('Back to roster').click();
   const thumb = rosterPortrait(pc);
   await expect(thumb).toBeVisible();
+  await expect(thumb.locator('img')).toHaveAttribute('data-crop', 'custom');
   const small = await thumb.boundingBox();
   expect(small.width).toBeLessThanOrEqual(44);
   expect(small.height).toBeLessThanOrEqual(44);

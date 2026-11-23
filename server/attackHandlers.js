@@ -18,6 +18,7 @@ import { MAX_MANUAL_LEVELS } from '../shared/roll-plan.js';
 import { resolveBand, BANDS, blankEffect } from '../shared/stances.js';
 import { sharedAgainst, combatMods } from '../shared/effects.js';
 import * as effectRuntime from './effectRuntime.js';
+import * as rewind from './rewind.js';
 import { AppError } from './errors.js';
 import { line as chatLine } from './i18n.js';
 import { T } from '../shared/localization.js';
@@ -27,7 +28,7 @@ import { T } from '../shared/localization.js';
 //                  the Arcane tab, posts it in the chat and sends a pending attack to the GM's confirm card.
 //  - attack:list / attack:targets / attack:apply / attack:cancel   (GM only)
 export function registerAttackHandlers(ctx) {
-  const { io, db, on, requireControl, emitSheet, effects: cards, saves, authorName, shared, isGm, rooms } = ctx;
+  const { io, db, on, requireControl, emitSheet, effects: cards, saves, authorName, shared, isGm, rooms, fx } = ctx;
   const { GM_ROOM, CHAT_ROOM } = rooms;
   const pending = shared.attacks;
 
@@ -167,6 +168,7 @@ export function registerAttackHandlers(ctx) {
       enhancements: plan.chosen.map((e) => ({ name: e.name, count: e.count })),
       ap: plan.ap,
       spells: plan.spellIds,
+      manifestations: plan.manifestationIds ?? [],
       stance: stanceEntry,
       base: Math.max(0, plan.base + mine.damageDealt),
       critThreshold: Math.max(2, 20 + mine.crit),
@@ -412,9 +414,14 @@ export function registerAttackHandlers(ctx) {
     const clean = attack.cleanApply(entry, p, infos);
     // Claim it first, so a double tap cannot apply it twice.
     pending.delete(p.id);
+    await rewind.record(db, shared, { key: 'Attack by {name}', params: { name: entry.characterName } });
+    // Board animation: one combined strike for the Stance, Spell and Manifestation it used, then each target's outcome.
+    const sources = [...(entry.stance ? ['stance'] : []), ...(entry.spells?.length ? ['spell'] : []), ...(entry.manifestations?.length ? ['manifestation'] : [])];
+    fx?.send({ kind: 'attack', from: entry.attackerTokenId, to: clean.targets.map((t) => t.tokenId), sources });
     try {
       const journal = createJournal();
-      const { blocks, rolls } = await attack.applyAttack(db, entry, clean, { emitSheet, journal, saves });
+      const outcome = (tokenId, result) => fx?.send({ kind: 'outcome', tokenId, outcome: result.critical ? 'crit' : result.hit ? 'hit' : 'miss' });
+      const { blocks, rolls } = await attack.applyAttack(db, entry, clean, { emitSheet, journal, saves, outcome });
       for (const r of rolls) postRoll(r);
       cards.post({
         kind: 'attack',

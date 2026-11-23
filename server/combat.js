@@ -16,7 +16,8 @@ import { AppError } from './errors.js';
 // 'rolling': initiative is being rolled (players roll their own, the GM the rest).
 // 'active':  the order is fixed (the GM can still reorder) and turns are running.
 
-const isCombatant = (t) => t.kind !== 'prop';
+// Props and tokens left out of combat (scenery) never fight.
+const isCombatant = (t) => t.kind !== 'prop' && !t.excluded;
 
 export function newCombat(sceneId, tokens) {
   const order = tokens
@@ -75,7 +76,7 @@ export function reorder(combat, ids) {
 }
 
 export function addCombatant(combat, token) {
-  if (!isCombatant(token)) throw new AppError('bad_value', 'Props cannot fight.');
+  if (!isCombatant(token)) throw new AppError('bad_value', token.excluded ? 'That token is left out of combat.' : 'Props cannot fight.');
   if (findEntry(combat, token.id)) throw new AppError('already_in_combat', 'That character is already in the combat.');
   combat.order.push({ tokenId: token.id, ownerKind: token.ownerKind, ownerId: token.ownerId, initiative: null });
 }
@@ -187,7 +188,7 @@ export function combatView(combat, tokens) {
     .filter((e) => byId.has(e.tokenId))
     .map((e) => {
       const t = byId.get(e.tokenId);
-      return { tokenId: e.tokenId, ownerKind: e.ownerKind, ownerId: e.ownerId, name: t.name, imageId: t.portraitImageId ?? t.imageId, kind: t.kind, initiative: e.initiative };
+      return { tokenId: e.tokenId, ownerKind: e.ownerKind, ownerId: e.ownerId, name: t.name, imageId: t.portraitImageId ?? t.imageId, crop: t.portraitImageId ? t.portraitCrop : null, portrait: !!t.portraitImageId, kind: t.kind, initiative: e.initiative };
     });
   const active = activeEntry(combat);
   return {

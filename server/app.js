@@ -1,3 +1,4 @@
+import { deleteChatImages } from './images.js';
 import express from 'express';
 import compression from 'compression';
 import http from 'node:http';
@@ -73,7 +74,8 @@ export function createServer({ db, fetchTitle } = {}) {
 
   // Per-instance state that is deliberately not in the database: the chat log
   // (clears on restart), pending trade offers and what is playing (stops on restart).
-  const shared = { chat: createChat(), offers: new Map(), audio: createPlayer(), fetchTitle, targets: new Map(), areaPicks: new Map(), attacks: new Map() };
+  const shared = {
+    chat: createChat({ onDrop: (gone) => deleteChatImages(db, gone.filter((m) => m.imageId).map((m) => m.imageId)).catch(() => {}) }), offers: new Map(), audio: createPlayer(), fetchTitle, targets: new Map(), areaPicks: new Map(), attacks: new Map() };
   shared.sceneMusic = createSceneMusic({ db, player: shared.audio, broadcast: () => io.to(AUDIO_ROOM).emit('audio:state', shared.audio.snapshot()) });
   io.on('connection', (socket) => registerHandlers(io, socket, db, shared));
 

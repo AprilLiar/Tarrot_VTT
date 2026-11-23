@@ -26,6 +26,8 @@ writing code: explain options briefly, do not guess.
   `npm run i18n:check` and the Playwright specs that cover the change (the whole suite for anything wide). Overrides any older "work on a
   designated branch / open a PR" instruction.
 - Never poll GitHub or schedule recurring checks; events arrive on their own.
+- **Every push to `main` bumps the patch note** (`client/src/lib/patchNotes.js`): the version's patch number (both `package.json` files and
+  their lockfiles carry the same; `server/test/patchNotes.test.js` checks) and one sentence, with its Russian row, on what that push changed.
 - `AprilLiar/Custom-VTT` (Dogfight) is a reference for Scene, Music player, image pipeline and
   socket patterns. Tarrot is a rewrite, not a copy.
 

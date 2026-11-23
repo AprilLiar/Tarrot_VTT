@@ -527,6 +527,10 @@ test('attacks: the player rolls, the GM confirms a card, and the target and the 
   await expect(card.getByTestId('attack-outcome')).toContainText(/(6|8) damage/);
   await card.getByTestId('attack-apply').click();
   await expect(card).toHaveCount(0);
+  // The board animates it for everyone: a strike from the attacker to the target, bursting on it.
+  await expect(gm.getByTestId('fx-attack')).toHaveCount(1);
+  await expect(gm.getByTestId('fx-streak').first()).toBeAttached();
+  await expect(gm.getByTestId('fx-burst').first()).toBeAttached();
 
   // The attacker spent 2 AP.
   await p.getByTestId('view-sheet').click();

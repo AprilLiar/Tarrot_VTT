@@ -8,6 +8,8 @@ export const SETTINGS = {
   // Battle: the side of a status icon on a token, in percent of one grid square (1x1 token).
   statusIconSize: { type: 'number', min: 10, max: 50, step: 1, default: 25 },
   deadzone: { type: 'number', min: 1.1, max: 3, step: 0.1, default: 1.5 },
+  // The app's accent colour (buttons, highlights; violet at first), as #rrggbb.
+  accent: { type: 'color', default: '#7c3aed' },
 };
 
 // -> the value in its proper form, or null when it is not valid for that setting
@@ -15,6 +17,7 @@ export function cleanSetting(key, value) {
   const def = SETTINGS[key];
   if (!def) return null;
   if (def.type === 'choice') return def.values.includes(value) ? value : null;
+  if (def.type === 'color') return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null;
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   const n = Math.round(value * 10) / 10;
   return n >= def.min && n <= def.max ? n : null;

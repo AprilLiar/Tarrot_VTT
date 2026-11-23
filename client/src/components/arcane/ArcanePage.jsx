@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useFocusRequest } from '../../lib/searchFocus.js';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { FormDialog } from '../sheet/SheetLists.jsx';
@@ -64,6 +65,11 @@ function Arcane({ s, draft, setDraft, locking, setLocking }) {
   const { identity } = useApp();
   const { has, toggle, gm } = useLocks();
   const [tab, setTab] = useState('general');
+  // A search result opened here picks its tab.
+  const focus = useFocusRequest();
+  useEffect(() => {
+    if (focus?.tab) setTab(focus.tab);
+  }, [focus]);
   const [work, setWork] = useState(emptyWork); // the spell being built in Magic (kept while switching tabs)
   const canLock = !s && identity.role === 'gm';
 

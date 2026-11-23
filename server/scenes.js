@@ -284,6 +284,19 @@ export async function createScene(db, { name, folderId = null, imageId = null, f
   return Number(r.lastInsertRowid);
 }
 
+// A copy of a scene's settings (see the README, "Copy a scene"): the same pictures (shared, not uploaded again), fits, music, battle map
+// and grid, in the same folder; never its figures, tokens, drawings or notes.
+export async function copyScene(db, id, name) {
+  await getScene(db, id);
+  const r = await db.execute({
+    sql: `INSERT INTO scenes (name, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid, music_track_id, battle_music_track_id)
+          SELECT ?, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid, music_track_id, battle_music_track_id
+          FROM scenes WHERE id = ?`,
+    args: [cleanName(name), id],
+  });
+  return Number(r.lastInsertRowid);
+}
+
 export async function renameScene(db, id, name) {
   await getScene(db, id);
   await db.execute({ sql: 'UPDATE scenes SET name = ? WHERE id = ?', args: [cleanName(name), id] });
@@ -358,6 +371,7 @@ export async function deleteScene(db, id) {
   await db.execute({ sql: 'DELETE FROM stage_summons WHERE scene_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM battle_tokens WHERE scene_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM battle_marks WHERE scene_id = ?', args: [id] });
+  await db.execute({ sql: 'DELETE FROM scene_notes WHERE scene_id = ?', args: [id] });
   await db.execute({ sql: 'UPDATE scene_state SET active_scene_id = NULL WHERE active_scene_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM scenes WHERE id = ?', args: [id] });
   await deleteImageIfUnused(db, scene.imageId);
