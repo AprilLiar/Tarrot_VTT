@@ -274,3 +274,76 @@ test('the picture dialog is shown for a character with one picture too', async (
   await expect(figure(gm, name)).toBeVisible();
   await ctx.close();
 });
+
+// A wide background drawn in the browser, larger than the old 1920 x 1200 limit, to see that it keeps its size.
+async function wideMap(page) {
+  const b64 = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 2600;
+    c.height = 1300;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#3b6b3b';
+    ctx.fillRect(0, 0, 2600, 1300);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  return { name: 'wide.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') };
+}
+
+test('a scene picture keeps its resolution (WebP), shows with Best Fit unless chosen, and the Scenes list shows only the settings of the mode', async ({ browser }) => {
+  const ctx = await desktop(browser);
+  const gm = await open(ctx, 'pick-gm');
+  await gm.getByTestId('nav-scene').click();
+  await gm.getByTestId('mode-scene').click();
+  const name = `Plain-${uid()}`;
+  await gm.getByTestId('open-scenes').click();
+  await gm.getByTestId('new-scene').click();
+  await gm.getByLabel('Name').fill(name);
+  await gm.getByTestId('scene-file').setInputFiles(await wideMap(gm));
+  await expect(gm.getByTestId('scene-fit-new')).toHaveValue('fit'); // Best Fit unless chosen
+  await gm.getByRole('button', { name: 'Create' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
+  const row = gm.getByTestId('scene-row').filter({ hasText: name });
+  await row.getByRole('button').first().click();
+  await row.getByTestId('activate-scene').click();
+
+  // Uploaded at its own size, as WebP.
+  const bg = gm.getByTestId('scene-background');
+  await expect(bg).toBeVisible();
+  expect(await bg.evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([2600, 1300]);
+  const type = await bg.evaluate(async (img) => (await fetch(img.src)).headers.get('content-type'));
+  expect(['image/webp', 'image/jpeg']).toContain(type);
+
+  // Best Fit: the whole picture is on the screen (a band of black above and below this wide one).
+  const area = await gm.getByTestId('scene-page').boundingBox();
+  const fitted = async () => bg.boundingBox();
+  let b = await fitted();
+  expect(b.width).toBeCloseTo(area.width, 0);
+  expect(b.height).toBeLessThan(area.height - 10);
+  expect(b.y).toBeGreaterThan(area.y + 4);
+
+  // The Scenes list (Scene mode) has the picture's settings, not the battle map's; Fill and Stretch change it at once.
+  await expect(row.getByTestId('background-button')).toBeVisible();
+  await expect(row.getByTestId('battle-map-button')).toHaveCount(0);
+  await row.getByTestId('scene-fit').selectOption('fill');
+  await expect(gm.getByTestId('scene-world')).toHaveAttribute('data-fit', 'fill');
+  b = await fitted();
+  expect(b.height).toBeCloseTo(area.height, 0);
+  expect(b.width).toBeGreaterThan(area.width + 10);
+  await row.getByTestId('scene-fit').selectOption('stretch');
+  await expect(gm.getByTestId('scene-world')).toHaveAttribute('data-fit', 'stretch');
+  b = await fitted();
+  expect(b.width).toBeCloseTo(area.width, 0);
+  expect(b.height).toBeCloseTo(area.height, 0);
+
+  // In Battle mode the same row has the battle map's settings instead (no Stretch there).
+  await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
+  await gm.getByTestId('mode-battle').click();
+  await gm.getByTestId('open-scenes').click();
+  await row.getByRole('button').first().click();
+  await expect(row.getByTestId('battle-map-button')).toBeVisible();
+  await expect(row.getByTestId('background-button')).toHaveCount(0);
+  await expect(row.getByTestId('battle-fit').locator('option')).toHaveCount(2);
+  await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
+  await gm.getByTestId('mode-scene').click();
+  await ctx.close();
+});

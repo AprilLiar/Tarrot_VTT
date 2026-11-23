@@ -63,6 +63,9 @@ const COLUMNS = [
     after: 'UPDATE pictures SET scale = COALESCE((SELECT s.scale FROM stage_summons s WHERE s.picture_id = pictures.id ORDER BY s.id DESC LIMIT 1), 1)',
   },
   { table: 'stage_summons', column: 'silhouette', ddl: 'silhouette INTEGER NOT NULL DEFAULT 0' },
+  // How the Scene picture and the Battle map fit a screen of another shape (shared/fits.js): Best Fit for every scene at first.
+  { table: 'scenes', column: 'scene_fit', ddl: "scene_fit TEXT NOT NULL DEFAULT 'fit'" },
+  { table: 'scenes', column: 'battle_fit', ddl: "battle_fit TEXT NOT NULL DEFAULT 'fit'" },
 ];
 
 export async function initSchema(db) {

@@ -119,13 +119,14 @@ test('Combat lines and server errors are shown in the language of each reader', 
   await expect(gm.getByRole('dialog')).toBeHidden();
   const row = gm.getByTestId('scene-row').filter({ hasText: scene });
   await row.getByRole('button').first().click();
-  await row.getByTestId('battle-map-button').click();
-  await gm.getByTestId('battle-file').setInputFiles(await art(gm, 'map'));
-  await gm.getByRole('button', { name: 'Загрузить' }).click();
-  await expect(gm.getByRole('dialog')).toBeHidden();
   await row.getByTestId('activate-scene').click();
   await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Закрыть' }).click();
   await gm.getByTestId('mode-battle').click();
+  // With no battle map yet, the empty Battle view has the button to set one.
+  await gm.getByTestId('set-battle-map').click();
+  await gm.getByTestId('battle-file').setInputFiles(await art(gm, 'map'));
+  await gm.getByRole('button', { name: 'Загрузить' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
 
   // Starting a combat with nobody on the map is refused: the error is in Russian.
   await gm.getByTestId('combat-start').click();

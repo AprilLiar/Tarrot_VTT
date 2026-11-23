@@ -5,7 +5,8 @@ import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { cellToUnits, dropCell, pointAt, rulerDistance, rulerEnd, snapHalf, templateShape, toUnits } from '../../lib/battleMath.js';
-import Dialog, { btn, btnDanger } from '../Dialog.jsx';
+import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
+import { BattleMapDialog } from './SceneDrawers.jsx';
 import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 import { HeightControl } from './HeightControl.jsx';
@@ -225,12 +226,14 @@ export default function BattleView() {
   const [drag, setDrag] = useState(null); // { id, u, v } a token being dragged (picture fractions)
   const [drawMode, setDrawMode] = useState('pen'); // 'pen' | 'eraser'
   const [heightFor, setHeightFor] = useState(null); // id of the token whose height is being set
+  const [mapDialog, setMapDialog] = useState(false); // the GM sets the battle map of a scene that has none
   const erasing = useRef({ busy: false, pending: null, last: null });
 
   const aspect = battle?.aspect ?? 1;
   const ready = !!(scene && battle?.imageId);
-  // The picture is shown whole, as large as fits.
-  const fw = Math.min(w, h * aspect);
+  // Best Fit: the picture is shown whole, as large as fits (black bars beside it); Fill: it covers the screen and what sticks out is cut off.
+  const fill = battle?.fit === 'fill';
+  const fw = fill ? Math.max(w, h * aspect) : Math.min(w, h * aspect);
   const fh = fw / aspect;
   const unit = battle ? battle.grid.cell : 0.05; // one square, in picture widths
   const ppu = fw || 1; // pixels per picture width
@@ -513,6 +516,7 @@ export default function BattleView() {
             ref={mapRef}
             className="relative shrink-0"
             data-testid="battle-map"
+            data-fit={fill ? 'fill' : 'fit'}
             style={{ width: fw, height: fh, '--map-w': `${fw}px`, cursor: tools && tool !== 'select' ? 'crosshair' : undefined }}
             onPointerDown={surfaceDown}
             onPointerMove={surfaceMove}
@@ -710,16 +714,22 @@ export default function BattleView() {
       </div>
 
       {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center p-6 text-center" data-testid="no-battle-map">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="no-battle-map">
           <p className="text-lg opacity-70">
             {!scene
               ? isGm
                 ? t('No scene is active. Open Scenes to start one.')
                 : t('Waiting for the GM to start a scene.')
               : isGm
-                ? t('This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map.')
+                ? t('This scene has no battle map yet.')
                 : t('The GM has not set up a battle map for this scene yet.')}
           </p>
+          {isGm && scene && (
+            <button className={btnPrimary} data-testid="set-battle-map" onClick={() => setMapDialog(true)}>
+              {t('Set battle map')}
+            </button>
+          )}
+          {mapDialog && scene && <BattleMapDialog scene={scene} onClose={() => setMapDialog(false)} />}
         </div>
       )}
 

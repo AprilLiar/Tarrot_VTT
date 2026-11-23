@@ -734,6 +734,14 @@ Light-novel style: a fullscreen background with character art standing along the
 - **Summoning:** the GM can summon or dismiss anyone; a player can summon or dismiss only their own
   PC (from the sheet, on any device). Summons belong to a scene: each scene keeps its own cast, and
   the GM can only summon into the active scene.
+- **Fit (decided):** a Scene picture or Battle map whose shape differs from the screen is shown by its **fit**, chosen when it is
+  uploaded and changed at any time in the Scenes list: **Best Fit** (the default for every scene, old ones too: the whole picture is
+  visible, black bars fill the leftover sides), **Fill** (covers the screen, the parts that stick out are cut off; what Scenes did
+  before) and **Stretch** (the screen's shape; Scene pictures only, as it would make a battle grid's squares into rectangles). Each
+  screen fits the picture to its own shape; figures, tokens and the grid stay on the picture.
+- **Scenes list follows the mode (decided):** a scene's row shows only the settings of the mode the table is in: in Scene mode the
+  Background (with its fit), in Battle mode the Battle map (with its fit). The mode itself is changed only with the Scene / Battle switch
+  at the top (GM). In Battle mode a scene with no battle map shows a **Set battle map** button in the middle of the screen (GM).
 - **Scenes** are foldered (nested folders, like the roster) and each has a background picture. The
   GM activates one at a time; the Display and desktop players see the change live. Nobody is
   force-navigated. With no active scene the Display shows a waiting message.
@@ -749,8 +757,8 @@ Light-novel style: a fullscreen background with character art standing along the
 Decided:
 - The GM (desktop) toggles **Scene / Battle** in the scene chrome; the mode is shared, so the Display
   and desktop players follow it. Each scene has a Scene picture and a separate **Battle map** picture
-  (uploaded from the Scenes drawer). The mode outlives scene changes.
-- The map is shown whole, as large as fits, with the same local zoom and pan as the Scene.
+  (uploaded from the Scenes list in Battle mode, or with Set battle map on the empty Battle view). The mode outlives scene changes.
+- The map is shown by its fit (Best Fit: whole, as large as fits; or Fill), with the same local zoom and pan as the Scene.
 - **Grid:** square. Each scene stores the cell size and offset as fractions of the picture (default
   cell 1/20 of the width). The GM sets it live over the map in the Grid panel, **in pixels of the battle
   picture itself** (decided): the side of a square, and the shift right and down, each with - and +
@@ -1313,13 +1321,16 @@ combinations and calculations live in Turso. (decided)
 
 ### Images (implemented in Phase 4a)
 Stored in Turso and served as immutable, cacheable URLs (`GET /api/images/:id`). Ids are random, so
-a hidden character's picture cannot be guessed. The browser resizes and re-encodes every upload
-before sending it (`client/src/lib/image.js`): backgrounds fit 1920x1200 as JPEG; character art
-fits 1200x1400 and keeps transparency as WebP, or PNG on browsers that cannot encode WebP (Safari).
-The server accepts PNG, JPEG or WebP (checked by their first bytes) up to 3 MB and never decodes
-them. Uploads travel over the socket so the sender's permission is checked; the socket limit is
-5 MB. Images nothing points to any more (no scene, Picture or Portrait) are deleted. These limits are my defaults; tell me if you
-want different ones. (decided by me, open to change)
+a hidden character's picture cannot be guessed. The browser re-encodes every upload before sending it (`client/src/lib/image.js`):
+- **Backgrounds (Scene pictures and Battle maps) keep their own resolution (decided):** they are **not shrunk** (only a picture over
+  8192 pixels on a side, more than browsers can draw, is brought down to that), and are re-encoded as **WebP at quality 0.75**, slightly
+  lossy but much smaller, after Foundry's Media Optimizer module (JPEG at 0.75 on browsers that cannot encode WebP, like Safari).
+  There is **no upload limit** for people to meet: the server's only ceiling is 60 MB per image (the socket carries 64 MB), which a
+  re-encoded map does not reach.
+- Character art (Pictures, Portraits, tokens) fits 1200x1400 and keeps transparency as WebP, or PNG on browsers that cannot encode
+  WebP (Safari), at most 3 MB.
+The server accepts PNG, JPEG or WebP (checked by their first bytes) and never decodes them. Uploads travel over the socket so the
+sender's permission is checked. Images nothing points to any more (no scene, Picture or Portrait) are deleted.
 
 ## Data model
 
@@ -1351,7 +1362,7 @@ Implemented:
 
 - `effect_defs(id, data, position)` (the global Effects) and `basic_actions(id, data, position)` (the Basic Actions; `data` holds `name, description, icon, ap, roll, effects, statuses, help`); the shipped ones are put in once (a `meta` row remembers it).
 - `images(id, mime, data, bytes)`: random 32-hex id, stored as a BLOB.
-- `scene_folders`, `scenes(id, name, folder_id, scene_image_id, battle_image_id)` (the Battle
+- `scene_folders`, `scenes(id, name, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit)` (`scene_fit` and `battle_fit`: see Fit; the Battle
   image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.
 - `temp_npc_folders`, `temp_npcs(id, name, folder_id)`.
 - `pictures(id, character_id | temp_npc_id, image_id, name, position, scale)`: exactly one owner. `scale` (0.3 to 2, default 1) is the size of every Scene figure showing the picture.
@@ -1466,7 +1477,8 @@ Battle (Phase 5a):
   `{ imageId, aspect, grid: { cell, ox, oy }, showGrid, cols, rows, tokens: [{ id, ownerKind, ownerId, name,
   pictureId, imageId, col, row, size, hidden, prop, bank, targetedBy }], marks, targetId? }`; hidden
   tokens are removed for everyone but the GM. A change to a sheet's `size` re-broadcasts the stage.
-- GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect }`,
+- GM only: `battle:mode` `{ mode }`, `scene:set_battle_image` `{ id, data, aspect, fit? }`, `scene:set_fit` `{ id, which: 'scene' | 'battle', fit }` (the
+  fit of either picture; `scene:create` and `scene:set_image` also take `fit`; error `bad_value` for an unknown or, for a Battle map, Stretch fit),
   `scene:set_grid` `{ id, cell, ox, oy }`, `battle:add` `{ owner, pictureId? }`, `battle:remove`
   `{ id }` (GM and Display), `battle:update` `{ id, pictureId?, hidden?, height?, heightBy? }` (GM and Display; a player only `height` or `heightBy`, for their own PC; `heightBy` is `1` or `-1` and the server adds it in one statement, kept between 0 and 99, so quick taps on Up and Down never lose a step; Reset sends `height: 0`), `battle:clear_bank` `{ id }`,
   `temp_npc:set_size` `{ id, size }`.

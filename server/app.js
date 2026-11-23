@@ -67,7 +67,7 @@ export function createServer({ db, fetchTitle } = {}) {
 
   const httpServer = http.createServer(app);
   // Uploads travel over the socket (so the sender's identity is checked): allow a few MB.
-  const io = new Server(httpServer, { maxHttpBufferSize: 5 * 1024 * 1024 });
+  const io = new Server(httpServer, { maxHttpBufferSize: 64 * 1024 * 1024 }); // full-resolution maps travel over the socket
 
   // Per-instance state that is deliberately not in the database: the chat log
   // (clears on restart), pending trade offers and what is playing (stops on restart).

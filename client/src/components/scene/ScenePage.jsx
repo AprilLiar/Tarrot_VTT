@@ -281,11 +281,14 @@ function SceneView() {
     setNat(null);
   }, [stage.scene?.imageId]);
 
-  // The picture is scaled to cover the screen (centred, cropped); figures are placed on that picture.
-  const cover = nat && w && h ? Math.max(w / nat.w, h / nat.h) : null;
-  const box = cover
-    ? { w: nat.w * cover, h: nat.h * cover, left: (w - nat.w * cover) / 2, top: (h - nat.h * cover) / 2 }
-    : { w, h, left: 0, top: 0 };
+  // The picture is fitted to the screen as the scene says (shared/fits.js): Best Fit (all of it, black bars), Fill (covers the screen,
+  // cropped) or Stretch (the screen's shape). Figures are placed on that picture.
+  const fit = stage.scene?.fit ?? 'fit';
+  const k = nat && w && h ? (fit === 'fill' ? Math.max(w / nat.w, h / nat.h) : Math.min(w / nat.w, h / nat.h)) : null;
+  const box =
+    k && fit !== 'stretch'
+      ? { w: nat.w * k, h: nat.h * k, left: (w - nat.w * k) / 2, top: (h - nat.h * k) / 2 }
+      : { w, h, left: 0, top: 0 };
 
   // A figure nobody has dragged yet stands in the visible part of the picture: PCs from the left,
   // everyone else from the right, one slot after another.
@@ -312,6 +315,7 @@ function SceneView() {
       <div
         className="absolute inset-0 origin-top-left"
         data-testid="scene-world"
+        data-fit={fit}
         data-pan-surface
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >

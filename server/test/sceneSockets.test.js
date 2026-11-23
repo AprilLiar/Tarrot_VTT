@@ -117,7 +117,9 @@ describe('images', () => {
       ok: false,
       code: 'bad_image',
     });
-    expect(await g.call('picture:add', { characterId: id, data: png(3.5 * 1024 * 1024) })).toMatchObject({
+    // A big map keeps its own resolution: a few megabytes are fine. Only what the socket could not carry is refused.
+    expect((await g.call('picture:add', { characterId: id, data: png(3.5 * 1024 * 1024) })).ok).toBe(true);
+    expect(await g.call('picture:add', { characterId: id, data: png(61 * 1024 * 1024) })).toMatchObject({
       ok: false,
       code: 'image_too_large',
     });
@@ -610,5 +612,28 @@ describe('Silhouette', () => {
     expect((await d.call('stage:get')).stage.summons[0].tarot).toBe(true);
     await g.call('stage:update', { id: on, silhouette: true });
     expect((await d.call('stage:get')).stage.summons[0].tarot).toBe(false);
+  });
+});
+
+describe('how a scene picture fits the screen', () => {
+  it('is Best Fit unless chosen; the Scene picture may Fill or Stretch, the Battle map only Fill', async () => {
+    const g = await gm();
+    const id = (await g.call('scene:create', { name: 'Tavern', data: png() })).id;
+    await g.call('scene:activate', { id });
+    const stage = async () => (await g.call('stage:get')).stage;
+    expect((await stage()).scene.fit).toBe('fit');
+    expect((await g.call('scene:set_fit', { id, which: 'scene', fit: 'stretch' })).ok).toBe(true);
+    expect((await stage()).scene.fit).toBe('stretch');
+    expect(await g.call('scene:set_fit', { id, which: 'battle', fit: 'stretch' })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await g.call('scene:set_fit', { id, which: 'scene', fit: 'zoom' })).toMatchObject({ ok: false, code: 'bad_value' });
+    await g.call('scene:set_battle_image', { id, data: png(), aspect: 2, fit: 'fill' });
+    expect((await stage()).battle.fit).toBe('fill');
+    const other = (await g.call('scene:create', { name: 'Road', data: png(), fit: 'fill' })).id;
+    await g.call('scene:activate', { id: other });
+    expect((await stage()).scene.fit).toBe('fill');
+    await g.call('scene:set_image', { id: other, data: png(1), fit: 'fit' });
+    expect((await stage()).scene.fit).toBe('fit');
+    const d = await display();
+    expect(await d.call('scene:set_fit', { id, which: 'scene', fit: 'fill' })).toMatchObject({ ok: false, code: 'forbidden' });
   });
 });

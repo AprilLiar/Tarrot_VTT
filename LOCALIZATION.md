@@ -664,8 +664,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | +{n} sp. | +{n} кл. |
 | No scene is active. Open Scenes to start one. | Нет активной сцены. Откройте «Сцены», чтобы запустить одну. |
 | Waiting for the GM to start a scene. | Ждём, когда мастер запустит сцену. |
-| This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map. | У этой сцены пока нет боевой карты. Откройте «Сцены», выберите сцену и добавьте боевую карту. |
+| This scene has no battle map yet. | У этой сцены пока нет боевой карты. |
 | The GM has not set up a battle map for this scene yet. | Мастер ещё не настроил боевую карту для этой сцены. |
+| Set battle map | Задать боевую карту |
 | {n} squares | клеток: {n} |
 | Zoom out | Отдалить |
 | Zoom in | Приблизить |
@@ -734,6 +735,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add pictures | Добавить картинки |
 | Copy from Portrait | Копировать из портрета |
 | Rename picture | Переименовать картинку |
+| Fit | Вписывание |
+| Best Fit shows the whole picture with black bars; Fill covers the screen and cuts off the edges; Stretch takes the shape of the screen. | «Целиком» показывает всю картинку с чёрными полосами; «Заполнить» закрывает весь экран и обрезает края; «Растянуть» подгоняет картинку под форму экрана. |
 | New scene | Новая сцена |
 | Background: {name} | Фон: {name} |
 | Choose a background picture | Выберите фоновую картинку |
@@ -749,9 +752,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Active | Активна |
 | Deactivate | Выключить |
 | Activate | Включить |
-| Background | Фон |
 | Battle map (set) | Боевая карта (есть) |
 | Battle map | Боевая карта |
+| Background | Фон |
 | Delete scene | Удалить сцену |
 | Delete {name} and everyone standing on it? This cannot be undone. | Удалить сцену {name} и всех, кто на ней стоит? Это нельзя отменить. |
 | New temp NPC | Новый временный НПС |
@@ -1178,7 +1181,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid token. | Неверная фишка. |
 | That token is no longer on the map. | Этой фишки больше нет на карте. |
 | There is no active scene. | Нет активной сцены. |
-| This scene has no battle map yet. | У этой сцены пока нет боевой карты. |
 | Add a picture first. | Сначала добавьте картинку. |
 | That picture does not belong to this character. | Эта картинка не принадлежит этому персонажу. |
 | Already on the map. | Уже на карте. |
@@ -1315,6 +1317,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Size must be from 1 to {max} squares. | Размер должен быть от 1 до {max} клеток. |
 | Invalid scene. | Неверная сцена. |
 | That scene no longer exists. | Этой сцены больше нет. |
+| Unknown fit. | Неизвестный способ вписывания. |
 | The picture has an unusable shape. | У картинки неподходящая форма. |
 | That grid does not fit. | Такая сетка не подходит. |
 | That grid leaves no room on the picture. | При такой сетке на картинке не остаётся места. |
@@ -1455,6 +1458,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Magic attacks | Магические атаки |
 | Manifest attacks | Атаки проявления |
 | Initiative | Инициатива |
+| Best Fit | Целиком |
+| Fill | Заполнить |
+| Stretch | Растянуть |
 | Custom | Свой |
 | Unknown stat. | Неизвестная характеристика. |
 | That stat has no Save. | У этой характеристики нет спасброска. |
@@ -1480,6 +1486,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map. | У этой сцены пока нет боевой карты. Откройте «Сцены», выберите сцену и добавьте боевую карту. |
 | Reset spot | Сбросить место |
 | No pictures yet. Add one with the Pictures button. | Картинок пока нет. Добавьте одну кнопкой «Картинки». |
 | Pictures: {name} | Картинки: {name} |

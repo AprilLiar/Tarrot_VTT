@@ -7,6 +7,7 @@ import { LibraryTree } from './LibraryTree.jsx';
 import { uploadPicture, usePictures } from './Pictures.jsx';
 import { useT } from '../../i18n.jsx';
 import { T } from '../../../../shared/localization.js';
+import { BATTLE_FITS, DEFAULT_FIT, FIT_LABELS, SCENE_FITS } from '../../../../shared/fits.js';
 
 // GM-only side panels over the scene: Scenes (right) and Cast (left).
 
@@ -52,10 +53,33 @@ function useImagePicker(kind) {
   };
 }
 
+// How a picture of another shape than the screen is shown (shared/fits.js). `inline`: a small select for a list row.
+function FitSelect({ value, onChange, fits, testId, inline = false }) {
+  const t = useT();
+  const select = (
+    <select className={inline ? `${btn} px-2` : input} data-testid={testId} aria-label={t('Fit')} value={value} onChange={(e) => onChange(e.target.value)}>
+      {fits.map((f) => (
+        <option key={f} value={f}>
+          {t(FIT_LABELS[f])}
+        </option>
+      ))}
+    </select>
+  );
+  if (inline) return select;
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      {t('Fit')}
+      {select}
+      <span className="text-xs opacity-60">{t('Best Fit shows the whole picture with black bars; Fill covers the screen and cuts off the edges; Stretch takes the shape of the screen.')}</span>
+    </label>
+  );
+}
+
 function NewSceneDialog({ folders, folderId, onClose }) {
   const t = useT();
   const [name, setName] = useState('');
   const [folder, setFolder] = useState(folderId);
+  const [fit, setFit] = useState(DEFAULT_FIT);
   const pick = useImagePicker('background');
   return (
     <ActionDialog
@@ -72,7 +96,7 @@ function NewSceneDialog({ folders, folderId, onClose }) {
             return { ok: false, error: t(err.message) };
           }
         }
-        return call('scene:create', { name, folderId: folder, data });
+        return call('scene:create', { name, folderId: folder, data, fit });
       }}
     >
       <NameField label={t('Name')} value={name} onChange={setName} />
@@ -81,6 +105,7 @@ function NewSceneDialog({ folders, folderId, onClose }) {
       <button type="button" className={btn} data-testid="choose-background" onClick={pick.open}>
         {pick.file ? t('Background: {name}', { name: pick.file.name }) : t('Choose a background picture')}
       </button>
+      <FitSelect value={fit} onChange={setFit} fits={SCENE_FITS} testId="scene-fit-new" />
     </ActionDialog>
   );
 }
@@ -114,6 +139,7 @@ function MoveDialog({ title, folders, current, run, onClose }) {
 function BackgroundDialog({ scene, onClose }) {
   const t = useT();
   const pick = useImagePicker('background');
+  const [fit, setFit] = useState(scene.fit ?? DEFAULT_FIT);
   return (
     <ActionDialog
       title={t('Background: {name}', { name: scene.name })}
@@ -122,7 +148,7 @@ function BackgroundDialog({ scene, onClose }) {
       canSubmit={!!pick.file}
       run={async () => {
         try {
-          return call('scene:set_image', { id: scene.id, data: await pick.prepare() });
+          return call('scene:set_image', { id: scene.id, data: await pick.prepare(), fit });
         } catch (err) {
           return { ok: false, error: t(err.message) };
         }
@@ -132,14 +158,16 @@ function BackgroundDialog({ scene, onClose }) {
       <button type="button" className={btn} onClick={pick.open}>
         {pick.file ? pick.file.name : t('Choose a new background picture')}
       </button>
+      <FitSelect value={fit} onChange={setFit} fits={SCENE_FITS} testId="scene-fit-upload" />
     </ActionDialog>
   );
 }
 
 // A battle map is a picture of the place seen from above; its shape is kept so the grid fits.
-function BattleMapDialog({ scene, onClose }) {
+export function BattleMapDialog({ scene, onClose }) {
   const t = useT();
   const [file, setFile] = useState(null);
+  const [fit, setFit] = useState(scene.battleFit ?? DEFAULT_FIT);
   const ref = useRef(null);
   return (
     <ActionDialog
@@ -150,7 +178,7 @@ function BattleMapDialog({ scene, onClose }) {
       run={async () => {
         try {
           const { data, width, height } = await prepareImageInfo(file, 'background');
-          return call('scene:set_battle_image', { id: scene.id, data, aspect: width / height });
+          return call('scene:set_battle_image', { id: scene.id, data, aspect: width / height, fit });
         } catch (err) {
           return { ok: false, error: t(err.message) };
         }
@@ -160,6 +188,7 @@ function BattleMapDialog({ scene, onClose }) {
       <button type="button" className={btn} onClick={() => ref.current?.click()}>
         {file ? file.name : t('Choose the battle map picture')}
       </button>
+      <FitSelect value={fit} onChange={setFit} fits={BATTLE_FITS} testId="battle-fit-upload" />
       <p className="text-xs opacity-60">{t('After uploading, switch to Battle and use Set grid to line the squares up with the map.')}</p>
     </ActionDialog>
   );
@@ -180,6 +209,8 @@ export function ScenesDrawer({ onClose }) {
   const done = () => setDialog(null);
   if (!library) return <Drawer title={t('Scenes')} side="right" onClose={onClose}>{t('Loading...')}</Drawer>;
   const activeId = stage.scene?.id ?? null;
+  // A scene's row shows only the settings of the mode the table is in: the Scene picture in Scene mode, the Battle map in Battle mode.
+  const battleMode = stage.mode === 'battle';
 
   return (
     <Drawer title={t('Scenes')} side="right" onClose={onClose} testId="scenes-drawer">
@@ -212,12 +243,21 @@ export function ScenesDrawer({ onClose }) {
                 <button className={btn} onClick={() => setDialog({ kind: 'rename', scene })}>
                   {t('Rename')}
                 </button>
-                <button className={btn} onClick={() => setDialog({ kind: 'background', scene })}>
-                  {t('Background')}
-                </button>
-                <button className={btn} data-testid="battle-map-button" onClick={() => setDialog({ kind: 'battle-map', scene })}>
-                  {scene.battleImageId ? t('Battle map (set)') : t('Battle map')}
-                </button>
+                {battleMode ? (
+                  <>
+                    <button className={btn} data-testid="battle-map-button" onClick={() => setDialog({ kind: 'battle-map', scene })}>
+                      {scene.battleImageId ? t('Battle map (set)') : t('Battle map')}
+                    </button>
+                    <FitSelect inline value={scene.battleFit ?? DEFAULT_FIT} fits={BATTLE_FITS} testId="battle-fit" onChange={(fit) => call('scene:set_fit', { id: scene.id, which: 'battle', fit })} />
+                  </>
+                ) : (
+                  <>
+                    <button className={btn} data-testid="background-button" onClick={() => setDialog({ kind: 'background', scene })}>
+                      {t('Background')}
+                    </button>
+                    <FitSelect inline value={scene.fit ?? DEFAULT_FIT} fits={SCENE_FITS} testId="scene-fit" onChange={(fit) => call('scene:set_fit', { id: scene.id, which: 'scene', fit })} />
+                  </>
+                )}
                 <button className={btn} onClick={() => setDialog({ kind: 'move', scene })}>
                   {t('Move')}
                 </button>

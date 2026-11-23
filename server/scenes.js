@@ -1,4 +1,5 @@
 import { AppError } from './errors.js';
+import { BATTLE_FITS, DEFAULT_FIT, SCENE_FITS, cleanFit } from '../shared/fits.js';
 import { cleanName } from './roster.js';
 import { makeFolders } from './folders.js';
 import { deleteImageIfUnused } from './images.js';
@@ -230,7 +231,9 @@ const toScene = (r) => ({
   name: r.name,
   folderId: n(r.folder_id),
   imageId: r.scene_image_id ?? null,
+  fit: cleanFit(r.scene_fit, SCENE_FITS),
   battleImageId: r.battle_image_id ?? null,
+  battleFit: cleanFit(r.battle_fit, BATTLE_FITS),
   // width / height of the battle picture, sent by the browser when it is uploaded
   battleAspect: r.battle_aspect == null ? null : Number(r.battle_aspect),
   // Whether the grid is drawn, for everybody, until it is changed.
@@ -242,7 +245,7 @@ const toScene = (r) => ({
   },
 });
 
-const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, battle_image_id, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid';
+const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid';
 
 // How many cells cover the battle picture with the current grid. A square that only partly fits on the picture
 // (at the right or bottom edge) counts too, and the grid may start before the picture's top left corner
@@ -269,12 +272,12 @@ export async function getScene(db, id) {
   return toScene(r.rows[0]);
 }
 
-export async function createScene(db, { name, folderId = null, imageId = null }) {
+export async function createScene(db, { name, folderId = null, imageId = null, fit }) {
   const clean = cleanName(name);
   const folder = await sceneFolders.orRoot(db, folderId);
   const r = await db.execute({
-    sql: 'INSERT INTO scenes (name, folder_id, scene_image_id) VALUES (?, ?, ?)',
-    args: [clean, folder, imageId],
+    sql: 'INSERT INTO scenes (name, folder_id, scene_image_id, scene_fit) VALUES (?, ?, ?, ?)',
+    args: [clean, folder, imageId, checkFit(fit, SCENE_FITS)],
   });
   return Number(r.lastInsertRowid);
 }
@@ -294,6 +297,20 @@ export async function setSceneImage(db, id, imageId) {
   const scene = await getScene(db, id);
   await db.execute({ sql: 'UPDATE scenes SET scene_image_id = ? WHERE id = ?', args: [imageId, id] });
   await deleteImageIfUnused(db, scene.imageId);
+}
+
+// The fit of the Scene picture (`which` 'scene') or of the Battle map ('battle'). Leaving it out keeps Best Fit.
+function checkFit(fit, allowed) {
+  if (fit === undefined || fit === null) return DEFAULT_FIT;
+  if (!allowed.includes(fit)) throw new AppError('bad_value', 'Unknown fit.');
+  return fit;
+}
+
+export async function setFit(db, id, which, fit) {
+  await getScene(db, id);
+  if (which !== 'scene' && which !== 'battle') throw new AppError('bad_value', 'Unknown fit.');
+  const value = checkFit(fit, which === 'scene' ? SCENE_FITS : BATTLE_FITS);
+  await db.execute({ sql: `UPDATE scenes SET ${which === 'scene' ? 'scene_fit' : 'battle_fit'} = ? WHERE id = ?`, args: [value, id] });
 }
 
 export async function setBattleImage(db, id, imageId, aspect) {
@@ -415,7 +432,7 @@ export async function buildStage(db, { forGm }) {
       };
     })
     .filter((s) => forGm || !s.hidden);
-  return { scene: { id: scene.id, name: scene.name, imageId: scene.imageId }, summons };
+  return { scene: { id: scene.id, name: scene.name, imageId: scene.imageId, fit: scene.fit }, summons };
 }
 
 async function getSummon(db, id) {

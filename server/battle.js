@@ -489,6 +489,7 @@ export async function buildBattle(db, { forGm, targets, combat = null }) {
   return {
     imageId: scene.battleImageId,
     aspect: scene.battleAspect,
+    fit: scene.battleFit,
     grid: scene.grid,
     showGrid: scene.showGrid,
     cols,

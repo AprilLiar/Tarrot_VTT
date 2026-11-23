@@ -114,7 +114,7 @@ export function registerSceneHandlers(ctx) {
   gmLibrary('scene:create', async (p) => {
     const imageId = p.data ? await storeImage(db, p.data) : null;
     try {
-      return { id: await scenes.createScene(db, { name: p.name, folderId: p.folderId ?? null, imageId }) };
+      return { id: await scenes.createScene(db, { name: p.name, folderId: p.folderId ?? null, imageId, fit: p.fit }) };
     } catch (err) {
       await deleteImageIfUnused(db, imageId);
       throw err;
@@ -124,8 +124,14 @@ export function registerSceneHandlers(ctx) {
   gmLibrary('scene:move', (p) => scenes.moveScene(db, p.id, p.folderId ?? null));
   gmLibrary('scene:set_image', async (p) => {
     await scenes.getScene(db, p.id);
+    if (p.fit !== undefined) await scenes.setFit(db, p.id, 'scene', p.fit);
     const imageId = await storeImage(db, p.data);
     await scenes.setSceneImage(db, p.id, imageId);
+    await broadcastStage();
+  });
+  // How the Scene picture ('scene') or the Battle map ('battle') fits the screen; changed at any time from the Scenes list.
+  gmLibrary('scene:set_fit', async (p) => {
+    await scenes.setFit(db, p.id, p.which, p.fit);
     await broadcastStage();
   });
   gmLibrary('scene:delete', async (p) => {
@@ -271,6 +277,7 @@ export function registerSceneHandlers(ctx) {
 
   gmLibrary('scene:set_battle_image', async (p) => {
     await scenes.getScene(db, p.id);
+    if (p.fit !== undefined) await scenes.setFit(db, p.id, 'battle', p.fit);
     const imageId = await storeImage(db, p.data);
     try {
       await scenes.setBattleImage(db, p.id, imageId, p.aspect);

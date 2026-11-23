@@ -1,15 +1,17 @@
-// Every uploaded image is resized and re-encoded in the browser before it is
-// sent, so the database stays small and the server never has to decode images.
-// Backgrounds become JPEG (opaque); character art keeps its transparency as
-// WebP, or PNG on browsers that cannot encode WebP (Safari).
+// Every uploaded image is re-encoded in the browser before it is sent, so the database stays small and the server never has to decode
+// images. Backgrounds (Scene pictures and Battle maps) keep their own resolution (up to 8192 pixels a side, what browsers can draw) and
+// become WebP at quality 0.75, slightly lossy but much smaller (JPEG at 0.75 on browsers that cannot encode WebP, like Safari), after
+// Foundry's Media Optimizer. Character art is resized to fit 1200x1400 and keeps its transparency as WebP, or PNG.
 
 import { T } from '../../../shared/localization.js';
 
 export const IMAGE_LIMITS = {
-  background: { maxWidth: 1920, maxHeight: 1200 },
+  background: { maxWidth: 8192, maxHeight: 8192 },
   character: { maxWidth: 1200, maxHeight: 1400 },
 };
-export const MAX_BYTES = 3 * 1024 * 1024;
+// The most one upload may weigh after re-encoding (a background only reaches it when it is enormous; it is then made smaller step by step).
+export const MAX_BYTES = { background: 60 * 1024 * 1024, character: 3 * 1024 * 1024 };
+const BACKGROUND_QUALITY = 0.75;
 
 function load(file) {
   return new Promise((resolve, reject) => {
@@ -59,12 +61,13 @@ export async function prepareImageInfo(file, kind) {
     ctx.drawImage(img, 0, 0, width, height);
     let blob;
     if (kind === 'background') {
-      blob = await toBlob(canvas, 'image/jpeg', 0.85);
+      blob = await toBlob(canvas, 'image/webp', BACKGROUND_QUALITY);
+      if (!blob || blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/jpeg', BACKGROUND_QUALITY);
     } else {
       blob = await toBlob(canvas, 'image/webp', 0.9);
       if (!blob || blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/png');
     }
-    if (blob && blob.size <= MAX_BYTES) return { data: await blob.arrayBuffer(), width, height };
+    if (blob && blob.size <= MAX_BYTES[kind]) return { data: await blob.arrayBuffer(), width, height };
     shrink *= 0.8;
   }
   throw new Error(T('That image is too large even after resizing. Try a smaller one.'));

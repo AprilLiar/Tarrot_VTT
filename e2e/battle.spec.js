@@ -55,13 +55,14 @@ async function battleScene(gm, name) {
   await expect(gm.getByRole('dialog')).toBeHidden();
   const row = gm.getByTestId('scene-row').filter({ hasText: name });
   await row.getByRole('button').first().click();
-  await row.getByTestId('battle-map-button').click();
-  await gm.getByTestId('battle-file').setInputFiles(await art(gm, 'map'));
-  await gm.getByRole('button', { name: 'Upload' }).click();
-  await expect(gm.getByRole('dialog')).toBeHidden();
   await row.getByTestId('activate-scene').click();
   await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
   await gm.getByTestId('mode-battle').click();
+  // With no battle map yet, the empty Battle view has the button to set one.
+  await gm.getByTestId('set-battle-map').click();
+  await gm.getByTestId('battle-file').setInputFiles(await art(gm, 'map'));
+  await gm.getByRole('button', { name: 'Upload' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
   await expect(gm.getByTestId('battle-map')).toBeVisible();
   await gm.getByTestId('open-grid').click();
   // The size is in pixels of the picture: a tenth of its width makes a 10 x 5 grid on the 2:1 map.

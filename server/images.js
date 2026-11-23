@@ -7,7 +7,9 @@ import { AppError } from './errors.js';
 // are not too large. Ids are random, so an image URL cannot be guessed; a
 // picture of a hidden token is therefore not reachable until it is revealed.
 
-export const IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+// Not a limit people should meet: maps keep their own resolution (see the README, "Images"); this only keeps one message within what the
+// socket carries.
+export const IMAGE_MAX_BYTES = 60 * 1024 * 1024;
 
 export const IMAGE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS images (
