@@ -6,6 +6,9 @@ import { useT } from '../i18n.jsx';
 // temp NPC libraries.
 
 // Flatten the folder tree into [{ folder, depth }] in display order.
+// An open folder is slightly tinted, so it is obvious which one is open (Characters page, Cast, temp NPCs, Scenes).
+export const OPEN_FOLDER = 'bg-violet-500/15 ring-1 ring-violet-400/30';
+
 export function flatten(folders, parentId = null, depth = 0) {
   return folders
     .filter((f) => f.parentId === parentId)

@@ -1,5 +1,6 @@
 /* global document */
 import { test, expect } from '@playwright/test';
+import { addPicturesOnSheet } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -60,13 +61,10 @@ async function activateScene(gm, name) {
   await expect(gm.getByTestId('scene-title')).toHaveText(name);
 }
 
-// Gives a character pictures (one file each) from the Cast drawer, which stays open.
-async function addPictures(gm, name, files) {
-  const row = castRow(gm, name);
-  await row.getByTestId('cast-pictures').click();
-  await gm.getByTestId('picture-file').setInputFiles(files);
-  await expect(gm.getByTestId('picture')).toHaveCount(files.length);
-  await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+// Takes a figure off the stage with its own menu (the Cast list has no Remove button).
+async function removeFigure(page, fig) {
+  await fig.getByTestId('figure-hit').dispatchEvent('contextmenu');
+  await page.getByTestId('menu-remove').click();
 }
 
 const castRow = (gm, name) => gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${name}"`) });
@@ -88,9 +86,9 @@ async function start(browser, { pictures = 2, type = 'NPC' } = {}) {
   await createScene(gm, scene);
   await activateScene(gm, scene);
   await gm.getByTestId('mode-scene').click();
-  await gm.getByTestId('open-cast').click();
   const files = [await art(gm, '#c0392b'), await art(gm, '#2980b9')].slice(0, pictures);
-  await addPictures(gm, name, files);
+  await addPicturesOnSheet(gm, name, files);
+  await gm.getByTestId('open-cast').click();
   return { gm, name, ctx, scene };
 }
 
@@ -126,9 +124,9 @@ test('the size of a figure belongs to its picture: every figure with that pictur
   await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
 
   // Removed and summoned again, and in another scene: the same size, not 1.
-  await gm.getByTestId('open-cast').click();
-  await castRow(gm, name).getByTestId('dismiss-cast').click();
+  await removeFigure(gm, fig);
   await expect(fig).toHaveCount(0);
+  await gm.getByTestId('open-cast').click();
   await summonWith(gm, name, 0);
   await expect.poll(() => heightOf(gm, fig)).toBeCloseTo(1.05, 1);
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
@@ -165,7 +163,7 @@ test('a figure keeps its size when it stands near the right end of the picture',
 
   // Drag it to the far right of the picture (and past it).
   for (const toX of [0.9, 0.99, 1.2]) {
-    const now = await fig.boundingBox();
+    const now = await fig.getByTestId('figure-hit').boundingBox();
     const goal = stage.x + stage.width * toX;
     await gm.mouse.move(now.x + now.width / 2, now.y + now.height / 2);
     await gm.mouse.down();
@@ -185,10 +183,10 @@ test('figures can be dragged while the Cast list is open, and on a phone the lis
   const { gm, name, ctx } = await start(browser, { pictures: 1 });
   await summonWith(gm, name);
   const fig = figure(gm, name);
-  await expect(fig).toBeVisible();
+  await expect(fig.getByTestId('figure-hit')).toBeVisible();
   await expect(gm.getByTestId('cast-drawer')).toBeVisible();
   const x0 = Number(await fig.getAttribute('data-x'));
-  const box = await fig.boundingBox();
+  const box = await fig.getByTestId('figure-hit').boundingBox(); // only the character itself takes a drag
   const drawer = await gm.getByTestId('cast-drawer').boundingBox();
   expect(box.x + box.width / 2).toBeGreaterThan(drawer.x + drawer.width); // a figure on the right, beside the list
   await gm.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -255,14 +253,14 @@ test('Summon always asks for the picture, also to change it on the stage; Silhou
   await expect(seen.getByTestId('name-plaque')).toHaveText(name);
   await expect(gm.getByTestId('stage-figure')).toHaveCount(1); // swapped, not summoned twice
 
-  // Swapping with the switch on makes it a silhouette again; Remove takes it off and Summon stays available.
+  // Swapping with the switch on makes it a silhouette again; its menu's Remove takes it off and the row can summon it again.
   await row.getByTestId('summon-cast').click();
   await gm.getByTestId('silhouette-toggle').check();
   await gm.getByTestId('summon-pick').nth(0).click();
   await expect(fig).toHaveAttribute('data-silhouette', 'true');
-  await row.getByTestId('dismiss-cast').click();
+  await removeFigure(gm, fig);
   await expect(gm.getByTestId('stage-figure')).toHaveCount(0);
-  await expect(row.getByTestId('dismiss-cast')).toHaveCount(0);
+  await expect(row.getByTestId('cast-where')).toHaveCount(0);
   await expect(row.getByTestId('summon-cast')).toBeEnabled();
   await ctx.close();
 });

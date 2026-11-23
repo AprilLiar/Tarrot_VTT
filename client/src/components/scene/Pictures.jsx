@@ -144,17 +144,3 @@ function RenamePicture({ picture, onClose }) {
     </Dialog>
   );
 }
-
-export function PicturesDialog({ title, owner, onClose }) {
-  const t = useT();
-  return (
-    <Dialog title={title} onClose={onClose}>
-      <PicturesManager owner={owner} />
-      <div className="mt-3 flex justify-end">
-        <button className={btn} onClick={onClose}>
-          {t('Close')}
-        </button>
-      </div>
-    </Dialog>
-  );
-}

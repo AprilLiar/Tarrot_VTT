@@ -681,8 +681,8 @@ Light-novel style: a fullscreen background with character art standing along the
   Display, and a player (their own PC only, on a desktop) drag a figure anywhere, including partly or
   fully off the picture (up to one picture width or height beyond each edge). A dragged figure
   comes to the front. Positions are the middle of the figure's feet as fractions of the **background
-  picture** (which is scaled to cover the screen), so the spot sticks to the picture. **Reset spot**
-  (Cast drawer, or Token Settings) takes the spot away so the figure returns to its entry slot; use
+  picture** (which is scaled to cover the screen), so the spot sticks to the picture. **Reset position**
+  (Token Settings) takes the spot away so the figure returns to its entry slot; use
   it when a figure has been dragged out of reach. A figure keeps its size wherever it stands: it is
   **not squeezed smaller near the right end** of the picture (it is as wide as its picture, not as wide as the room
   left beside it). The GM sets a figure's size (0.3 to 2) in Token Settings, see **Size belongs to the picture**.
@@ -709,11 +709,21 @@ Light-novel style: a fullscreen background with character art standing along the
   Picture named **Portrait** (named in the language of whoever pressed). It adds it **once per Portrait image**: when the Portrait is already one of the Pictures a second
   press only says so (a changed Portrait is a new image and can be copied again); with no Portrait the button is disabled. The Picture shares the Portrait's image, so
   deleting either one leaves the other; an image is deleted only when no Portrait, Picture or scene uses it. Replacing a Portrait never touches the Pictures.
-- **Summon dialog (decided):** in the **Cast list** (Scene mode) the **Summon** button of a character or temp NPC is **always active**. It opens a dialog with the
+- **Cast list rows (decided, second version):** a **PC's or NPC's row has no buttons**: the row itself is the button. In Scene mode a tap opens the **Summon dialog**;
+  in Battle mode a tap **places the token, and a tap on a row whose token is on the map takes it off** (the row says "on map" / "on stage"). Their pictures are added on
+  the **character sheet** (Pictures section, by the GM or the PC's owner). A **temp NPC's row** keeps Summon (Place token / Remove token in Battle mode), its token size,
+  Rename, Move and Delete; its pictures are added and deleted **inside its Summon dialog** (Add pictures, and an x on each picture), as it has no sheet. The old
+  Pictures, Remove and Reset spot buttons are gone for everyone: a figure is taken off, or put back on its entry spot, from its own menu on the stage (Remove; Token
+  Settings, Reset position).
+- **Open folders are tinted (decided):** an open folder is slightly violet (with [-] instead of [+]) in the Cast list, the temp NPCs, the Scenes list and on the
+  Characters page, so it is obvious which one is open.
+- **Clickable area of a figure (decided):** cut-out PNGs have wide transparent edges, so only the **rectangle around the visible character** (its non-transparent
+  pixels, worked out in the browser once per picture) takes clicks, drags and the menu; a click beside the character reaches the scene, or a figure behind it. The
+  picture, the name plaque and the feet are drawn exactly as before (the plaque does not take clicks).
+- **Summon dialog (decided):** in the **Cast list** (Scene mode) Summon (a character's row, or a temp NPC's Summon button) is **always active**. It opens a dialog with the
   character's pictures: tapping one **summons** the character with it, or, when the character is already on the stage, **swaps** the figure's picture for it (same spot,
   same Hide; the size becomes that picture's own). The dialog is shown **also for a character with only one picture** (so the Silhouette switch is always within
-  reach). A character is taken off with the separate **Remove** button, shown only while it is on the stage (the token menu's Remove and Token Settings still work).
-  In **Battle mode** the same row keeps its single button (Place token / Remove token).
+  reach). A figure is taken off with its menu's Remove on the stage.
 - **Silhouette (decided):** the dialog has a **Silhouette** switch, **off every time it opens** (it is never remembered). Chosen on, the figure is summoned or swapped as a
   silhouette: **the picture is drawn fully black** (its shape and transparency stay) and **the name plaque reads "???"** (no Tarot star), **for everyone, the GM included**.
   The state **stays on the figure** (stored with it, so it survives a reload or restart and is shown on every screen) until it is changed: opening Summon again, leaving

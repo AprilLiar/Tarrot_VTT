@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { call } from '../../AppContext.jsx';
 import { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
-import { ActionDialog, FolderSelect, NameField, descendantIds } from '../folderUi.jsx';
+import { ActionDialog, FolderSelect, NameField, OPEN_FOLDER, descendantIds } from '../folderUi.jsx';
 import { useT } from '../../i18n.jsx';
 
 // A nested list of folders and items (scenes, temp NPCs) with folder actions.
@@ -21,16 +21,18 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
           .filter((f) => f.parentId === parentId)
           .map((f) => (
             <li key={`f${f.id}`} style={{ paddingLeft: depth ? 12 : 0 }}>
+              <div className={`rounded-lg ${openFolder === f.id ? OPEN_FOLDER : ''}`} data-testid="library-folder-box" data-open={openFolder === f.id ? 'true' : 'false'}>
               <button
                 data-testid="library-folder"
+                aria-expanded={openFolder === f.id}
                 className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left font-medium active:bg-white/10"
                 onClick={() => setOpenFolder(openFolder === f.id ? null : f.id)}
               >
-                <span aria-hidden>[+]</span>
+                <span aria-hidden>{openFolder === f.id ? '[-]' : '[+]'}</span>
                 <span className="flex-1 truncate">{f.name}</span>
               </button>
               {openFolder === f.id && (
-                <div className="flex flex-wrap gap-2 pb-2">
+                <div className="flex flex-wrap gap-2 px-2 pb-2">
                   {onAddItem && (
                     <button className={btnPrimary} onClick={() => onAddItem(f.id)}>
                       {t('Add here')}
@@ -50,6 +52,7 @@ export function LibraryTree({ folders, items, folderEvent, renderItem, emptyText
                   </button>
                 </div>
               )}
+              </div>
               <ul>{branch(f.id, depth + 1)}</ul>
             </li>
           ))}

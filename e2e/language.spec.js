@@ -1,5 +1,6 @@
 /* global document */
 import { test, expect } from '@playwright/test';
+import { addPicturesOnSheet } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 const desktop = (browser) => browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' });
@@ -131,14 +132,11 @@ test('Combat lines and server errors are shown in the language of each reader', 
   await expect(gm.getByRole('status')).toContainText('На карте нет персонажей для боя.');
 
   // With a token on the map the combat starts and the Combat line is in Russian.
+  await addPicturesOnSheet(gm, pc, [await art(gm, 'face')]);
   await gm.getByTestId('open-cast').click();
   const cast = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${pc}"`) });
-  await cast.getByTestId('cast-pictures').click();
-  await gm.getByTestId('picture-file').setInputFiles(await art(gm, 'face'));
-  await expect(gm.getByTestId('picture')).toHaveCount(1);
-  await gm.getByRole('dialog').getByRole('button', { name: 'Закрыть' }).click();
   await cast.getByTestId('summon-cast').click();
-  await expect(cast.getByTestId('dismiss-cast')).toContainText('Убрать фишку');
+  await expect(cast.getByTestId('cast-where')).toHaveText('на карте');
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Закрыть' }).click();
   await gm.getByTestId('combat-start').click();
   await gm.getByTestId('chat-toggle').click();

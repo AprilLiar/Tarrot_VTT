@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { addPicturesOnSheet, art } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -54,15 +55,12 @@ async function createAndActivateScene(gm, name) {
 
 // Opens the Cast drawer, gives the character a picture if needed, and summons it.
 async function summon(gm, name) {
+  await addPicturesOnSheet(gm, name, [await art(gm)]);
   await gm.getByTestId('open-cast').click();
   const row = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${name}"`) });
-  await row.getByTestId('cast-pictures').click();
-  await gm.getByTestId('picture-file').setInputFiles(PNG);
-  await expect(gm.getByTestId('picture')).toHaveCount(1);
-  await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
-  await row.getByTestId('summon-cast').click();
+  await row.getByTestId('summon-cast').click(); // the row itself opens the Summon dialog
   await gm.getByTestId('summon-pick').first().click(); // Summon always asks which picture, also for a character with only one
-  await expect(row.getByTestId('dismiss-cast')).toBeVisible();
+  await expect(row.getByTestId('cast-where')).toBeVisible();
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
 }
 
@@ -207,12 +205,12 @@ test('figures can be dragged anywhere, even off the picture, by the Display and 
 
   const tv = await desktop(browser);
   const display = await open(tv, 'pick-display');
-  await expect(figure(display, a)).toBeVisible();
+  await expect(figure(display, a).getByTestId('figure-hit')).toBeVisible(); // the picture has loaded: only the character takes a drag
   await expect(figure(display, a)).toHaveAttribute('data-free', 'false');
   const x0 = Number(await figure(display, a).getAttribute('data-x'));
 
   // The Display drags the NPC to the left and up.
-  const box = await figure(display, a).boundingBox();
+  const box = await figure(display, a).getByTestId('figure-hit').boundingBox();
   await display.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await display.mouse.down();
   await display.mouse.move(box.x + box.width / 2 - 500, box.y + box.height / 2 - 150, { steps: 8 });
@@ -223,18 +221,19 @@ test('figures can be dragged anywhere, even off the picture, by the Display and 
   await expect.poll(async () => Number(await figure(display, a).getAttribute('data-x'))).toBeCloseTo(moved, 2);
 
   // Dragging far past the edge of the screen is allowed (up to a point).
-  const box2 = await figure(display, a).boundingBox();
+  const box2 = await figure(display, a).getByTestId('figure-hit').boundingBox();
   await display.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
   await display.mouse.down();
   await display.mouse.move(-200, box2.y + box2.height / 2, { steps: 8 });
   await display.mouse.up();
   await expect.poll(async () => Number(await figure(gm.page, a).getAttribute('data-x'))).toBeLessThan(0);
 
-  // A figure lost off screen comes back with Reset spot in the Cast drawer.
-  await gm.page.getByTestId('open-cast').click();
-  await gm.page.getByTestId('cast-row').filter({ has: gm.page.locator(`text="${a}"`) }).getByTestId('cast-reset-spot').click();
+  // A figure lost off screen comes back with Reset position in its Token Settings (its menu opens with a right-click).
+  await figure(gm.page, a).getByTestId('figure-hit').dispatchEvent('contextmenu');
+  await gm.page.getByTestId('menu-settings').dispatchEvent('click'); // the menu of a figure off the screen is squeezed at the edge
+  await gm.page.getByTestId('reset-position').click();
   await expect(figure(gm.page, a)).toHaveAttribute('data-free', 'false');
-  await gm.page.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+  await gm.page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 
   // A desktop player can drag their own PC, but not the NPC.
   const playerCtx = await desktop(browser);
@@ -243,7 +242,7 @@ test('figures can be dragged anywhere, even off the picture, by the Display and 
   await player.getByTestId('pick-pc').filter({ hasText: pc }).click();
   await player.getByTestId('nav-scene').click();
   await expect(figure(player, pc)).toBeVisible();
-  const pb = await figure(player, pc).boundingBox();
+  const pb = await figure(player, pc).getByTestId('figure-hit').boundingBox();
   await player.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
   await player.mouse.down();
   await player.mouse.move(pb.x + pb.width / 2 + 200, pb.y + pb.height / 2 - 100, { steps: 8 });
@@ -343,10 +342,10 @@ test('the Cast drawer keeps characters in folders that start collapsed; names si
   await gm.getByPlaceholder('Search').fill(inside);
   await expect(row).toBeVisible();
 
-  await row.getByTestId('cast-pictures').click();
-  await gm.getByTestId('picture-file').setInputFiles(PNG);
-  await expect(gm.getByTestId('picture')).toHaveCount(1);
-  await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+  await addPicturesOnSheet(gm, inside, [await art(gm)]);
+  await gm.getByTestId('open-cast').click();
+  await gm.getByPlaceholder('Search').fill(inside);
   await row.getByTestId('summon-cast').click();
   await gm.getByTestId('summon-pick').first().click();
   await expect(gm.getByTestId('summon-dialog')).toHaveCount(0);

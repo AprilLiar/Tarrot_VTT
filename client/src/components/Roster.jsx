@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { call, useApp } from '../AppContext.jsx';
 import { btn, btnDanger, btnPrimary, input } from './Dialog.jsx';
-import { ActionDialog, FolderSelect, NameField, descendantIds } from './folderUi.jsx';
+import { ActionDialog, FolderSelect, NameField, OPEN_FOLDER, descendantIds } from './folderUi.jsx';
 import { Avatar } from './Avatar.jsx';
 import { useT } from '../i18n.jsx';
 
@@ -219,16 +219,18 @@ export default function Roster() {
         const key = `f${f.id}`;
         return (
           <li key={key} style={{ paddingLeft: depth * 16 }}>
+            <div className={`rounded-lg ${openRow === key ? OPEN_FOLDER : ''}`} data-testid="folder-box" data-open={openRow === key ? 'true' : 'false'}>
             <button
               data-testid="folder-row"
+              aria-expanded={openRow === key}
               className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left font-medium active:bg-white/10"
               onClick={() => toggle(key)}
             >
-              <span aria-hidden>[+]</span>
+              <span aria-hidden>{openRow === key ? '[-]' : '[+]'}</span>
               <span className="flex-1 truncate">{f.name}</span>
             </button>
             {openRow === key && (
-              <div className="flex flex-wrap gap-2 pb-2">
+              <div className="flex flex-wrap gap-2 px-2 pb-2">
                 <button className={btn} onClick={() => setDialog({ kind: 'new-character', folderId: f.id })}>
                   {t('Add character')}
                 </button>
@@ -247,6 +249,7 @@ export default function Roster() {
                 />
               </div>
             )}
+            </div>
             <ul>
               {tree(f.id, depth + 1)}
               {characterRows(f.id, depth + 1)}

@@ -1,5 +1,6 @@
 /* global document, getComputedStyle */
 import { test, expect } from '@playwright/test';
+import { addPicturesOnSheet } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -71,15 +72,12 @@ async function battleScene(gm, name) {
 
 // Gives a character a picture and puts its token on the map.
 async function placeToken(gm, name) {
+  await addPicturesOnSheet(gm, name, [await art(gm, 'face')]);
   await gm.getByTestId('open-cast').click();
   await gm.getByPlaceholder('Search').fill(name);
   const row = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${name}"`) });
-  await row.getByTestId('cast-pictures').click();
-  await gm.getByTestId('picture-file').setInputFiles(await art(gm, 'face'));
-  await expect(gm.getByTestId('picture')).toHaveCount(1);
-  await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
-  await row.getByTestId('summon-cast').click();
-  await expect(row.getByTestId('dismiss-cast')).toContainText('Remove token');
+  await row.getByTestId('summon-cast').click(); // in Battle mode a tap on the row places the token
+  await expect(row.getByTestId('cast-where')).toHaveText('on map');
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
 }
 

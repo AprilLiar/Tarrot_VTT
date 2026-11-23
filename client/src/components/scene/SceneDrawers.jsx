@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
-import { ActionDialog, FolderSelect, NameField } from '../folderUi.jsx';
+import { ActionDialog, FolderSelect, NameField, OPEN_FOLDER } from '../folderUi.jsx';
 import { imageUrl, prepareImage, prepareImageInfo } from '../../lib/image.js';
 import { LibraryTree } from './LibraryTree.jsx';
-import { PicturesDialog, uploadPicture, usePictures } from './Pictures.jsx';
+import { uploadPicture, usePictures } from './Pictures.jsx';
 import { useT } from '../../i18n.jsx';
 import { T } from '../../../../shared/localization.js';
 
@@ -303,32 +303,58 @@ function NewTempNpcDialog({ folders, folderId, onClose }) {
 }
 
 // One summonable row: a character or a temp NPC.
-function CastRow({ owner, name, badge, stage, onPictures, extra }) {
+//  - A character's row is one button: in Scene mode it opens the Summon dialog, in Battle mode it places the token (or takes it off). Its
+//    pictures are added on its sheet; a figure is taken off the stage with its own menu (Remove).
+//  - A temp NPC keeps its buttons (Summon or Place/Remove token, size, Rename, Move, Delete); its pictures are added in the Summon dialog.
+function CastRow({ owner, name, badge, stage, extra }) {
   const t = useT();
   const { toast } = useApp();
   const battleMode = stage.mode === 'battle';
+  const temp = owner.kind === 'temp_npc';
   const onStage = battleMode
     ? stage.battle?.tokens.find((tk) => tk.ownerKind === owner.kind && tk.ownerId === owner.id)
     : stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
-  const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
-
+  const key = temp ? { tempNpcId: owner.id } : { characterId: owner.id };
   const [choosing, setChoosing] = useState(false);
 
   // In Battle mode the same list places tokens on the map instead of summoning to the stage.
   async function toggleToken() {
     const r = await call(onStage ? 'battle:remove' : 'battle:add', onStage ? { id: onStage.id } : key);
-    if (!r.ok) {
-      toast(r.error);
-      if (r.code === 'no_picture') onPictures();
-    }
+    if (!r.ok) toast(r.error);
+  }
+
+  const badgeTag = badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{t(badge)}</span>;
+  const where = onStage && (
+    <span className="text-xs opacity-60" data-testid="cast-where">
+      {onStage.hidden ? t('hidden') : battleMode ? t('on map') : t('on stage')}
+    </span>
+  );
+  const dialog = choosing && <SummonDialog owner={owner} name={name} onClose={() => setChoosing(false)} />;
+
+  if (!temp) {
+    return (
+      <div data-testid="cast-row" data-name={name}>
+        <button
+          data-testid="summon-cast"
+          data-on={onStage ? 'true' : 'false'}
+          className="flex min-h-11 w-full items-center gap-2 rounded-lg bg-white/5 px-2 text-left active:bg-white/15"
+          onClick={battleMode ? toggleToken : () => setChoosing(true)}
+        >
+          {badgeTag}
+          <span className="flex-1 truncate">{name}</span>
+          {where}
+        </button>
+        {dialog}
+      </div>
+    );
   }
 
   return (
     <div data-testid="cast-row" data-name={name} className="rounded-lg bg-white/5 p-2">
       <div className="flex items-center gap-2">
-        {badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{t(badge)}</span>}
+        {badgeTag}
         <span className="flex-1 truncate">{name}</span>
-        {onStage && <span className="text-xs opacity-60">{onStage.hidden ? t('hidden') : battleMode ? t('on map') : t('on stage')}</span>}
+        {where}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {battleMode ? (
@@ -336,64 +362,46 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
             {onStage ? t('Remove token') : t('Place token')}
           </button>
         ) : (
-          <>
-            {/* Always there: it opens the pictures to choose from, also to swap the picture of a figure already on the stage. */}
-            <button className={btnPrimary} data-testid="summon-cast" onClick={() => setChoosing(true)}>
-              {t('Summon')}
-            </button>
-            {onStage && (
-              <button
-                className={btn}
-                data-testid="dismiss-cast"
-                onClick={async () => {
-                  const r = await call('stage:dismiss', { id: onStage.id });
-                  if (!r.ok) toast(r.error);
-                }}
-              >
-                {t('Remove')}
-              </button>
-            )}
-          </>
-        )}
-        <button className={btn} data-testid="cast-pictures" onClick={onPictures}>
-          {t('Pictures')}
-        </button>
-        {onStage && !battleMode && (
-          <button
-            className={btn}
-            data-testid="cast-reset-spot"
-            onClick={async () => {
-              const r = await call('stage:move', { id: onStage.id, reset: true });
-              if (!r.ok) toast(r.error);
-            }}
-          >
-            {t('Reset spot')}
+          <button className={btnPrimary} data-testid="summon-cast" onClick={() => setChoosing(true)}>
+            {t('Summon')}
           </button>
         )}
         {extra}
       </div>
-      {choosing && <SummonDialog owner={owner} name={name} onPictures={onPictures} onClose={() => setChoosing(false)} />}
+      {dialog}
     </div>
   );
 }
 
 // Summon, or change the picture of a figure that is already on the stage: the pictures to choose from, and the Silhouette switch.
 // The switch is never remembered: it is off every time the dialog opens, so choosing a picture with it off also reveals a silhouette.
-function SummonDialog({ owner, name, onPictures, onClose }) {
+// A temp NPC's pictures are managed here too (it has no sheet): Add pictures, and a delete on each.
+function SummonDialog({ owner, name, onClose }) {
   const t = useT();
   const { toast, stage } = useApp();
-  const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
+  const temp = owner.kind === 'temp_npc';
+  const key = temp ? { tempNpcId: owner.id } : { characterId: owner.id };
   const pictures = usePictures(key);
   const [silhouette, setSilhouette] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
   const onStage = stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
 
   async function choose(p) {
     const r = onStage ? await call('stage:update', { id: onStage.id, pictureId: p.id, silhouette }) : await call('stage:summon', { ...key, pictureId: p.id, silhouette });
-    if (!r.ok) {
-      toast(r.error);
-      if (r.code === 'no_picture') onPictures();
-    }
+    if (!r.ok) toast(r.error);
     onClose();
+  }
+
+  async function addFiles(e) {
+    const files = [...e.target.files];
+    e.target.value = '';
+    setBusy(true);
+    for (const file of files) {
+      const r = await uploadPicture(key, file, file.name.replace(/\.[^.]+$/, ''), t);
+      if (!r.ok) toast(r.error ?? t('Upload failed.'));
+    }
+    setBusy(false);
   }
 
   return (
@@ -409,22 +417,44 @@ function SummonDialog({ owner, name, onPictures, onClose }) {
         <div>
           <div className="mb-1 text-sm opacity-70">{t('Choose a picture')}</div>
           {pictures === null && <p className="text-sm opacity-60">{t('Loading...')}</p>}
-          {pictures?.length === 0 && <p className="text-sm opacity-60">{t('No pictures yet. Add one with the Pictures button.')}</p>}
+          {pictures?.length === 0 && <p className="text-sm opacity-60">{temp ? t('No pictures yet. Add one below.') : t('No pictures yet. Add them on the character sheet.')}</p>}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {pictures?.map((p) => (
-              <button
-                key={p.id}
-                data-testid="summon-pick"
-                aria-label={p.name || t('Picture')}
-                aria-pressed={p.id === onStage?.pictureId}
-                className={`flex h-24 items-center justify-center overflow-hidden rounded bg-white/5 active:bg-white/15 ${p.id === onStage?.pictureId ? 'ring-2 ring-violet-500' : ''}`}
-                onClick={() => choose(p)}
-              >
-                <img src={imageUrl(p.imageId)} alt="" className="max-h-full max-w-full object-contain" />
-              </button>
+              <div key={p.id} className="relative">
+                <button
+                  data-testid="summon-pick"
+                  aria-label={p.name || t('Picture')}
+                  aria-pressed={p.id === onStage?.pictureId}
+                  className={`flex h-24 w-full items-center justify-center overflow-hidden rounded bg-white/5 active:bg-white/15 ${p.id === onStage?.pictureId ? 'ring-2 ring-violet-500' : ''}`}
+                  onClick={() => choose(p)}
+                >
+                  <img src={imageUrl(p.imageId)} alt="" className="max-h-full max-w-full object-contain" />
+                </button>
+                {temp && (
+                  <button
+                    data-testid="summon-delete-picture"
+                    aria-label={t('Delete {name}', { name: p.name || t('picture') })}
+                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm active:bg-red-800"
+                    onClick={async () => {
+                      const r = await call('picture:delete', { id: p.id });
+                      if (!r.ok) toast(r.error);
+                    }}
+                  >
+                    x
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>
+        {temp && (
+          <>
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden data-testid="picture-file" onChange={addFiles} />
+            <button className={btn} disabled={busy} data-testid="add-picture" onClick={() => fileRef.current?.click()}>
+              {busy ? t('Uploading...') : t('Add pictures')}
+            </button>
+          </>
+        )}
         <div className="flex justify-end">
           <button className={btn} data-testid="summon-cancel" onClick={onClose}>
             {t('Close')}
@@ -463,7 +493,7 @@ function CharacterTree({ folders, characters, searching, renderRow }) {
                   data-testid="cast-folder"
                   data-name={f.name}
                   aria-expanded={shown}
-                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left font-medium active:bg-white/10"
+                  className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left font-medium active:bg-white/10 ${shown ? OPEN_FOLDER : ''}`}
                   onClick={() => toggle(f.id)}
                 >
                   <span aria-hidden>{shown ? '[-]' : '[+]'}</span>
@@ -515,7 +545,6 @@ export function CastDrawer({ onClose }) {
               name={c.name}
               badge={c.type === 'pc' ? T('PC') : T('NPC')}
               stage={stage}
-              onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: c.name }), owner: { characterId: c.id } })}
             />
           )}
         />
@@ -538,7 +567,6 @@ export function CastDrawer({ onClose }) {
               name={n.name}
               badge={n.isProp ? T('PROP') : T('TEMP')}
               stage={stage}
-              onPictures={() => setDialog({ kind: 'pictures', title: t('Pictures: {name}', { name: n.name }), owner: { tempNpcId: n.id } })}
               extra={
                 <>
                   <select
@@ -569,7 +597,6 @@ export function CastDrawer({ onClose }) {
         )}
       />
 
-      {dialog?.kind === 'pictures' && <PicturesDialog title={dialog.title} owner={dialog.owner} onClose={done} />}
       {dialog?.kind === 'new-npc' && <NewTempNpcDialog folders={library.tempNpcFolders} folderId={dialog.folderId} onClose={done} />}
       {dialog?.kind === 'rename-npc' && <RenameNpc npc={dialog.npc} onClose={done} />}
       {dialog?.kind === 'move-npc' && (

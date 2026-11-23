@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
+import { useOpaqueBounds } from '../../lib/opaqueBounds.js';
 import Dialog, { btn, btnDanger, input } from '../Dialog.jsx';
 import { usePictures } from './Pictures.jsx';
 import { CastDrawer, ScenesDrawer } from './SceneDrawers.jsx';
@@ -27,11 +28,42 @@ const POS_MAX = 2;
 const FIGURE_HEIGHT = 0.7; // of the picture's height, at size 1
 const SILHOUETTE_NAME = '???'; // a silhouette is called this on every screen
 
+// Where the visible character is drawn inside the figure (px, figure coordinates): the picture is fitted into the <img> box (centred,
+// at the bottom), and only its non-transparent part counts. Until that is known, the whole <img> box.
+function useHitBox(imgRef, url, loaded) {
+  const bounds = useOpaqueBounds(url);
+  const size = useElementSize(imgRef);
+  const [hit, setHit] = useState(null);
+  useLayoutEffect(() => {
+    const img = imgRef.current;
+    if (!img || !size.w || !size.h) return;
+    const box = { left: img.offsetLeft, top: img.offsetTop, width: size.w, height: size.h };
+    const nw = img.naturalWidth;
+    const nh = img.naturalHeight;
+    if (!bounds || !nw || !nh) {
+      setHit(box);
+      return;
+    }
+    const k = Math.min(size.w / nw, size.h / nh);
+    const rw = nw * k;
+    const rh = nh * k;
+    const rx = box.left + (size.w - rw) / 2;
+    const ry = box.top + (size.h - rh);
+    setHit({ left: rx + bounds.x0 * rw, top: ry + bounds.y0 * rh, width: (bounds.x1 - bounds.x0) * rw, height: (bounds.y1 - bounds.y0) * rh });
+  }, [imgRef, bounds, size.w, size.h, loaded]);
+  return hit;
+}
+
 // `stageBox`: the picture's size on screen (unzoomed). A figure is anchored at the middle of its feet.
+// Only the rectangle around the visible character takes clicks and drags (cut-out pictures have wide transparent edges); the picture, the
+// name plaque and the feet are drawn as before, and a click beside the character reaches the scene (or another figure) behind it.
 function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
   const [pending, setPending] = useState(null); // { x, y } while dragging and until the server answers
   const drag = useRef(null);
   const [entered, setEntered] = useState(false);
+  const [loaded, setLoaded] = useState(0); // bumps when the picture has loaded, so its own size is known
+  const imgRef = useRef(null);
+  const hit = useHitBox(imgRef, s.imageId ? imageUrl(s.imageId) : null, loaded);
   const { toast } = useApp();
   useEffect(() => {
     const t = requestAnimationFrame(() => setEntered(true));
@@ -93,7 +125,7 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
       data-y={pos.y.toFixed(3)}
       data-free={s.x != null}
       data-hidden={s.hidden ? 'true' : 'false'}
-      className={`absolute flex touch-none select-none flex-col items-center ${canDrag ? 'cursor-grab' : ''} ${s.hidden ? 'opacity-50' : ''}`}
+      className={`pointer-events-none absolute flex touch-none select-none flex-col items-center ${s.hidden ? 'opacity-50' : ''}`}
       style={{
         left: `${pos.x * 100}%`,
         top: `${pos.y * 100}%`,
@@ -106,17 +138,6 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         transition: dragging || pending ? 'none' : 'opacity 0.5s ease-out',
         zIndex: dragging || menuOpen ? 1000 : undefined,
       }}
-      onPointerDown={down}
-      onPointerMove={move}
-      onPointerUp={up}
-      onPointerCancel={() => {
-        drag.current = null;
-        setPending(null);
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onMenu?.(s, e.currentTarget);
-      }}
     >
       <figcaption
         data-testid="name-plaque"
@@ -126,13 +147,33 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         {s.tarot && !s.silhouette && <TarotStar characterId={s.ownerId} />}
       </figcaption>
       <img
+        ref={imgRef}
         src={imageUrl(s.imageId)}
         alt={s.silhouette ? SILHOUETTE_NAME : s.name}
         draggable={false}
+        onLoad={() => setLoaded((n) => n + 1)}
         className="min-h-0 flex-1 object-contain object-bottom drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
         // A silhouette: every pixel of the picture fully black (its shape stays, its transparency too).
         style={s.silhouette ? { filter: 'brightness(0)' } : undefined}
       />
+      {hit && (
+        <div
+          data-testid="figure-hit"
+          className={`pointer-events-auto absolute touch-none ${canDrag ? 'cursor-grab' : ''}`}
+          style={hit}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={() => {
+            drag.current = null;
+            setPending(null);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onMenu?.(s, e.currentTarget);
+          }}
+        />
+      )}
     </figure>
   );
 }
