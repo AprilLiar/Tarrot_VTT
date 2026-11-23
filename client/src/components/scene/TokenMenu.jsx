@@ -8,7 +8,8 @@ const circle =
 // The half-transparent circles beside a character (Foundry style). They stand on the two sides of the
 // token, up to two per side, each column centred on the middle of the token, so nothing hangs below it.
 // `options`: [{ key, label, testId, onClick }]. With an odd number the extra one goes on the right.
-export function TokenMenu({ anchor, containerRef, options, onClose }) {
+// `below`: anything shown centred under the token (the conditions of a battle token).
+export function TokenMenu({ anchor, containerRef, options, onClose, below = null }) {
   const [pos, setPos] = useState(null);
   const left = options.slice(0, Math.floor(options.length / 2));
   const right = options.slice(left.length);
@@ -26,6 +27,8 @@ export function TokenMenu({ anchor, containerRef, options, onClose }) {
     if (leftX < 8) leftX = rightX + CIRCLE + GAP;
     else if (rightX > box.width - CIRCLE - 8) rightX = leftX - CIRCLE - GAP;
     setPos({
+      centreX: r.left - box.left + r.width / 2,
+      belowY: Math.min(r.bottom - box.top + GAP, box.height - 56),
       leftX: Math.min(Math.max(leftX, 8), box.width - CIRCLE - 8),
       rightX: Math.min(Math.max(rightX, 8), box.width - CIRCLE - 8),
       leftTop: clampTop(left.length),
@@ -51,6 +54,11 @@ export function TokenMenu({ anchor, containerRef, options, onClose }) {
       <div data-testid="token-menu">
         {column(left, pos.leftX, pos.leftTop, 'token-menu-left')}
         {column(right, pos.rightX, pos.rightTop, 'token-menu-right')}
+        {below && (
+          <div className="absolute z-40 -translate-x-1/2" style={{ left: pos.centreX, top: pos.belowY }}>
+            {below}
+          </div>
+        )}
       </div>
     </>
   );

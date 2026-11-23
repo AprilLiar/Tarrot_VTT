@@ -656,6 +656,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Take one off | Снять одну |
 | Token Settings: {name} | Настройки фишки: {name} |
 | The token shows the custom token set on the sheet, or the head of the picture the character has on the scene. | Фишка показывает свою фишку с листа персонажа или голову картинки, с которой персонаж стоит на сцене. |
 | The token shows the head of the picture the character has on the scene, or of its first picture. | Фишка показывает голову картинки, с которой персонаж стоит на сцене, или его первой картинки. |

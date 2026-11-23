@@ -805,6 +805,9 @@ Decided:
   token for its circles, standing on the two sides of the token (up to two per side, each column
   centred on the middle of the token; next to a screen edge the column moves beside the other one):
   **Token Settings**, **Hide/Reveal**, **Set Height** and **Remove** (takes the token off the map).
+  **Conditions (decided):** while the GM has a character's token menu open, its active conditions (statuses) show as icons in a strip
+  under the token, with their stacks. A tap on one takes **one stack off** (a condition without stacks, or the last stack, goes away),
+  exactly as on the sheet; the menu stays open for more taps. Temp NPCs have no conditions; the Display and players do not see the strip.
   **Set Height** is the number of Spaces the character is in the air (0 to 99), changed with **Up**,
   **Down** and **Reset** buttons (no typing; every press is saved at once; Up and Down are steps the server adds, so a quick run of taps loses none); it shows as "+X sp." above
   the token for everyone and changes nothing else yet. The same buttons sit on the character

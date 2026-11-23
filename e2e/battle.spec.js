@@ -220,6 +220,42 @@ test('a token shows its statuses as icons: the first applied that fit, with the 
   await gmCtx.close();
 });
 
+test('the GM\'s token menu shows the conditions; a tap on one takes one stack off, the last one removes it', async ({ browser }) => {
+  const npc = `Leech-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Bog-${uid()}`);
+  await placeToken(gm, npc);
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: npc }).click();
+  await gm.getByTestId('open-sheet').click();
+  for (const name of ['Bleeding', 'Blinded']) {
+    await gm.getByTestId('add-status').click();
+    await gm.getByPlaceholder('Search').fill(name);
+    await gm.getByTestId('status-option').first().click();
+    await gm.getByRole('dialog').getByRole('button', { name: 'Add status', exact: true }).click();
+    await expect(gm.getByRole('dialog')).toBeHidden();
+  }
+  await gm.getByRole('button', { name: 'Increase Bleeding' }).click();
+  await gm.getByTestId('nav-scene').click();
+
+  await token(gm, npc).click({ button: 'right' });
+  const conditions = gm.getByTestId('token-conditions').getByTestId('condition-remove');
+  await expect(conditions).toHaveCount(2);
+  const bleeding = conditions.and(gm.locator('[data-status="bleeding"]'));
+  await expect(bleeding).toHaveAttribute('data-stacks', '2');
+  await bleeding.click();
+  await expect(bleeding).toHaveAttribute('data-stacks', '1'); // the menu stays open: several taps in a row
+  await expect(token(gm, npc).getByTestId('token-status').first()).toHaveAttribute('data-stacks', '1');
+  await bleeding.click();
+  await expect(conditions).toHaveCount(1);
+  await conditions.click(); // Blinded has no stacks: one tap removes it
+  await expect(gm.getByTestId('token-conditions')).toHaveCount(0);
+  await expect(token(gm, npc).getByTestId('token-status')).toHaveCount(0);
+  await gmCtx.close();
+});
+
 test('a phone player moves with the D-pad, sees their Movement, and picks a target', async ({ browser }) => {
   const pc = `Mover-${uid()}`;
   const npc = `Goblin-${uid()}`;

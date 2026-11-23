@@ -14,7 +14,7 @@ import { setPlacing, usePlacing } from '../../lib/placing.js';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
-import { TokenStatuses } from './StatusIcon.jsx';
+import { StatusIcon, TokenStatuses } from './StatusIcon.jsx';
 import { TarotStar } from '../TarotStar.jsx';
 import { areaName } from '../../lib/areaName.js';
 import { membersOf } from '../../../../shared/templates.js';
@@ -25,6 +25,33 @@ import { membersOf } from '../../../../shared/templates.js';
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#38bdf8', '#a78bfa', '#ffffff'];
 const RING = { pc: '#34d399', npc: '#f87171', prop: '#94a3b8' };
 const DRAG_THRESHOLD = 6;
+
+// The conditions a character has, under its token while the GM has its menu open: a tap on one takes one stack off (the last one
+// removes it), as on the sheet.
+function TokenConditions({ token }) {
+  const t = useT();
+  const { toast } = useApp();
+  return (
+    <div className="flex max-w-[80vw] flex-wrap justify-center gap-1 rounded-full bg-black/60 px-2 py-1 backdrop-blur" data-testid="token-conditions">
+      {token.statuses.map((s) => (
+        <button
+          key={s.key}
+          className="relative h-10 w-10 rounded-full active:bg-white/20"
+          data-testid="condition-remove"
+          data-status={s.key}
+          data-stacks={s.stacks}
+          title={t('Take one off')}
+          onClick={async () => {
+            const r = await call('sheet:set', { characterId: token.ownerId, path: `statuses.${s.key}`, value: s.stacks - 1 });
+            if (!r.ok) toast(r.error);
+          }}
+        >
+          <StatusIcon statusKey={s.key} stacks={s.stacks} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function TokenSettings({ token, onClose }) {
   const t = useT();
@@ -943,6 +970,7 @@ export default function BattleView() {
           anchor={menu.anchor}
           containerRef={ref}
           onClose={() => setMenu(null)}
+          below={isGm && menuToken.ownerKind === 'character' && menuToken.statuses.length > 0 && <TokenConditions token={menuToken} />}
           options={
             // The GM and the Display get every circle; a player only Set Height, for their own character.
             tools
