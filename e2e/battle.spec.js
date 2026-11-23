@@ -1,6 +1,6 @@
 /* global document */
 import { test, expect } from '@playwright/test';
-import { addPicturesOnSheet } from './helpers.js';
+import { addPicturesOnSheet, placeTokenAt } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -78,9 +78,8 @@ async function placeToken(gm, name) {
   await gm.getByTestId('open-cast').click();
   await gm.getByPlaceholder('Search').fill(name);
   const row = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${name}"`) });
-  await row.getByTestId('summon-cast').click(); // in Battle mode a tap on the row places the token
-  await expect(row.getByTestId('cast-where')).toHaveText('on map');
-  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+  await placeTokenAt(gm, row); // in Battle mode: a tap on the row, then on a square of the map
+  await expect(gm.getByTestId('battle-token').filter({ has: gm.getByText(name, { exact: true }) })).toBeVisible();
 }
 
 const token = (page, name) => page.getByTestId('battle-token').filter({ has: page.getByText(name, { exact: true }) });
@@ -1257,8 +1256,7 @@ test('a token is cut from the head of the character\'s picture, and a custom tok
   await addPicturesOnSheet(gm, npc, [await cutOut(gm)]);
   await gm.getByTestId('open-cast').click();
   await gm.getByPlaceholder('Search').fill(npc);
-  await gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${npc}"`) }).getByTestId('summon-cast').click();
-  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+  await placeTokenAt(gm, gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${npc}"`) }));
 
   // The default face: the top square of the visible figure (160 px wide, so the picture is drawn 240/160 = 150% of the round frame,
   // shifted left by the transparent 40 px and starting at the top).

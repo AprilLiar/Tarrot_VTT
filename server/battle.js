@@ -163,7 +163,19 @@ function freeSpot(scene, tokens, size) {
   return { col: 0, row: 0 };
 }
 
-export async function addToken(db, owner, pictureId) {
+// Where a token goes when the GM taps the map at (u, v) (fractions of the picture): centred on the tap, snapped to the squares with the grid
+// on (to a hundredth of a square with it off), and kept on the map.
+function spotAt(scene, size, u, v) {
+  const { cols, rows } = scenes.gridSize(scene);
+  const { cell, ox, oy } = scene.grid;
+  const place = scene.showGrid ? Math.round : roundFree;
+  const col = place((u - ox) / cell - size / 2);
+  const row = place((v - oy) / (cell * scene.battleAspect) - size / 2);
+  return { col: Math.max(0, Math.min(col, cols - size)), row: Math.max(0, Math.min(row, rows - size)) };
+}
+
+// `at` ({ u, v }): where the GM tapped the map; without it, the first free square.
+export async function addToken(db, owner, pictureId, at = null) {
   const scene = await activeBattleScene(db);
   await scenes.requireOwner(db, owner);
   const pictures = await scenes.listPictures(db, owner);
@@ -183,7 +195,7 @@ export async function addToken(db, owner, pictureId) {
   const tokens = await listTokens(db, scene.id, { forGm: true });
   // The size comes from the sheet (or the temp NPC), so ask what the token would look like.
   const size = owner.kind === 'character' ? (await sheets.getSheet(db, owner.id)).size : (await scenes.listTempNpcs(db)).find((t) => t.id === owner.id)?.size ?? 1;
-  const spot = freeSpot(scene, tokens, size);
+  const spot = at && isNumber(at.u) && isNumber(at.v) ? spotAt(scene, size, at.u, at.v) : freeSpot(scene, tokens, size);
   const r = await db.execute({
     sql: `INSERT INTO battle_tokens (scene_id, ${ownerColumn(owner)}, picture_id, col, row) VALUES (?, ?, ?, ?, ?)`,
     args: [scene.id, owner.id, picture?.id ?? null, spot.col, spot.row],

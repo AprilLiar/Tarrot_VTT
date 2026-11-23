@@ -316,7 +316,8 @@ export function registerSceneHandlers(ctx) {
 
   // Tokens are placed by the GM. Their picture comes from the character's collection.
   on('battle:add', { gmOnly: true }, async (p) => {
-    const id = await battle.addToken(db, scenes.ownerOf(p), Number.isInteger(p.pictureId) ? p.pictureId : undefined);
+    const at = p.u !== undefined || p.v !== undefined ? { u: p.u, v: p.v } : null; // where the GM tapped the map
+    const id = await battle.addToken(db, scenes.ownerOf(p), Number.isInteger(p.pictureId) ? p.pictureId : undefined, at);
     await broadcastStage();
     return { id };
   });

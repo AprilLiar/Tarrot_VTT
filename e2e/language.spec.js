@@ -1,6 +1,6 @@
 /* global document */
 import { test, expect } from '@playwright/test';
-import { addPicturesOnSheet } from './helpers.js';
+import { addPicturesOnSheet, placeTokenAt } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 const desktop = (browser) => browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US' });
@@ -136,9 +136,8 @@ test('Combat lines and server errors are shown in the language of each reader', 
   await addPicturesOnSheet(gm, pc, [await art(gm, 'face')]);
   await gm.getByTestId('open-cast').click();
   const cast = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${pc}"`) });
-  await cast.getByTestId('summon-cast').click();
-  await expect(cast.getByTestId('cast-where')).toHaveText('на карте');
-  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Закрыть' }).click();
+  await placeTokenAt(gm, cast);
+  await expect(gm.getByTestId('battle-token')).toHaveCount(1);
   await gm.getByTestId('combat-start').click();
   await gm.getByTestId('chat-toggle').click();
   await expect(gm.getByTestId('chat-log')).toContainText('Бой начинается. Бросайте инициативу.');

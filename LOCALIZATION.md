@@ -671,6 +671,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Shift down (px) | Сдвиг вниз (пикс.) |
 | Height: {name} | Высота: {name} |
 | +{n} sp. | +{n} кл. |
+| Tap a square to place {name} | Нажмите на клетку, чтобы поставить {name} |
 | No scene is active. Open Scenes to start one. | Нет активной сцены. Откройте «Сцены», чтобы запустить одну. |
 | Waiting for the GM to start a scene. | Ждём, когда мастер запустит сцену. |
 | This scene has no battle map yet. | У этой сцены пока нет боевой карты. |
@@ -778,6 +779,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | hidden | скрыт |
 | on map | на карте |
 | on stage | на сцене |
+| tap the map | нажмите на карту |
 | Remove token | Убрать фишку |
 | Place token | Поставить фишку |
 | Summon | Вызвать |

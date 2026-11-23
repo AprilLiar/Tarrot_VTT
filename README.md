@@ -792,8 +792,14 @@ Decided:
   picture choice in Token Settings is gone (`battle_tokens.picture_id` is no longer read). Data: `characters.token_image_id`; events
   `token:set` `{ characterId, data }` and `token:clear` `{ characterId }` (answer and broadcast like `portrait:set`); tokens in `battle`
   carry `imageId` (the picture the default is cut from) and `tokenImageId` (the custom one or null).
-- **Tokens:** the GM places a character or temp NPC as a token from the Cast list (a tap on a character's row, "Place token" for a temp NPC,
-  in Battle mode); tokens occupy whole squares. Size comes from the
+- **Placing a token (decided):** two taps. A tap on a character's row in the Cast list ("Place token" for a temp NPC) arms it: the row
+  says "tap the map" and a banner over the map says "Tap a square to place <name>" (Cancel, or Esc, gives up; tapping the row again
+  too). The next tap on the map places the token **centred on that spot**, snapped to the squares (with the grid off, exactly there),
+  kept on the map. The Cast list stays open; it covers the left of the screen, so tap a square beside it or close it first. A tap on the
+  row of a token already on the map takes it off. (`battle:add` takes `u`, `v`: the tapped point as fractions of the picture; without them
+  the token goes to the first free square.) Before this the token was dropped silently on the first free square, the map's top-left
+  corner, which the open Cast list covered.
+- **Tokens:** the GM places a character or temp NPC as a token from the Cast list (see Placing a token); tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
   Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
   token for its circles, standing on the two sides of the token (up to two per side, each column

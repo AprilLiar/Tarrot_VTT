@@ -1,6 +1,6 @@
 /* global document, getComputedStyle */
 import { test, expect } from '@playwright/test';
-import { addPicturesOnSheet } from './helpers.js';
+import { addPicturesOnSheet, placeTokenAt } from './helpers.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -77,9 +77,8 @@ async function placeToken(gm, name) {
   await gm.getByTestId('open-cast').click();
   await gm.getByPlaceholder('Search').fill(name);
   const row = gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${name}"`) });
-  await row.getByTestId('summon-cast').click(); // in Battle mode a tap on the row places the token
-  await expect(row.getByTestId('cast-where')).toHaveText('on map');
-  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+  await placeTokenAt(gm, row); // in Battle mode: a tap on the row, then on a square of the map
+  await expect(gm.getByTestId('battle-token').filter({ has: gm.getByText(name, { exact: true }) })).toBeVisible();
 }
 
 const preset = (page, name) => page.getByTestId('preset').filter({ has: page.getByTestId('preset-name').getByText(name, { exact: true }) });

@@ -848,3 +848,20 @@ describe('the picture of a token', () => {
     expect(await tokenOf(g, bare)).toMatchObject({ imageId: null });
   });
 });
+
+describe('placing a token where the GM taps', () => {
+  it('centres it on the tapped point, on the squares, and keeps it on the map', async () => {
+    const g = await gm();
+    await battleScene(g); // a 10 x 5 grid on a 2:1 map: a square is 0.1 wide and 0.2 high
+    const a = await withPicture(g, 'Aria');
+    const b = await withPicture(g, 'Bob');
+    const c = await withPicture(g, 'Cid');
+    const tokenOf = async (id) => (await stageOf(g)).battle.tokens.find((t) => t.ownerId === id);
+    await g.call('battle:add', { characterId: a, u: 0.55, v: 0.5 });
+    expect(await tokenOf(a)).toMatchObject({ col: 5, row: 2 });
+    await g.call('battle:add', { characterId: b, u: 0.99, v: 0.99 }); // the last square, not past it
+    expect(await tokenOf(b)).toMatchObject({ col: 9, row: 4 });
+    await g.call('battle:add', { characterId: c }); // no tap: the first free square, as before
+    expect(await tokenOf(c)).toMatchObject({ col: 0, row: 0 });
+  });
+});

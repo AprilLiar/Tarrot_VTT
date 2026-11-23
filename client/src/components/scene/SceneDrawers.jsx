@@ -6,6 +6,7 @@ import { ActionDialog, FolderSelect, NameField, OPEN_FOLDER } from '../folderUi.
 import { imageUrl, prepareImage, prepareImageInfo } from '../../lib/image.js';
 import { LibraryTree } from './LibraryTree.jsx';
 import { uploadPicture, usePictures } from './Pictures.jsx';
+import { setPlacing, usePlacing } from '../../lib/placing.js';
 import { useT } from '../../i18n.jsx';
 import { T } from '../../../../shared/localization.js';
 import { BATTLE_FITS, DEFAULT_FIT, FIT_LABELS, SCENE_FITS } from '../../../../shared/fits.js';
@@ -397,16 +398,30 @@ function CastRow({ owner, name, badge, stage, extra }) {
   const [choosing, setChoosing] = useState(false);
 
   // In Battle mode the same list places tokens on the map instead of summoning to the stage.
+  // Placing is two taps: this row, then the square on the map (BattleView). A token already on the map is taken off at once.
+  const placing = usePlacing();
+  const waiting = placing && placing.owner.kind === owner.kind && placing.owner.id === owner.id;
   async function toggleToken() {
-    const r = await call(onStage ? 'battle:remove' : 'battle:add', onStage ? { id: onStage.id } : key);
-    if (!r.ok) toast(r.error);
+    if (onStage) {
+      const r = await call('battle:remove', { id: onStage.id });
+      if (!r.ok) toast(r.error);
+      return;
+    }
+    setPlacing(waiting ? null : { owner, key, name });
   }
 
   const badgeTag = badge && <span className={`rounded px-1.5 py-0.5 text-xs ${badge === 'PC' ? 'bg-emerald-800' : 'bg-slate-700'}`}>{t(badge)}</span>;
-  const where = onStage && (
+  const where = onStage ? (
     <span className="text-xs opacity-60" data-testid="cast-where">
       {onStage.hidden ? t('hidden') : battleMode ? t('on map') : t('on stage')}
     </span>
+  ) : (
+    battleMode &&
+    waiting && (
+      <span className="text-xs text-amber-300" data-testid="cast-placing">
+        {t('tap the map')}
+      </span>
+    )
   );
   const dialog = choosing && <SummonDialog owner={owner} name={name} onClose={() => setChoosing(false)} />;
 

@@ -10,6 +10,7 @@ import { BattleMapDialog } from './SceneDrawers.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 import { HeightControl } from './HeightControl.jsx';
 import { TokenFace } from './TokenFace.jsx';
+import { setPlacing, usePlacing } from '../../lib/placing.js';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
@@ -207,6 +208,15 @@ export default function BattleView() {
   const [drawMode, setDrawMode] = useState('pen'); // 'pen' | 'eraser'
   const [heightFor, setHeightFor] = useState(null); // id of the token whose height is being set
   const [mapDialog, setMapDialog] = useState(false); // the GM sets the battle map of a scene that has none
+  const placing = usePlacing(); // a token waiting for the GM to tap its square (armed in the Cast list)
+  // Esc, leaving Battle mode or the page give up the placing.
+  useEffect(() => {
+    if (!placing) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setPlacing(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [placing]);
+  useEffect(() => () => setPlacing(null), []);
   const erasing = useRef({ busy: false, pending: null, last: null });
 
   const aspect = battle?.aspect ?? 1;
@@ -316,6 +326,16 @@ export default function BattleView() {
   const draftSize = (d) => Math.min(60, tsize + (d?.bonus ?? 0));
 
   function surfaceDown(e) {
+    // Placing a token: this tap is its square.
+    if (placing && isGm && ready && e.button !== 2) {
+      const f = toFractions(e);
+      if (!inside(f)) return;
+      e.stopPropagation();
+      const { key } = placing;
+      setPlacing(null);
+      call('battle:add', { ...key, u: f.u, v: f.v }).then((r) => !r.ok && toast(r.error));
+      return;
+    }
     if (tools && tool === 'template' && moveMode) {
       // A press on the empty map in Move mode only drops the selection.
       if (e.button !== 2) setSelArea(null);
@@ -496,6 +516,7 @@ export default function BattleView() {
             ref={mapRef}
             className="relative shrink-0"
             data-testid="battle-map"
+            data-grid={JSON.stringify({ ...battle.grid, aspect, cols: battle.cols, rows: battle.rows })}
             data-fit={fill ? 'fill' : 'fit'}
             style={{ width: fw, height: fh, '--map-w': `${fw}px`, cursor: tools && tool !== 'select' ? 'crosshair' : undefined }}
             onPointerDown={surfaceDown}
@@ -692,6 +713,15 @@ export default function BattleView() {
           </div>
         )}
       </div>
+
+      {placing && isGm && ready && (
+        <div className="pointer-events-auto absolute left-1/2 top-24 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/75 py-1 pl-4 pr-1 text-sm backdrop-blur" data-testid="place-banner" data-no-pan>
+          <span>{t('Tap a square to place {name}', { name: placing.name })}</span>
+          <button className={`${btn} min-h-9 px-3`} data-testid="place-cancel" onClick={() => setPlacing(null)}>
+            {t('Cancel')}
+          </button>
+        </div>
+      )}
 
       {!ready && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="no-battle-map">
