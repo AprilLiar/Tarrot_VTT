@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { call, useApp } from '../../AppContext.jsx';
+import { StageView, call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
 import { useZoomPan } from '../../lib/useZoomPan.js';
 import { useElementSize } from '../../lib/useElementSize.js';
@@ -471,12 +471,45 @@ function SceneChrome({ chrome, onExit }) {
   );
 }
 
+// A change of scene or of mode fades: the old view goes to black (half the time, still showing the old scene), then the new one comes
+// out of it (the other half): 1 second in all. Anything else (a figure moving, a token) shows at once.
+const FADE_HALF_MS = 500;
+
+function useSceneFade(stage) {
+  const key = `${stage.mode}:${stage.scene?.id ?? ''}`;
+  const [shown, setShown] = useState({ key, stage });
+  const [dark, setDark] = useState(false);
+  const latest = useRef(stage);
+  latest.current = stage;
+  useEffect(() => {
+    if (key === shown.key) {
+      setDark(false);
+      return undefined;
+    }
+    setDark(true);
+    const timer = setTimeout(() => {
+      setShown({ key, stage: latest.current });
+      setDark(false);
+    }, FADE_HALF_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return { view: shown.key === key ? stage : shown.stage, dark };
+}
+
 // `chrome`: false on the Display Screen (no drawers). `onExit`: how the Display gets back to the picker.
 export default function ScenePage({ chrome = true, onExit }) {
   const { stage } = useApp();
+  const { view, dark } = useSceneFade(stage);
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
-      {stage.mode === 'battle' ? <BattleView /> : <SceneView />}
+      <StageView stage={view}>{view.mode === 'battle' ? <BattleView /> : <SceneView />}</StageView>
+      <div
+        className="pointer-events-none absolute inset-0 z-20 bg-black transition-opacity ease-in-out"
+        style={{ opacity: dark ? 1 : 0, transitionDuration: `${FADE_HALF_MS}ms` }}
+        data-testid="scene-fade"
+        data-dark={dark ? 'true' : 'false'}
+      />
       <SceneChrome chrome={chrome} onExit={onExit} />
     </div>
   );

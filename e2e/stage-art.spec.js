@@ -305,11 +305,15 @@ test('a scene picture keeps its resolution (WebP), shows with Best Fit unless ch
   const row = gm.getByTestId('scene-row').filter({ hasText: name });
   await row.getByRole('button').first().click();
   await row.getByTestId('activate-scene').click();
+  // The old scene fades out to black and the new one fades in.
+  await expect(gm.getByTestId('scene-title')).toHaveText(name);
+  await expect(gm.getByTestId('scene-fade')).toHaveAttribute('data-dark', 'true');
+  await expect(gm.getByTestId('scene-fade')).toHaveAttribute('data-dark', 'false');
 
   // Uploaded at its own size, as WebP.
   const bg = gm.getByTestId('scene-background');
   await expect(bg).toBeVisible();
-  expect(await bg.evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([2600, 1300]);
+  await expect.poll(() => bg.evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([2600, 1300]);
   const type = await bg.evaluate(async (img) => (await fetch(img.src)).headers.get('content-type'));
   expect(['image/webp', 'image/jpeg']).toContain(type);
 

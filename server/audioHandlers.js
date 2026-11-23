@@ -19,20 +19,30 @@ export function registerAudioHandlers(ctx) {
     return playlistId == null ? [] : audio.listTracks(db, playlistId);
   }
 
+  // A track the GM starts in the player is 'manual' music: it wins over the scene's track until it is stopped or runs out.
   async function startTrack(track) {
-    player.play(track);
+    player.play(track, { source: 'manual' });
     broadcastState();
   }
 
-  // Moves on after a track ends or fails; stops when there is nothing next.
+  // When the music stops (by hand, or because manual music ran out), the active scene's track comes back, from the beginning.
+  async function stopped() {
+    player.stop();
+    broadcastState();
+    await shared.sceneMusic?.apply();
+  }
+
+  // Moves on after a track ends or fails; stops when there is nothing next. A scene's track loops.
   async function advance() {
+    if (player.state.source === 'scene') {
+      player.play(await audio.getTrack(db, player.state.trackId), { source: 'scene' });
+      broadcastState();
+      return;
+    }
     const tracks = await tracksOf(player.state.playlistId);
     const next = player.next(tracks);
     if (next) await startTrack(next);
-    else {
-      player.stop();
-      broadcastState();
-    }
+    else await stopped();
   }
 
   // --- listening -------------------------------------------------------------
@@ -75,6 +85,12 @@ export function registerAudioHandlers(ctx) {
     if (!audio.UNPLAYABLE_CODES.includes(code)) return;
     if (trackId !== player.state.trackId || anchorId !== player.state.anchorId) return;
     io.to(rooms.GM_ROOM).emit('audio:track_unplayable', { trackId, name: player.state.name, code });
+    // A scene's track that cannot play is not looped forever.
+    if (player.state.source === 'scene') {
+      player.stop();
+      broadcastState();
+      return;
+    }
     const tracks = await tracksOf(player.state.playlistId);
     // If every track in the playlist fails in a row, stop instead of looping.
     if (player.noteError() > tracks.length) {
@@ -96,9 +112,13 @@ export function registerAudioHandlers(ctx) {
   on('audio:resume', { gmOnly: true }, () => {
     if (player.resume()) broadcastState();
   });
-  on('audio:stop', { gmOnly: true }, () => {
-    player.stop();
-    broadcastState();
+  // Stopping manual music brings the scene's track back; stopping a scene's track is silence (until the scene or mode changes).
+  on('audio:stop', { gmOnly: true }, async () => {
+    if (player.state.source === 'manual') await stopped();
+    else {
+      player.stop();
+      broadcastState();
+    }
   });
   on('audio:seek', { gmOnly: true }, ({ positionMs }) => {
     if (!Number.isFinite(positionMs)) throw new AppError('bad_value', 'Invalid position.');
@@ -113,10 +133,7 @@ export function registerAudioHandlers(ctx) {
     const next = player.next(tracks);
     if (mode === 'one') player.setMode({ repeatMode: 'one' });
     if (next) await startTrack(next);
-    else {
-      player.stop();
-      broadcastState();
-    }
+    else await stopped();
   });
   on('audio:previous', { gmOnly: true }, async () => {
     if (player.current == null) return;
@@ -143,11 +160,9 @@ export function registerAudioHandlers(ctx) {
   gmLibrary('playlist:rename', (p) => audio.renamePlaylist(db, p.id, p.name));
   gmLibrary('playlist:delete', async (p) => {
     // Deleting the playlist that is playing stops the music.
-    if (player.state.playlistId === p.id) {
-      player.stop();
-      broadcastState();
-    }
+    const playing = player.state.playlistId === p.id;
     await audio.deletePlaylist(db, p.id);
+    if (playing) await stopped();
   });
   gmLibrary('track:create', async (p) => ({ id: await audio.createTrack(db, p) }));
   gmLibrary('track:rename', async (p) => {
@@ -159,10 +174,7 @@ export function registerAudioHandlers(ctx) {
   });
   gmLibrary('track:delete', async (p) => {
     const t = await audio.deleteTrack(db, p.id);
-    if (player.state.trackId === t.id) {
-      player.stop();
-      broadcastState();
-    }
+    if (player.state.trackId === t.id) await stopped();
   });
   gmLibrary('track:reorder', (p) => audio.reorderTracks(db, p.playlistId, p.ids));
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { socket } from './socket.js';
 import { useT } from './i18n.jsx';
 
@@ -242,5 +242,12 @@ export function AppProvider({ children }) {
     toasts,
     toast,
   };
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+// Everything inside sees `stage` instead of the live one (the scene page keeps showing the old scene while it fades out).
+export function StageView({ stage, children }) {
+  const app = useContext(AppContext);
+  const value = useMemo(() => ({ ...app, stage }), [app, stage]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

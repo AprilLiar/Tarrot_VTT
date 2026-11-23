@@ -31,6 +31,9 @@ export const MIN_DURATION_MS = 5000; // shorter reports are usually an advert
 export const PREVIOUS_RESTARTS_AFTER_MS = 3000;
 // YouTube error codes for a video that cannot be embedded or does not exist.
 export const UNPLAYABLE_CODES = [2, 100, 101, 150];
+// When one track takes over from another, the new one starts this much later, so every screen can fade the old one out first (and then
+// fades the new one in over as long).
+export const FADE_MS = 1000;
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
@@ -115,8 +118,15 @@ export async function renamePlaylist(db, id, name) {
   await db.execute({ sql: 'UPDATE audio_playlists SET name = ? WHERE id = ?', args: [cleanName(name), id] });
 }
 
+// A deleted track is no longer any scene's music.
+async function forgetInScenes(db, where, args) {
+  await db.execute({ sql: `UPDATE scenes SET music_track_id = NULL WHERE music_track_id IN (SELECT id FROM audio_tracks WHERE ${where})`, args });
+  await db.execute({ sql: `UPDATE scenes SET battle_music_track_id = NULL WHERE battle_music_track_id IN (SELECT id FROM audio_tracks WHERE ${where})`, args });
+}
+
 export async function deletePlaylist(db, id) {
   await requirePlaylist(db, id);
+  await forgetInScenes(db, 'playlist_id = ?', [id]);
   await db.execute({ sql: 'DELETE FROM audio_tracks WHERE playlist_id = ?', args: [id] });
   await db.execute({ sql: 'DELETE FROM audio_playlists WHERE id = ?', args: [id] });
 }
@@ -144,6 +154,7 @@ export async function renameTrack(db, id, name) {
 
 export async function deleteTrack(db, id) {
   const t = await getTrack(db, id);
+  await forgetInScenes(db, 'id = ?', [id]);
   await db.execute({ sql: 'DELETE FROM audio_tracks WHERE id = ?', args: [id] });
   return t;
 }
@@ -187,13 +198,17 @@ export function createPlayer({ now = Date.now, random = Math.random } = {}) {
     repeatMode: 'off',
     shuffle: false,
     errorStreak: 0,
+    // 'manual': started by the GM in the player (it wins over scene music until it is stopped or runs out); 'scene': a scene's track,
+    // which loops; null: nothing playing.
+    source: null,
   };
 
-  const positionNow = () => (s.isPlaying ? s.positionMs + (now() - s.anchoredAtMs) : s.positionMs);
-  const anchor = (positionMs, isPlaying) => {
+  // Before a delayed anchor (a fade) the position is 0.
+  const positionNow = () => (s.isPlaying ? Math.max(0, s.positionMs + (now() - s.anchoredAtMs)) : s.positionMs);
+  const anchor = (positionMs, isPlaying, delayMs = 0) => {
     s.positionMs = Math.max(0, Math.round(positionMs));
     s.isPlaying = isPlaying;
-    s.anchoredAtMs = now();
+    s.anchoredAtMs = now() + delayMs;
     s.anchorId += 1;
   };
 
@@ -210,13 +225,16 @@ export function createPlayer({ now = Date.now, random = Math.random } = {}) {
     get state() {
       return s;
     },
-    play(track) {
+    // A different track taking over from one that is playing starts FADE_MS later (the screens fade the old one out meanwhile).
+    play(track, { source = 'manual' } = {}) {
+      const fade = s.trackId != null && s.isPlaying && s.trackId !== track.id;
       s.trackId = track.id;
       s.youtubeId = track.youtubeId;
       s.name = track.name;
       s.playlistId = track.playlistId;
       s.durationMs = track.durationMs;
-      anchor(0, true);
+      s.source = source;
+      anchor(0, true, fade ? FADE_MS : 0);
     },
     pause() {
       if (s.trackId == null || !s.isPlaying) return false;
@@ -235,6 +253,7 @@ export function createPlayer({ now = Date.now, random = Math.random } = {}) {
       s.playlistId = null;
       s.durationMs = null;
       s.errorStreak = 0;
+      s.source = null;
       anchor(0, false);
     },
     seek(ms) {

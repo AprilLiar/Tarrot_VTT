@@ -142,7 +142,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await db.batch(['DELETE FROM audio_tracks', 'DELETE FROM audio_playlists', 'DELETE FROM characters', 'DELETE FROM character_folders'], 'write');
+  await db.batch(['DELETE FROM audio_tracks', 'DELETE FROM audio_playlists', 'DELETE FROM characters', 'DELETE FROM character_folders', 'DELETE FROM scenes', "UPDATE scene_state SET active_scene_id = NULL, mode = 'scene'"], 'write');
   // The player is per server instance, so start every test from a quiet one.
   const g = await gm();
   await g.call('audio:stop', {});
@@ -433,5 +433,93 @@ describe('playback', () => {
     await g.call('audio:play', { trackId: ids[0] });
     await g.call('playlist:delete', { id: pl });
     expect((await d.call('audio:listen', { on: true })).state.trackId).toBeNull();
+  });
+});
+
+describe('scene music', () => {
+  const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]), Buffer.alloc(4)]);
+  const now = async (g) => (await g.call('audio:listen', { on: true })).state;
+
+  it('a scene plays its track, looped; Battle plays the battle track, or keeps the scene track without one', async () => {
+    const g = await gm();
+    const { ids } = await library(g);
+    const hall = (await g.call('scene:create', { name: 'Hall', data: png() })).id;
+    const road = (await g.call('scene:create', { name: 'Road', data: png() })).id;
+    const quiet = (await g.call('scene:create', { name: 'Quiet', data: png() })).id;
+    expect((await g.call('scene:set_music', { id: hall, which: 'scene', trackId: ids[0] })).ok).toBe(true);
+    await g.call('scene:set_music', { id: hall, which: 'battle', trackId: ids[1] });
+    await g.call('scene:set_music', { id: road, which: 'scene', trackId: ids[2] });
+    expect(await g.call('scene:set_music', { id: hall, which: 'scene', trackId: 999999 })).toMatchObject({ ok: false });
+
+    await g.call('scene:activate', { id: hall });
+    expect(await now(g)).toMatchObject({ trackId: ids[0], source: 'scene', isPlaying: true });
+    // It loops: the end of the track starts it again.
+    const st = await now(g);
+    await g.call('audio:track_ended', { trackId: st.trackId, anchorId: st.anchorId });
+    expect(await now(g)).toMatchObject({ trackId: ids[0], source: 'scene', isPlaying: true });
+    expect((await now(g)).anchorId).toBe(st.anchorId + 1);
+
+    await g.call('battle:mode', { mode: 'battle' });
+    expect((await now(g)).trackId).toBe(ids[1]);
+    await g.call('battle:mode', { mode: 'scene' });
+    expect((await now(g)).trackId).toBe(ids[0]);
+
+    // Road has no battle track: Battle keeps its scene track. A scene with no track leaves the music alone, and so does deactivating.
+    await g.call('scene:activate', { id: road });
+    expect((await now(g)).trackId).toBe(ids[2]);
+    await g.call('battle:mode', { mode: 'battle' });
+    expect((await now(g)).trackId).toBe(ids[2]);
+    await g.call('scene:activate', { id: quiet });
+    expect((await now(g)).trackId).toBe(ids[2]);
+    await g.call('scene:activate', { id: null });
+    expect((await now(g)).trackId).toBe(ids[2]);
+  });
+
+  it('music played by hand wins until it is stopped or runs out, then the scene track starts again from the beginning', async () => {
+    const g = await gm();
+    const { ids } = await library(g);
+    const hall = (await g.call('scene:create', { name: 'Hall', data: png() })).id;
+    const road = (await g.call('scene:create', { name: 'Road', data: png() })).id;
+    await g.call('scene:set_music', { id: hall, which: 'scene', trackId: ids[0] });
+    await g.call('scene:set_music', { id: road, which: 'scene', trackId: ids[1] });
+    await g.call('scene:activate', { id: hall });
+
+    await g.call('audio:play', { trackId: ids[2] });
+    expect(await now(g)).toMatchObject({ trackId: ids[2], source: 'manual' });
+    await g.call('scene:activate', { id: road }); // a scene change does not interrupt it
+    await g.call('battle:mode', { mode: 'battle' });
+    expect(await now(g)).toMatchObject({ trackId: ids[2], source: 'manual' });
+    await g.call('battle:mode', { mode: 'scene' });
+
+    await g.call('audio:stop', {});
+    expect(await now(g)).toMatchObject({ trackId: ids[1], source: 'scene', isPlaying: true, positionMs: 0 });
+
+    // Running out: the last track of the playlist ends with repeat off.
+    await g.call('audio:play', { trackId: ids[2] });
+    const st = await now(g);
+    await g.call('audio:track_ended', { trackId: st.trackId, anchorId: st.anchorId });
+    expect(await now(g)).toMatchObject({ trackId: ids[1], source: 'scene' });
+
+    // Stopping the scene's own track is silence.
+    await g.call('audio:stop', {});
+    expect(await now(g)).toMatchObject({ trackId: null, source: null });
+  });
+
+  it('a track taking over from another starts a second later, so every screen can fade; deleting a scene track forgets it', async () => {
+    const g = await gm();
+    const { ids } = await library(g);
+    await g.call('audio:play', { trackId: ids[0] });
+    const first = await now(g);
+    expect(first.anchoredAtMs).toBeLessThanOrEqual(first.serverMs);
+    await g.call('audio:play', { trackId: ids[1] });
+    const second = await now(g);
+    expect(second.anchoredAtMs - second.serverMs).toBeGreaterThan(800); // the fade-out of the first
+    await g.call('audio:stop', {});
+
+    const hall = (await g.call('scene:create', { name: 'Hall', data: png() })).id;
+    await g.call('scene:set_music', { id: hall, which: 'battle', trackId: ids[2] });
+    await g.call('track:delete', { id: ids[2] });
+    const scene = (await g.call('library:get')).library.scenes.find((x) => x.id === hall);
+    expect(scene.battleMusicTrackId).toBeNull();
   });
 });

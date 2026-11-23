@@ -167,3 +167,53 @@ test('phones and players get no music at all', async ({ browser }) => {
   await phoneCtx.close();
   await gmCtx.close();
 });
+
+test('a scene plays the track chosen for it in the Scenes list, and its battle track in Battle mode', async ({ browser }) => {
+  const list = `Ambience-${uid()}`;
+  const scene = `Inn-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  const tv = await open(await desktop(browser), 'pick-display');
+
+  await gm.getByTestId('music-bar').click();
+  await gm.getByTestId('new-playlist-name').fill(list);
+  await gm.getByTestId('new-playlist').click();
+  await addTrack(gm, list, 'https://youtu.be/ddddddddddd', 'Inn Song');
+  await addTrack(gm, list, 'https://youtu.be/eeeeeeeeeee', 'Brawl');
+  // Music started by hand would win over the scene's: stop anything an earlier test left playing (twice: stopping music played by hand
+  // brings back the track of the scene that was active, and stopping that one is silence).
+  for (let i = 0; i < 2; i++) {
+    if (await gm.getByTestId('stop').isEnabled()) await gm.getByTestId('stop').click();
+    await gm.waitForTimeout(200);
+  }
+  await gm.getByTestId('music-panel').getByRole('button', { name: 'Close' }).click();
+
+  // A new scene, its Scene track chosen in its row (Scene mode shows the Scene music), then activated.
+  await gm.getByTestId('nav-scene').click();
+  await gm.getByTestId('mode-scene').click();
+  await gm.getByTestId('open-scenes').click();
+  await gm.getByTestId('new-scene').click();
+  await gm.getByLabel('Name').fill(scene);
+  await gm.getByRole('button', { name: 'Create' }).click();
+  await expect(gm.getByRole('dialog')).toBeHidden();
+  const row = gm.getByTestId('scene-row').filter({ hasText: scene });
+  await row.getByRole('button').first().click();
+  await expect(row.getByTestId('battle-music')).toHaveCount(0);
+  await row.getByTestId('scene-music').selectOption({ label: 'Inn Song' });
+  await row.getByTestId('activate-scene').click();
+  await expect(tv.getByTestId('music-title')).toHaveText('Inn Song');
+
+  // In Battle mode the row offers the Battle music; choosing it for the active scene switches the music at once.
+  await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
+  await gm.getByTestId('mode-battle').click();
+  await expect(tv.getByTestId('music-title')).toHaveText('Inn Song'); // no battle track yet: the scene's goes on
+  await gm.getByTestId('open-scenes').click();
+  await row.getByRole('button').first().click();
+  await expect(row.getByTestId('scene-music')).toHaveCount(0);
+  await row.getByTestId('battle-music').selectOption({ label: 'Brawl' });
+  await expect(tv.getByTestId('music-title')).toHaveText('Brawl');
+  await gm.getByTestId('scenes-drawer').getByRole('button', { name: 'Close' }).click();
+  await gm.getByTestId('mode-scene').click();
+  await expect(tv.getByTestId('music-title')).toHaveText('Inn Song');
+  await gmCtx.close();
+});

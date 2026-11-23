@@ -2,6 +2,7 @@ import * as scenes from './scenes.js';
 import * as battle from './battle.js';
 import * as sheets from './sheet.js';
 import * as combat from './combat.js';
+import * as audio from './audio.js';
 import { buildRoll, rollD20 } from './rolls.js';
 import { helpDiceFor, spendHelp } from './help.js';
 import { createJournal } from './journal.js';
@@ -142,6 +143,15 @@ export function registerSceneHandlers(ctx) {
   on('scene:activate', { gmOnly: true }, async (p) => {
     await scenes.setActiveScene(db, p.id ?? null);
     await broadcastStage();
+    await shared.sceneMusic.apply();
+  });
+
+  // The track a scene plays in Scene mode ('scene') or Battle mode ('battle'), or none (null).
+  gmLibrary('scene:set_music', async (p) => {
+    const trackId = p.trackId ?? null;
+    if (trackId !== null) await audio.getTrack(db, trackId);
+    await scenes.setMusic(db, p.id, p.which, trackId);
+    if ((await scenes.getActiveSceneId(db)) === p.id) await shared.sceneMusic.apply();
   });
 
   // --- temp NPCs (GM) -----------------------------------------------------------
@@ -273,6 +283,7 @@ export function registerSceneHandlers(ctx) {
   on('battle:mode', { gmOnly: true }, async (p) => {
     await scenes.setMode(db, p.mode);
     await broadcastStage();
+    await shared.sceneMusic.apply();
   });
 
   gmLibrary('scene:set_battle_image', async (p) => {

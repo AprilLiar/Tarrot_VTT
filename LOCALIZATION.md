@@ -746,6 +746,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Rename picture | Переименовать картинку |
 | Fit | Вписывание |
 | Best Fit shows the whole picture with black bars; Fill covers the screen and cuts off the edges; Stretch takes the shape of the screen. | «Целиком» показывает всю картинку с чёрными полосами; «Заполнить» закрывает весь экран и обрезает края; «Растянуть» подгоняет картинку под форму экрана. |
+| No music | Без музыки |
 | New scene | Новая сцена |
 | Background: {name} | Фон: {name} |
 | Choose a background picture | Выберите фоновую картинку |
@@ -763,7 +764,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Activate | Включить |
 | Battle map (set) | Боевая карта (есть) |
 | Battle map | Боевая карта |
+| Battle music | Музыка боя |
 | Background | Фон |
+| Scene music | Музыка сцены |
 | Delete scene | Удалить сцену |
 | Delete {name} and everyone standing on it? This cannot be undone. | Удалить сцену {name} и всех, кто на ней стоит? Это нельзя отменить. |
 | New temp NPC | Новый временный НПС |
@@ -1327,10 +1330,10 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Invalid scene. | Неверная сцена. |
 | That scene no longer exists. | Этой сцены больше нет. |
 | Unknown fit. | Неизвестный способ вписывания. |
+| Unknown mode. | Неизвестный режим. |
 | The picture has an unusable shape. | У картинки неподходящая форма. |
 | That grid does not fit. | Такая сетка не подходит. |
 | That grid leaves no room on the picture. | При такой сетке на картинке не остаётся места. |
-| Unknown mode. | Неизвестный режим. |
 | Invalid stage entry. | Неверная запись сцены. |
 | That character is no longer on stage. | Этого персонажа больше нет на сцене. |
 | Already on stage. | Уже на сцене. |

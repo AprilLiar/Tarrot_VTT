@@ -10,6 +10,9 @@ import { loadYouTubeApi, YT_STATE } from './youtube.js';
 const VOLUME_KEY = 'tarrot.music.volume';
 const MUTE_KEY = 'tarrot.music.muted';
 const DRIFT_SECONDS = 1.5;
+// A track that takes over from another fades: the old one out, then the new one in, each over this long (the server starts the new
+// track this much later, so every screen does it together). Stopping fades out too.
+const FADE_MS = 1000;
 
 function loadVolume() {
   try {
@@ -56,6 +59,9 @@ export function useMusic({ enabled }) {
   const loadedRef = useRef({ trackId: null });
   const volumeRef = useRef({ volume, muted });
   volumeRef.current = { volume, muted };
+  const gainRef = useRef(1); // the fade, on top of the volume (0 to 1)
+  const fadeRef = useRef(null);
+  const switchingRef = useRef(false); // fading out before the next track or a stop: syncing waits
 
   // Where the music is right now, in milliseconds.
   const positionMs = useCallback(() => {
@@ -69,27 +75,68 @@ export function useMusic({ enabled }) {
     const p = playerRef.current;
     if (!p?.setVolume) return;
     const { volume: v, muted: m } = volumeRef.current;
-    p.setVolume(Math.round(v * 100));
+    p.setVolume(Math.round(v * gainRef.current * 100));
     if (m) p.mute();
     else p.unMute();
   }, []);
 
+  // Moves the fade to `target` over `ms`. A newer fade replaces an older one (whose promise then never resolves).
+  const rampTo = useCallback(
+    (target, ms) => {
+      clearInterval(fadeRef.current);
+      return new Promise((resolve) => {
+        const from = gainRef.current;
+        const t0 = Date.now();
+        fadeRef.current = setInterval(() => {
+          const k = Math.min(1, (Date.now() - t0) / ms);
+          gainRef.current = from + (target - from) * k;
+          applyVolume();
+          if (k >= 1) {
+            clearInterval(fadeRef.current);
+            fadeRef.current = null;
+            resolve();
+          }
+        }, 50);
+      });
+    },
+    [applyVolume],
+  );
+
   const sync = useCallback(() => {
     const p = playerRef.current;
     const s = stateRef.current;
-    if (!p?.loadVideoById || !s) return;
+    if (!p?.loadVideoById || !s || switchingRef.current) return;
+    // Fade out what is playing, then (unless the music stopped meanwhile) carry on with whatever the state is by then.
+    const fadeOut = () => {
+      switchingRef.current = true;
+      rampTo(0, FADE_MS).then(() => {
+        switchingRef.current = false;
+        if (stateRef.current?.trackId == null) {
+          p.stopVideo();
+          loadedRef.current = { trackId: null };
+        } else {
+          loadedRef.current = { trackId: null, faded: true };
+          syncRef.current();
+        }
+      });
+    };
     if (s.trackId == null) {
-      if (loadedRef.current.trackId != null) p.stopVideo();
-      loadedRef.current = { trackId: null };
+      if (loadedRef.current.trackId != null) fadeOut();
       return;
     }
-    const target = positionMs() / 1000;
+    const target = Math.max(0, positionMs() / 1000);
     const loaded = loadedRef.current;
     if (loaded.trackId !== s.trackId || loaded.youtubeId !== s.youtubeId) {
+      if (loaded.trackId != null) {
+        fadeOut();
+        return;
+      }
       loadedRef.current = { trackId: s.trackId, youtubeId: s.youtubeId, anchorId: s.anchorId };
+      gainRef.current = 0;
       if (s.isPlaying) p.loadVideoById({ videoId: s.youtubeId, startSeconds: target });
       else p.cueVideoById({ videoId: s.youtubeId, startSeconds: target });
       applyVolume();
+      rampTo(1, FADE_MS);
       // If nothing started shortly after, the browser blocked autoplay.
       setTimeout(() => {
         const cur = stateRef.current;
@@ -110,7 +157,7 @@ export function useMusic({ enabled }) {
       if (ps === YT_STATE.PLAYING || ps === YT_STATE.BUFFERING) p.pauseVideo();
       if (Math.abs(cur - target) > 0.5) p.seekTo(target, true);
     }
-  }, [applyVolume, positionMs]);
+  }, [applyVolume, positionMs, rampTo]);
 
   const syncRef = useRef(sync);
   syncRef.current = sync;
@@ -194,6 +241,9 @@ export function useMusic({ enabled }) {
     return () => {
       live = false;
       clearInterval(timer);
+      clearInterval(fadeRef.current);
+      switchingRef.current = false;
+      gainRef.current = 1;
       document.removeEventListener('visibilitychange', onVisible);
       try {
         playerRef.current?.destroy?.();

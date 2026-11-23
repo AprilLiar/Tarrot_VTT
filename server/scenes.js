@@ -234,6 +234,8 @@ const toScene = (r) => ({
   fit: cleanFit(r.scene_fit, SCENE_FITS),
   battleImageId: r.battle_image_id ?? null,
   battleFit: cleanFit(r.battle_fit, BATTLE_FITS),
+  musicTrackId: n(r.music_track_id),
+  battleMusicTrackId: n(r.battle_music_track_id),
   // width / height of the battle picture, sent by the browser when it is uploaded
   battleAspect: r.battle_aspect == null ? null : Number(r.battle_aspect),
   // Whether the grid is drawn, for everybody, until it is changed.
@@ -245,7 +247,7 @@ const toScene = (r) => ({
   },
 });
 
-const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid';
+const SCENE_COLUMNS = 'id, name, folder_id, scene_image_id, scene_fit, battle_image_id, battle_fit, battle_aspect, grid_cell, grid_ox, grid_oy, show_grid, music_track_id, battle_music_track_id';
 
 // How many cells cover the battle picture with the current grid. A square that only partly fits on the picture
 // (at the right or bottom edge) counts too, and the grid may start before the picture's top left corner
@@ -311,6 +313,14 @@ export async function setFit(db, id, which, fit) {
   if (which !== 'scene' && which !== 'battle') throw new AppError('bad_value', 'Unknown fit.');
   const value = checkFit(fit, which === 'scene' ? SCENE_FITS : BATTLE_FITS);
   await db.execute({ sql: `UPDATE scenes SET ${which === 'scene' ? 'scene_fit' : 'battle_fit'} = ? WHERE id = ?`, args: [value, id] });
+}
+
+// The track of a scene for Scene mode (`which` 'scene') or Battle mode ('battle'); null for none. The caller checks the track exists.
+export async function setMusic(db, id, which, trackId) {
+  await getScene(db, id);
+  if (which !== 'scene' && which !== 'battle') throw new AppError('bad_value', 'Unknown mode.');
+  if (trackId !== null && !Number.isInteger(trackId)) throw new AppError('bad_id', 'Invalid track.');
+  await db.execute({ sql: `UPDATE scenes SET ${which === 'scene' ? 'music_track_id' : 'battle_music_track_id'} = ? WHERE id = ?`, args: [trackId, id] });
 }
 
 export async function setBattleImage(db, id, imageId, aspect) {

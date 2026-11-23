@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { socket } from '../../socket.js';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField, OPEN_FOLDER } from '../folderUi.jsx';
@@ -72,6 +73,41 @@ function FitSelect({ value, onChange, fits, testId, inline = false }) {
       {select}
       <span className="text-xs opacity-60">{t('Best Fit shows the whole picture with black bars; Fill covers the screen and cuts off the edges; Stretch takes the shape of the screen.')}</span>
     </label>
+  );
+}
+
+// The music player's playlists, for choosing a scene's track (GM).
+function useMusicLibrary() {
+  const [playlists, setPlaylists] = useState(null);
+  useEffect(() => {
+    let live = true;
+    call('music:get').then((r) => live && r.ok && setPlaylists(r.playlists));
+    const onUpdated = (u) => setPlaylists(u.playlists);
+    socket.on('music:updated', onUpdated);
+    return () => {
+      live = false;
+      socket.off('music:updated', onUpdated);
+    };
+  }, []);
+  return playlists;
+}
+
+// A scene's track for one mode: any track of the music player's playlists, or none.
+function MusicSelect({ value, playlists, onChange, testId, label }) {
+  const t = useT();
+  return (
+    <select className={`${btn} max-w-full px-2`} data-testid={testId} aria-label={label} title={label} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+      <option value="">{t('No music')}</option>
+      {(playlists ?? []).map((pl) => (
+        <optgroup key={pl.id} label={pl.name}>
+          {pl.tracks.map((tr) => (
+            <option key={tr.id} value={tr.id}>
+              {tr.name}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
   );
 }
 
@@ -207,6 +243,7 @@ export function ScenesDrawer({ onClose }) {
   const { library, stage } = useApp();
   const [dialog, setDialog] = useState(null);
   const done = () => setDialog(null);
+  const playlists = useMusicLibrary();
   if (!library) return <Drawer title={t('Scenes')} side="right" onClose={onClose}>{t('Loading...')}</Drawer>;
   const activeId = stage.scene?.id ?? null;
   // A scene's row shows only the settings of the mode the table is in: the Scene picture in Scene mode, the Battle map in Battle mode.
@@ -249,6 +286,7 @@ export function ScenesDrawer({ onClose }) {
                       {scene.battleImageId ? t('Battle map (set)') : t('Battle map')}
                     </button>
                     <FitSelect inline value={scene.battleFit ?? DEFAULT_FIT} fits={BATTLE_FITS} testId="battle-fit" onChange={(fit) => call('scene:set_fit', { id: scene.id, which: 'battle', fit })} />
+                    <MusicSelect value={scene.battleMusicTrackId} playlists={playlists} testId="battle-music" label={t('Battle music')} onChange={(trackId) => call('scene:set_music', { id: scene.id, which: 'battle', trackId })} />
                   </>
                 ) : (
                   <>
@@ -256,6 +294,7 @@ export function ScenesDrawer({ onClose }) {
                       {t('Background')}
                     </button>
                     <FitSelect inline value={scene.fit ?? DEFAULT_FIT} fits={SCENE_FITS} testId="scene-fit" onChange={(fit) => call('scene:set_fit', { id: scene.id, which: 'scene', fit })} />
+                    <MusicSelect value={scene.musicTrackId} playlists={playlists} testId="scene-music" label={t('Scene music')} onChange={(trackId) => call('scene:set_music', { id: scene.id, which: 'scene', trackId })} />
                   </>
                 )}
                 <button className={btn} onClick={() => setDialog({ kind: 'move', scene })}>

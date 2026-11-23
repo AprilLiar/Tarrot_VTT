@@ -67,6 +67,9 @@ const COLUMNS = [
   // How the Scene picture and the Battle map fit a screen of another shape (shared/fits.js): Best Fit for every scene at first.
   { table: 'scenes', column: 'scene_fit', ddl: "scene_fit TEXT NOT NULL DEFAULT 'fit'" },
   { table: 'scenes', column: 'battle_fit', ddl: "battle_fit TEXT NOT NULL DEFAULT 'fit'" },
+  // The track a scene plays (looped) in Scene mode, and the one for Battle mode (see the README, "Scene music").
+  { table: 'scenes', column: 'music_track_id', ddl: 'music_track_id INTEGER' },
+  { table: 'scenes', column: 'battle_music_track_id', ddl: 'battle_music_track_id INTEGER' },
 ];
 
 export async function initSchema(db) {

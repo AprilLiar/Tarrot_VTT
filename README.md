@@ -740,8 +740,10 @@ Light-novel style: a fullscreen background with character art standing along the
   before) and **Stretch** (the screen's shape; Scene pictures only, as it would make a battle grid's squares into rectangles). Each
   screen fits the picture to its own shape; figures, tokens and the grid stay on the picture.
 - **Scenes list follows the mode (decided):** a scene's row shows only the settings of the mode the table is in: in Scene mode the
-  Background (with its fit), in Battle mode the Battle map (with its fit). The mode itself is changed only with the Scene / Battle switch
+  Background (with its fit) and the Scene music, in Battle mode the Battle map (with its fit) and the Battle music. The mode itself is changed only with the Scene / Battle switch
   at the top (GM). In Battle mode a scene with no battle map shows a **Set battle map** button in the middle of the screen (GM).
+- **Scene change fade (decided):** activating another scene, or switching between Scene and Battle, fades the picture through black in
+  **1 second** (half to black, still showing the old scene; half out of it, showing the new one), on every screen.
 - **Scenes** are foldered (nested folders, like the roster) and each has a background picture. The
   GM activates one at a time; the Display and desktop players see the change live. Nobody is
   force-navigated. With no active scene the Display shows a waiting message.
@@ -983,6 +985,20 @@ Behaviour:
   the tab becomes visible. A screen that opens late starts at the right second. Pausing anchors
   where the music really was, so Resume is exact.
 - **What is playing is held in server memory:** it stops when the server restarts. Playlists stay.
+- **Fades (decided):** when one track takes over from another, every screen fades the old one out over **1 second**, then the new one
+  in over 1 second (the server starts the new track a second later, so all screens do it together). Stopping fades out over 1 second.
+  Pause and seek are immediate.
+- **Scene music (decided):** in the Scenes list a scene can be given a **Scene music** track (in Scene mode) and a **Battle music**
+  track (in Battle mode), chosen from the player's playlists (or No music). Scene tracks **always loop**.
+  - **Activating a scene** plays its track for the current mode, replacing what was playing (with the fade). Switching to **Battle**
+    plays the battle track; a scene without one keeps its Scene track; back in Scene mode its Scene track returns.
+  - A scene (or mode) **with no track leaves whatever is playing alone**, and so does deactivating the scene.
+  - **Music started by hand** in the player (Play, Next, Previous), in Scene or Battle mode, **wins**: scene and mode changes leave it
+    alone until it is **stopped**, or **runs out** (the end of its playlist with Repeat off); then the active scene's track starts
+    again **from the beginning**. Stopping a scene's own track is silence until the scene or the mode changes.
+  - A deleted track is no longer any scene's music. A scene track YouTube cannot play is stopped, not looped.
+  - Data: `scenes.music_track_id`, `scenes.battle_music_track_id`; event `scene:set_music` `{ id, which: 'scene' | 'battle', trackId | null }`
+    (GM); `audio:state` carries `source` ('manual', 'scene' or null).
 - **End of a track:** every listener reports it; only the first report for the current anchor
   moves on, so two listeners never skip two songs. Previous restarts the track after 3 seconds.
   Next always leaves the track, even under Repeat one. Shuffle picks a different random track.
