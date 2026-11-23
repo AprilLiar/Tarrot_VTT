@@ -1598,6 +1598,59 @@ Battle (Phase 5a):
 HTTP: `GET /api/pcs` returns `[{ id, name }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
 
+### Features from Custom-VTT (reviewed with the user, decided; to be built)
+The user's other project (`AprilLiar/Custom-VTT`, "Dogfight") was gone through feature by feature (its Panic at the Dojo rules left
+out). Each answer is the user's; "No" means it is not wanted. Nothing here is built yet; details marked "to confirm" are asked when built.
+1. **Players follow the active scene:** No. Nobody is moved (as decided before).
+2. **Copy a scene:** Yes, **settings only**: a Copy in the Scenes list makes a new scene with the same pictures (shared, no second upload),
+   fits, music, battle map and grid; no figures, tokens or drawings.
+3. **Drawing on the Scene picture:** No.
+4. **Scene notes (the user's design):** GM only. Up to **9 notes per scene**, numbered 1 to 9 in a row. Each note is a **small round
+   numbered button right under the Scene / Battle switch**; pressing it opens the note to read and edit. While there are fewer than 9, the
+   next number's place is a round **+** button with a **dotted outline** that creates the next note. That row is the only place to create
+   and manage notes.
+5. **Cutscene cards:** Yes, as a kind of the notes above: creating a note has a toggle **Note / Card**. A Card works as in Custom-VTT: it is
+   played to everyone as a full-screen darkened card (there: 90% black, a big title line and an optional smaller line, fading in, holding
+   and fading out). How it is played from its button and for how long: to confirm.
+6. **Hide interface (cinematic mode):** Yes, **per device**: anyone hides the controls over the scene on their own screen and brings them
+   back.
+7. **Stage display settings per device** (figure height, spacing, name plaques): No.
+8. **GM Rewind:** Yes, **5 steps**: an always-there GM button with a count in the combat bar steps the battle back to just before the last
+   applied attack, move or Next turn (HP, AP, statuses, positions and whose turn all return); its tooltip names what the next step undoes.
+9. **Board animations:** Yes: **damage and healing numbers** (a red number and a hit flash, the Temp HP part blue; a green heal number),
+   **statuses gained or lost** (the icon pops with + or -), **token movement slides**. Also **new attack animations** for an attack that
+   uses a **Stance**, a **Spell** and/or a **Manifestation**; **very important:** they must be built so that any two of them, or all
+   three at once, combine neatly into **one coherent animation**, never overlapping. Other animations are to be explored and proposed.
+10. **Map tiles (hazards palette):** No.
+11. **Several tokens of one NPC:** No.
+12. **Fight setup:** **Leave out of combat** only: a GM switch per token (Token Settings); such a token is not enrolled by Start combat and
+    has no initiative. Infinite HP: No.
+13. **Battle Cleanup:** No.
+14. **Board margin:** Yes, **2 squares**: the grid runs on 2 squares past every edge of the battle map through a darker ring, and tokens may
+    stand there.
+15. **Interrupts:** No.
+16. **Contests (opposed checks tool):** No.
+17. **GM Tools button:** Yes, a round floating GM-only button gathering the GM's tools, **only on the Scene page** (Scene and Battle
+    modes), not on the Arcane tab or character sheets.
+18. **Patch note on the picker:** Yes, **in English and Russian**: the version and one sentence on what the latest update changed,
+    rewritten on every push to main.
+19. **NPCs assigned to a player:** No.
+20. **Events board:** Yes, as in Custom-VTT: a new Events page for everyone with sticky notes in lanes; the GM makes the lanes, each
+    **Everyone** or **GM only**; notes up to 280 characters, five colours, an author; the author or the GM edits or deletes; anyone drags
+    notes within and between the lanes they can see.
+21. **Relationships board:** Yes, as in Custom-VTT: private to each PC's player and the GM; NPC cards from the roster or invented people,
+    joined by named, coloured, directional arrows, with notes.
+22. **Counters (clocks):** Yes, **with Gates**: named clocks of 2 to 20 pips on a sheet with + and -; the GM marks one pip as a Gate with a
+    name and text, optionally secret from the player; reaching a non-secret Gate posts a chat line.
+23. **Chat:** **pictures and GIFs** in messages, and a **Dice Tray** (d4 to d20 buttons and a modifier; the server rolls and posts it).
+    The GM posting as an NPC: No.
+24. **Primary colour:** Yes, **per device**: a colour picker in Settings for the app's accent colour (today violet).
+25. **Crop editor:** Yes for the **Portrait** (what the round thumbnails show: roster, picker, combat order) and for the **default token**
+    (adjusting the automatic head-and-shoulders cut). Not for custom tokens.
+26. **Crash screen:** Yes: a page that breaks shows "Something went wrong" with a Reload button instead of a blank screen.
+27. **Search:** Yes, **for everyone**: one box in the top bar finds by name characters, items, spells, Stances, Effects, Tarot cards and
+    scenes, and opens them; players find only what they may see.
+
 ## Phases
 
 Each phase ends in a deploy and playtest checkpoint.
