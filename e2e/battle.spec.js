@@ -1246,3 +1246,60 @@ test('the grid: pixels, Ctrl + wheel, past the picture, and shown or hidden for 
   await gmCtx.close();
   await tvCtx.close();
 });
+
+test('a token is cut from the head of the character\'s picture, and a custom token from the sheet replaces it', async ({ browser }) => {
+  const npc = `Knight-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Yard-${uid()}`);
+  // A cut-out picture: a 160 px wide figure in the middle of a 240 x 420 picture with transparent sides.
+  await addPicturesOnSheet(gm, npc, [await cutOut(gm)]);
+  await gm.getByTestId('open-cast').click();
+  await gm.getByPlaceholder('Search').fill(npc);
+  await gm.getByTestId('cast-row').filter({ has: gm.locator(`text="${npc}"`) }).getByTestId('summon-cast').click();
+  await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
+
+  // The default face: the top square of the visible figure (160 px wide, so the picture is drawn 240/160 = 150% of the round frame,
+  // shifted left by the transparent 40 px and starting at the top).
+  const face = token(gm, npc).getByTestId('token-face');
+  await expect(face).toHaveAttribute('data-kind', 'default');
+  // (The transparent edges are found on a small copy of the picture, so the numbers are within a few per cent.)
+  await expect.poll(() => face.evaluate((img) => img.style.width)).not.toBe('');
+  const [width, left, top] = await face.evaluate((img) => [img.style.width, img.style.left, img.style.top].map(parseFloat));
+  expect(Math.abs(width - 150)).toBeLessThan(3);
+  expect(Math.abs(left + 25)).toBeLessThan(2);
+  expect(top).toBe(0);
+
+  // A custom token set on the sheet is drawn instead; Use default brings the cut back.
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: npc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await expect(gm.getByTestId('token-preview')).toHaveAttribute('data-kind', 'default');
+  await gm.getByTestId('token-file').setInputFiles(await art(gm, 'face'));
+  await expect(gm.getByTestId('token-preview')).toHaveAttribute('data-kind', 'custom');
+  await expect(gm.getByTestId('token-set')).toHaveText('Change token');
+  await gm.getByTestId('nav-scene').click();
+  await expect(face).toHaveAttribute('data-kind', 'custom');
+  await gm.getByTestId('nav-characters').click();
+  await gm.getByTestId('character-row').filter({ hasText: npc }).click();
+  await gm.getByTestId('open-sheet').click();
+  await gm.getByTestId('token-default').click();
+  await expect(gm.getByTestId('token-preview')).toHaveAttribute('data-kind', 'default');
+  await gm.getByTestId('nav-scene').click();
+  await expect(face).toHaveAttribute('data-kind', 'default');
+  await gmCtx.close();
+});
+
+async function cutOut(page) {
+  const b64 = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 240;
+    c.height = 420;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(40, 0, 160, 420);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  return { name: 'cut.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') };
+}

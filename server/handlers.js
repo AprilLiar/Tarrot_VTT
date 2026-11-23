@@ -185,6 +185,7 @@ export function registerHandlers(io, socket, db, shared) {
     const gone = await roster.deleteCharacter(db, p.id, p.confirmName);
     await scenes.removeOwnerArt(db, { kind: 'character', id: gone.id });
     await deleteImageIfUnused(db, gone.portraitImageId);
+    await deleteImageIfUnused(db, gone.tokenImageId);
     await stage.broadcast();
     // Anyone playing the deleted character is sent back to the picker.
     for (const s of io.sockets.sockets.values()) {
@@ -451,6 +452,30 @@ export function registerHandlers(io, socket, db, shared) {
   on('portrait:clear', { needsIdentity: true, broadcast: true }, async ({ characterId }) => {
     const c = await requireControl(characterId);
     const before = await roster.setPortrait(db, c.id, null);
+    await deleteImageIfUnused(db, before);
+    await portraitChanged(c.id);
+  });
+
+  // A custom Battle token (PCs and NPCs; a temp NPC always has the default one): set by the GM or the owner of a PC, on the sheet. Clearing
+  // it brings back the default token, cut from the character's picture.
+  on('token:set', { needsIdentity: true, broadcast: true }, async ({ characterId, data }) => {
+    const c = await requireControl(characterId);
+    const imageId = await storeImage(db, data);
+    let before;
+    try {
+      before = await roster.setToken(db, c.id, imageId);
+    } catch (err) {
+      await deleteImageIfUnused(db, imageId);
+      throw err;
+    }
+    await deleteImageIfUnused(db, before);
+    await portraitChanged(c.id);
+    return { imageId };
+  });
+
+  on('token:clear', { needsIdentity: true, broadcast: true }, async ({ characterId }) => {
+    const c = await requireControl(characterId);
+    const before = await roster.setToken(db, c.id, null);
     await deleteImageIfUnused(db, before);
     await portraitChanged(c.id);
   });

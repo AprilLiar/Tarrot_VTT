@@ -53,12 +53,13 @@ const toCharacter = (r) => ({
   type: r.type,
   folderId: r.folder_id == null ? null : Number(r.folder_id),
   portraitImageId: r.portrait_image_id ?? null,
+  tokenImageId: r.token_image_id ?? null,
 });
 
 export async function listRoster(db) {
   const [folders, characters] = await Promise.all([
     db.execute('SELECT id, parent_id, name FROM character_folders ORDER BY name COLLATE NOCASE'),
-    db.execute('SELECT id, name, type, folder_id, portrait_image_id FROM characters ORDER BY name COLLATE NOCASE'),
+    db.execute('SELECT id, name, type, folder_id, portrait_image_id, token_image_id FROM characters ORDER BY name COLLATE NOCASE'),
   ]);
   return { folders: folders.rows.map(toFolder), characters: characters.rows.map(toCharacter) };
 }
@@ -74,7 +75,7 @@ export async function listPcs(db) {
 export async function getCharacter(db, id) {
   if (!Number.isInteger(id)) return null;
   const r = await db.execute({
-    sql: 'SELECT id, name, type, folder_id, portrait_image_id FROM characters WHERE id = ?',
+    sql: 'SELECT id, name, type, folder_id, portrait_image_id, token_image_id FROM characters WHERE id = ?',
     args: [id],
   });
   return r.rows.length ? toCharacter(r.rows[0]) : null;
@@ -134,6 +135,13 @@ export async function setPortrait(db, id, imageId) {
   const c = await requireCharacter(db, id);
   await db.execute({ sql: 'UPDATE characters SET portrait_image_id = ? WHERE id = ?', args: [imageId, id] });
   return c.portraitImageId;
+}
+
+// Sets (or, with null, clears) the character's custom Battle token. Returns the image it had before.
+export async function setToken(db, id, imageId) {
+  const c = await requireCharacter(db, id);
+  await db.execute({ sql: 'UPDATE characters SET token_image_id = ? WHERE id = ?', args: [imageId, id] });
+  return c.tokenImageId;
 }
 
 export async function moveCharacter(db, id, folderId) {

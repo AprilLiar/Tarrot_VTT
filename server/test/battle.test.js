@@ -786,3 +786,65 @@ describe('drawings, templates and pings', () => {
     expect(await g.call('battle:ping', { x: 2, y: 0 })).toMatchObject({ ok: false, code: 'bad_value' });
   });
 });
+
+describe('the picture of a token', () => {
+  const tokenOf = async (s, ownerId) => (await stageOf(s)).battle.tokens.find((t) => t.ownerId === ownerId);
+  const picturesOf = async (g, characterId) => (await g.call('picture:list', { characterId })).pictures;
+
+  it('is cut from the picture the character shows on this scene, else from its first picture', async () => {
+    const g = await gm();
+    const scene = await battleScene(g);
+    const id = await withPicture(g, 'Aria');
+    await g.call('picture:add', { characterId: id, data: png() });
+    const [first, second] = await picturesOf(g, id);
+    await g.call('battle:add', { characterId: id });
+    expect(await tokenOf(g, id)).toMatchObject({ imageId: first.imageId, tokenImageId: null });
+
+    // On the stage of the same scene with the second picture: the token follows it, and changes with it.
+    await g.call('battle:mode', { mode: 'scene' });
+    const fig = (await g.call('stage:summon', { characterId: id, pictureId: second.id })).id;
+    await g.call('battle:mode', { mode: 'battle' });
+    expect((await tokenOf(g, id)).imageId).toBe(second.imageId);
+    await g.call('stage:update', { id: fig, pictureId: first.id });
+    expect((await tokenOf(g, id)).imageId).toBe(first.imageId);
+
+    // Off the stage: the first picture again. A figure on another scene does not count.
+    await g.call('stage:dismiss', { id: fig });
+    expect((await tokenOf(g, id)).imageId).toBe(first.imageId);
+    const other = (await g.call('scene:create', { name: 'Elsewhere', data: png() })).id;
+    await g.call('battle:mode', { mode: 'scene' });
+    await g.call('scene:activate', { id: other });
+    await g.call('stage:summon', { characterId: id, pictureId: second.id });
+    await g.call('scene:activate', { id: scene });
+    await g.call('battle:mode', { mode: 'battle' });
+    expect((await tokenOf(g, id)).imageId).toBe(first.imageId);
+  });
+
+  it('a custom token (GM or the PC\'s owner) is drawn instead, and clearing it brings the default back', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const id = await withPicture(g, 'Aria');
+    const bob = await withPicture(g, 'Bob');
+    await g.call('battle:add', { characterId: id });
+    const p = await player(id);
+    const set = await p.call('token:set', { characterId: id, data: png() });
+    expect(set.ok).toBe(true);
+    expect((await tokenOf(g, id)).tokenImageId).toBe(set.imageId);
+    expect((await g.call('sheet:get', { characterId: id })).character.tokenImageId).toBe(set.imageId);
+    expect(await p.call('token:set', { characterId: bob, data: png() })).toMatchObject({ ok: false, code: 'forbidden' });
+
+    expect((await p.call('token:clear', { characterId: id })).ok).toBe(true);
+    expect((await tokenOf(g, id)).tokenImageId).toBeNull();
+    expect((await fetch(`${base}/api/images/${set.imageId}`)).status).toBe(404); // nothing uses it any more
+  });
+
+  it('a character with a custom token and no picture can still be placed; with neither it cannot', async () => {
+    const g = await gm();
+    await battleScene(g);
+    const bare = (await g.call('character:create', { name: 'Bare', type: 'npc' })).id;
+    expect(await g.call('battle:add', { characterId: bare })).toMatchObject({ ok: false, code: 'no_picture' });
+    await g.call('token:set', { characterId: bare, data: png() });
+    expect((await g.call('battle:add', { characterId: bare })).ok).toBe(true);
+    expect(await tokenOf(g, bare)).toMatchObject({ imageId: null });
+  });
+});

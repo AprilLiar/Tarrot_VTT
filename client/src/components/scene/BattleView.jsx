@@ -7,9 +7,9 @@ import { useElementSize } from '../../lib/useElementSize.js';
 import { cellToUnits, dropCell, pointAt, rulerDistance, rulerEnd, snapHalf, templateShape, toUnits } from '../../lib/battleMath.js';
 import Dialog, { btn, btnDanger, btnPrimary } from '../Dialog.jsx';
 import { BattleMapDialog } from './SceneDrawers.jsx';
-import { usePictures } from './Pictures.jsx';
 import { TokenMenu } from './TokenMenu.jsx';
 import { HeightControl } from './HeightControl.jsx';
+import { TokenFace } from './TokenFace.jsx';
 import { CombatBar } from './CombatBar.jsx';
 import { useT } from '../../i18n.jsx';
 import { useSetting } from '../../lib/settings.js';
@@ -27,32 +27,12 @@ const DRAG_THRESHOLD = 6;
 
 function TokenSettings({ token, onClose }) {
   const t = useT();
-  const { toast } = useApp();
-  const owner = token.ownerKind === 'character' ? { characterId: token.ownerId } : { tempNpcId: token.ownerId };
-  const pictures = usePictures(owner);
   return (
     <Dialog title={t('Token Settings: {name}', { name: token.name })} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <div>
-          <div className="mb-1 text-sm opacity-70">{t('Picture')}</div>
-          <div className="grid grid-cols-4 gap-2">
-            {pictures?.map((p) => (
-              <button
-                key={p.id}
-                data-testid="pick-token-picture"
-                aria-label={p.name || t('Picture')}
-                aria-pressed={p.id === token.pictureId}
-                className={`flex h-20 items-center justify-center overflow-hidden rounded bg-white/5 ${p.id === token.pictureId ? 'ring-2 ring-violet-500' : ''}`}
-                onClick={async () => {
-                  const r = await call('battle:update', { id: token.id, pictureId: p.id });
-                  if (!r.ok) toast(r.error);
-                }}
-              >
-                <img src={imageUrl(p.imageId)} alt="" className="max-h-full max-w-full object-contain" />
-              </button>
-            ))}
-          </div>
-        </div>
+        <p className="text-sm opacity-70">
+          {token.ownerKind === 'character' ? t('The token shows the custom token set on the sheet, or the head of the picture the character has on the scene.') : t('The token shows the head of the picture the character has on the scene, or of its first picture.')}
+        </p>
         <p className="text-sm opacity-70">
           {t('Size: {n} x {n} squares (set on the character sheet or the temp NPC).', { n: token.size })}
           {token.ownerKind === 'character' && ` ${t('Banked Movement: {n}.', { n: token.bank })}`}
@@ -685,7 +665,7 @@ export default function BattleView() {
                   className="absolute inset-[6%] overflow-hidden rounded-full bg-black/35"
                   style={{ boxShadow: `0 0 0 ${Math.max(2, ppu * unit * 0.06)}px ${tk.targetedBy.length ? '#fbbf24' : RING[tk.kind]}` }}
                 >
-                  <img src={imageUrl(tk.imageId)} alt={tk.name} draggable={false} className="h-full w-full object-contain" />
+                  <TokenFace imageId={tk.imageId} tokenImageId={tk.tokenImageId} alt={tk.name} />
                 </div>
                 {tk.targetedBy.length > 0 && <div className="pointer-events-none absolute inset-0 animate-pulse rounded-full border-2 border-dashed border-amber-300" />}
                 {inDraft?.has(tk.id) && <div data-testid="token-in-area" className="pointer-events-none absolute -inset-1 rounded-full border-4 border-cyan-300 shadow-[0_0_14px_6px_rgba(103,232,249,0.85)]" />}

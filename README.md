@@ -781,8 +781,17 @@ Decided:
 - The **Cast drawer** lists the characters in their folders, as on the Characters page: folders are
   **collapsed by default** and open with a tap (a search opens the folders that hold a match); a folder shows
   how many characters it holds.
-- **Tokens:** the GM places a character or temp NPC as a token from the Cast drawer ("Place token" in
-  Battle mode) using one of its pictures; tokens occupy whole squares. Size comes from the
+- **Token pictures (decided):** tokens and Scene pictures are separate. A token is round, with the ring of its kind. By default it is
+  **cut from the character's picture**: the picture it shows on **this scene's stage**, or its **first picture** when it is not on the
+  stage; the cut is the **top square of the visible character** (its non-transparent part: a square as wide as the character, from its
+  highest visible pixel; head and shoulders), and it changes when the figure's picture changes. A PC or NPC (not a temp NPC) can have a
+  **custom token**, uploaded in the **Token** section of its sheet (GM or the PC's owner; prepared like character art), shown filling the
+  circle; **Use default** goes back to the cut. A character with a custom token can be placed without any picture. The token's own
+  picture choice in Token Settings is gone (`battle_tokens.picture_id` is no longer read). Data: `characters.token_image_id`; events
+  `token:set` `{ characterId, data }` and `token:clear` `{ characterId }` (answer and broadcast like `portrait:set`); tokens in `battle`
+  carry `imageId` (the picture the default is cut from) and `tokenImageId` (the custom one or null).
+- **Tokens:** the GM places a character or temp NPC as a token from the Cast list (a tap on a character's row, "Place token" for a temp NPC,
+  in Battle mode); tokens occupy whole squares. Size comes from the
   character's sheet (**Size**, 1 to 6 = 1x1 up to 6x6 squares; a temp NPC has its own size).
   Temp NPCs can be marked a **prop** (terrain or object; no sheet). Right-click (tap on touch) a
   token for its circles, standing on the two sides of the token (up to two per side, each column

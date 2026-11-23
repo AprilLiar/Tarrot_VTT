@@ -67,7 +67,7 @@ export async function deleteImageIfUnused(db, id) {
     [
       { sql: 'SELECT COUNT(*) AS n FROM scenes WHERE scene_image_id = ? OR battle_image_id = ?', args: [id, id] },
       { sql: 'SELECT COUNT(*) AS n FROM pictures WHERE image_id = ?', args: [id] },
-      { sql: 'SELECT COUNT(*) AS n FROM characters WHERE portrait_image_id = ?', args: [id] },
+      { sql: 'SELECT COUNT(*) AS n FROM characters WHERE portrait_image_id = ? OR token_image_id = ?', args: [id, id] },
     ],
     'read',
   );

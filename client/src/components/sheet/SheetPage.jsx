@@ -8,7 +8,7 @@ import { Features, Inventory } from './SheetLists.jsx';
 import { Resistances, Statuses } from './SheetDefences.jsx';
 import { ActiveEffects } from '../effects/ActiveEffects.jsx';
 import { effectiveDefence, effectiveMaxHp, effectiveMovement, statMods } from '../../../../shared/effects.js';
-import { PicturesSection, PortraitSection, StageSection } from './SheetStage.jsx';
+import { PicturesSection, PortraitSection, StageSection, TokenSection } from './SheetStage.jsx';
 import { BattleRemote, SheetHeight } from './BattleRemote.jsx';
 import ApCubes from './ApCubes.jsx';
 import { ExperienceIcon, MovementIcon, SizeIcon } from './ParamIcons.jsx';
@@ -274,6 +274,7 @@ export default function SheetPage({ characterId }) {
           <ActiveEffects s={s} />
           <StageSection s={s} />
           <PicturesSection s={s} />
+          <TokenSection s={s} />
         </div>
       </div>
         </>

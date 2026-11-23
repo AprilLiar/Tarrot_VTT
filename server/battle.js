@@ -4,6 +4,7 @@ import { hasSelectedCard } from '../shared/manifest.js';
 import * as scenes from './scenes.js';
 import { combatView } from './combat.js';
 import * as sheets from './sheet.js';
+import * as roster from './roster.js';
 import { effectiveMovement } from '../shared/effects.js';
 
 // Battle mode: tokens on a square grid over the scene's battle picture, shared
@@ -73,14 +74,19 @@ export function tokenEffects(json) {
   }
 }
 
+// A token's picture: a character's custom token (`ctoken`) when it has one; otherwise the default token is made (in the browser) from the
+// picture the character shows on this scene's stage, or from its first picture when it is not on the stage.
+const OWNS = (a) => `((t.character_id IS NOT NULL AND ${a}.character_id = t.character_id) OR (t.temp_npc_id IS NOT NULL AND ${a}.temp_npc_id = t.temp_npc_id))`;
 const TOKEN_SQL = `SELECT t.id, t.scene_id, t.character_id, t.temp_npc_id, t.picture_id, t.col, t.row, t.hidden, t.bank, t.diagonals, t.height,
-                          c.name AS cname, c.type AS ctype, c.sheet AS csheet, c.portrait_image_id AS cportrait,
+                          c.name AS cname, c.type AS ctype, c.sheet AS csheet, c.portrait_image_id AS cportrait, c.token_image_id AS ctoken,
                           tn.name AS tname, tn.size AS tsize, tn.is_prop AS tprop,
-                          p.image_id AS image_id
+                          COALESCE(
+                            (SELECT sp.image_id FROM stage_summons s JOIN pictures sp ON sp.id = s.picture_id WHERE s.scene_id = t.scene_id AND ${OWNS('s')} LIMIT 1),
+                            (SELECT fp.image_id FROM pictures fp WHERE ${OWNS('fp')} ORDER BY fp.position, fp.id LIMIT 1)
+                          ) AS image_id
                    FROM battle_tokens t
                    LEFT JOIN characters c ON c.id = t.character_id
-                   LEFT JOIN temp_npcs tn ON tn.id = t.temp_npc_id
-                   LEFT JOIN pictures p ON p.id = t.picture_id`;
+                   LEFT JOIN temp_npcs tn ON tn.id = t.temp_npc_id`;
 
 function toToken(r, targets) {
   const isChar = r.character_id != null;
@@ -96,7 +102,9 @@ function toToken(r, targets) {
     col: Number(r.col),
     row: Number(r.row),
     pictureId: n(r.picture_id),
+    // The picture the default token is cut from (see TOKEN_SQL), and a character's custom token, which is drawn instead when it is set.
     imageId: r.image_id ?? null,
+    tokenImageId: isChar ? (r.ctoken ?? null) : null,
     // A character's Portrait (the combat order shows it before the token's picture).
     portraitImageId: isChar ? (r.cportrait ?? null) : null,
     hidden: Number(r.hidden) === 1,
@@ -159,8 +167,10 @@ export async function addToken(db, owner, pictureId) {
   const scene = await activeBattleScene(db);
   await scenes.requireOwner(db, owner);
   const pictures = await scenes.listPictures(db, owner);
-  if (!pictures.length) throw new AppError('no_picture', 'Add a picture first.');
-  let picture = pictures[0];
+  // A custom token is enough without any picture.
+  const custom = owner.kind === 'character' ? (await roster.getCharacter(db, owner.id))?.tokenImageId : null;
+  if (!pictures.length && !custom) throw new AppError('no_picture', 'Add a picture first.');
+  let picture = pictures[0] ?? null;
   if (pictureId != null) {
     picture = pictures.find((p) => p.id === pictureId);
     if (!picture) throw new AppError('bad_id', 'That picture does not belong to this character.');
@@ -176,7 +186,7 @@ export async function addToken(db, owner, pictureId) {
   const spot = freeSpot(scene, tokens, size);
   const r = await db.execute({
     sql: `INSERT INTO battle_tokens (scene_id, ${ownerColumn(owner)}, picture_id, col, row) VALUES (?, ?, ?, ?, ?)`,
-    args: [scene.id, owner.id, picture.id, spot.col, spot.row],
+    args: [scene.id, owner.id, picture?.id ?? null, spot.col, spot.row],
   });
   return Number(r.lastInsertRowid);
 }

@@ -43,6 +43,7 @@ const SCHEMA = [
 const COLUMNS = [
   { table: 'characters', column: 'sheet', ddl: 'sheet TEXT' },
   { table: 'characters', column: 'portrait_image_id', ddl: 'portrait_image_id TEXT' },
+  { table: 'characters', column: 'token_image_id', ddl: 'token_image_id TEXT' }, // a custom Battle token (null: the default one)
   { table: 'scenes', column: 'battle_aspect', ddl: 'battle_aspect REAL' },
   { table: 'scenes', column: 'grid_cell', ddl: 'grid_cell REAL' },
   { table: 'scenes', column: 'grid_ox', ddl: 'grid_ox REAL' },

@@ -460,9 +460,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | --- | --- |
 | Disadvantage | Помеха |
 | Send | Отправить |
-| Picture | Картинка |
 | Area | Область |
 | Upload failed. | Не удалось загрузить. |
+| Picture | Картинка |
 | Uploading... | Загрузка... |
 | Choose a picture | Выберите картинку |
 | Battle | Бой |
@@ -574,6 +574,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | No Portrait yet. | Портрета пока нет. |
 | Change Portrait | Сменить портрет |
 | Set Portrait | Задать портрет |
+| Token | Фишка |
+| A custom token. | Своя фишка. |
+| Made from the picture on the scene, or the first picture. | Сделана из картинки на сцене или из первой картинки. |
+| Add a picture or a custom token. | Добавьте картинку или свою фишку. |
+| Change token | Сменить фишку |
+| Set token | Задать фишку |
+| Use default | Обычная фишка |
 | Stage | Сцена |
 | No scene is active right now. | Сейчас нет активной сцены. |
 | Scene: {name} | Сцена: {name} |
@@ -650,6 +657,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | English | Russian |
 | --- | --- |
 | Token Settings: {name} | Настройки фишки: {name} |
+| The token shows the custom token set on the sheet, or the head of the picture the character has on the scene. | Фишка показывает свою фишку с листа персонажа или голову картинки, с которой персонаж стоит на сцене. |
+| The token shows the head of the picture the character has on the scene, or of its first picture. | Фишка показывает голову картинки, с которой персонаж стоит на сцене, или его первой картинки. |
 | Size: {n} x {n} squares (set on the character sheet or the temp NPC). | Размер: {n} x {n} клеток (задаётся в листе персонажа или у временного НПС). |
 | Banked Movement: {n}. | Накопленное движение: {n}. |
 | Remove from the map | Убрать с карты |
