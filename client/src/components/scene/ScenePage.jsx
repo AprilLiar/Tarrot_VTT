@@ -25,6 +25,7 @@ const DRAG_THRESHOLD = 6;
 const POS_MIN = -1;
 const POS_MAX = 2;
 const FIGURE_HEIGHT = 0.7; // of the picture's height, at size 1
+const SILHOUETTE_NAME = '???'; // a silhouette is called this on every screen
 
 // `stageBox`: the picture's size on screen (unzoomed). A figure is anchored at the middle of its feet.
 function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
@@ -87,6 +88,7 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
       data-testid="stage-figure"
       data-summon-id={s.id}
       data-name={s.name}
+      data-silhouette={s.silhouette ? 'true' : 'false'}
       data-x={pos.x.toFixed(3)}
       data-y={pos.y.toFixed(3)}
       data-free={s.x != null}
@@ -96,6 +98,9 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         left: `${pos.x * 100}%`,
         top: `${pos.y * 100}%`,
         height: `${s.scale * FIGURE_HEIGHT * 100}%`,
+        // An absolute box is as wide as the room it has left of its spot, so a figure near the right end would be squeezed smaller:
+        // it is as wide as its content wherever it stands.
+        width: 'max-content',
         transform: 'translate(-50%, -100%)',
         opacity: entered ? undefined : 0,
         transition: dragging || pending ? 'none' : 'opacity 0.5s ease-out',
@@ -117,14 +122,16 @@ function Figure({ s, spot, stageBox, canDrag, menuOpen, onMenu, zoomRef }) {
         data-testid="name-plaque"
         className="mb-1 max-w-full shrink-0 truncate rounded bg-black/65 px-3 py-0.5 text-sm text-white"
       >
-        <span>{s.name}</span>
-        {s.tarot && <TarotStar characterId={s.ownerId} />}
+        <span>{s.silhouette ? SILHOUETTE_NAME : s.name}</span>
+        {s.tarot && !s.silhouette && <TarotStar characterId={s.ownerId} />}
       </figcaption>
       <img
         src={imageUrl(s.imageId)}
-        alt={s.name}
+        alt={s.silhouette ? SILHOUETTE_NAME : s.name}
         draggable={false}
         className="min-h-0 flex-1 object-contain object-bottom drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
+        // A silhouette: every pixel of the picture fully black (its shape stays, its transparency too).
+        style={s.silhouette ? { filter: 'brightness(0)' } : undefined}
       />
     </figure>
   );
@@ -136,6 +143,10 @@ function TokenSettings({ s, onClose }) {
   const owner = s.ownerKind === 'character' ? { characterId: s.ownerId } : { tempNpcId: s.ownerId };
   const pictures = usePictures(owner);
   const [scale, setScale] = useState(s.scale);
+  // The size belongs to the picture: it changes when the picture does, or when someone else resizes it.
+  useEffect(() => {
+    setScale(s.scale);
+  }, [s.scale]);
 
   async function update(patch) {
     const r = await call('stage:update', { id: s.id, ...patch });
@@ -177,6 +188,7 @@ function TokenSettings({ s, onClose }) {
             onKeyUp={() => update({ scale })}
             onBlur={() => update({ scale })}
           />
+          <span className="text-xs opacity-60">{t('The size is saved with the picture, for every scene.')}</span>
         </label>
         <div className="flex justify-between gap-2">
           <button

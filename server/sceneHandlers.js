@@ -223,7 +223,9 @@ export function registerSceneHandlers(ctx) {
         throw new AppError('forbidden', 'You can only summon your own character.');
       }
     }
-    const id = await scenes.summon(db, owner, Number.isInteger(p.pictureId) ? p.pictureId : undefined);
+    if (p.silhouette !== undefined && typeof p.silhouette !== 'boolean') throw new AppError('bad_value', 'Silhouette must be true or false.');
+    if (p.silhouette === true && !isGm()) throw new AppError('forbidden', 'Only the GM can make a silhouette.');
+    const id = await scenes.summon(db, owner, Number.isInteger(p.pictureId) ? p.pictureId : undefined, { silhouette: p.silhouette === true });
     await broadcastStage();
     return { id };
   });
@@ -242,7 +244,8 @@ export function registerSceneHandlers(ctx) {
   // The token menu's Token Settings and Hide: the GM and the Display.
   on('stage:update', { needsIdentity: true }, async (p) => {
     if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can change a figure.');
-    await scenes.updateSummon(db, p.id, { pictureId: p.pictureId, scale: p.scale, hidden: p.hidden });
+    if (p.silhouette !== undefined && !isGm()) throw new AppError('forbidden', 'Only the GM can make a silhouette.');
+    await scenes.updateSummon(db, p.id, { pictureId: p.pictureId, scale: p.scale, hidden: p.hidden, silhouette: p.silhouette });
     await broadcastStage();
   });
 

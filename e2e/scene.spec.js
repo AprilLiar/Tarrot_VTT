@@ -61,6 +61,7 @@ async function summon(gm, name) {
   await expect(gm.getByTestId('picture')).toHaveCount(1);
   await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
   await row.getByTestId('summon-cast').click();
+  await gm.getByTestId('summon-pick').first().click(); // Summon always asks which picture, also for a character with only one
   await expect(row.getByTestId('dismiss-cast')).toBeVisible();
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
 }
@@ -347,6 +348,8 @@ test('the Cast drawer keeps characters in folders that start collapsed; names si
   await expect(gm.getByTestId('picture')).toHaveCount(1);
   await gm.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
   await row.getByTestId('summon-cast').click();
+  await gm.getByTestId('summon-pick').first().click();
+  await expect(gm.getByTestId('summon-dialog')).toHaveCount(0);
   await gm.getByTestId('cast-drawer').getByRole('button', { name: 'Close' }).click();
 
   // The name plaque is above the picture.

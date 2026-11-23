@@ -465,6 +465,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Upload failed. | Не удалось загрузить. |
 | Uploading... | Загрузка... |
 | Pictures | Картинки |
+| Choose a picture | Выберите картинку |
 | Battle | Бой |
 | AP: {current} of {max} | ОД: {current} из {max} |
 | Set AP to {n} | Установить ОД: {n} |
@@ -579,7 +580,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Leave the stage | Уйти со сцены |
 | Add a picture below first. | Сначала добавьте картинку ниже. |
 | Join the stage | Выйти на сцену |
-| Choose a picture | Выберите картинку |
 | Targeting: Individual or Area | Выбор целей: по одному или областью |
 | Individual | По одному |
 | Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
@@ -734,44 +734,19 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add pictures | Добавить картинки |
 | Copy from Portrait | Копировать из портрета |
 | Rename picture | Переименовать картинку |
-| New scene | Новая сцена |
-| Background: {name} | Фон: {name} |
-| Choose a background picture | Выберите фоновую картинку |
-| Rename scene | Переименовать сцену |
-| Replace | Заменить |
-| Choose a new background picture | Выберите новую фоновую картинку |
-| Battle map: {name} | Боевая карта: {name} |
-| Upload | Загрузить |
-| Choose the battle map picture | Выберите картинку боевой карты |
-| After uploading, switch to Battle and use Set grid to line the squares up with the map. | После загрузки переключитесь на «Бой» и настройте сетку, чтобы клетки совпали с картой. |
-| Scenes | Сцены |
-| No scenes yet. | Сцен пока нет. |
-| Active | Активна |
-| Deactivate | Выключить |
-| Activate | Включить |
-| Background | Фон |
-| Battle map (set) | Боевая карта (есть) |
-| Battle map | Боевая карта |
-| Delete scene | Удалить сцену |
-| Delete {name} and everyone standing on it? This cannot be undone. | Удалить сцену {name} и всех, кто на ней стоит? Это нельзя отменить. |
-| New temp NPC | Новый временный НПС |
-| A quick, sheet-less extra for the story. It only needs a name and a picture. | Быстрый статист для сюжета без листа. Нужны только имя и картинка. |
-| A prop or terrain (a crate, a tree, a wall) rather than a creature | Предмет или местность (ящик, дерево, стена), а не существо |
-| Token size on the battle map | Размер фишки на боевой карте |
-| Picture: {name} | Картинка: {name} |
-| Choose a first picture (optional) | Выберите первую картинку (по желанию) |
-| hidden | скрыт |
-| on map | на карте |
-| on stage | на сцене |
-| Remove token | Убрать фишку |
-| Place token | Поставить фишку |
 | Summon | Вызвать |
 | Reset spot | Сбросить место |
+| Change picture: {name} | Сменить картинку: {name} |
+| Summon: {name} | Вызвать: {name} |
+| Silhouette | Силуэт |
+| Shows only a black shape and the name ???, to reveal the character later. | Показывает только чёрный силуэт и имя ???, чтобы раскрыть персонажа позже. |
+| No pictures yet. Add one with the Pictures button. | Картинок пока нет. Добавьте одну кнопкой «Картинки». |
 | {n} characters | Персонажей: {n} |
 | Cast | Актёры |
 | No characters. | Персонажей нет. |
 | Pictures: {name} | Картинки: {name} |
 | Temp NPCs | Временные НПС |
+| New temp NPC | Новый временный НПС |
 | No temp NPCs yet. | Временных НПС пока нет. |
 | PROP | ОБЪЕКТ |
 | TEMP | ВРЕМ. |
@@ -780,10 +755,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Delete {name} and its pictures? This cannot be undone. | Удалить {name} и его картинки? Это нельзя отменить. |
 | Rename temp NPC | Переименовать временного НПС |
 | Size: {n} | Размер: {n} |
+| The size is saved with the picture, for every scene. | Размер запоминается для картинки и действует на каждой сцене. |
 | Remove from stage | Убрать со сцены |
 | Reset position | Сбросить положение |
 | No scene | Нет сцены |
 | Mode | Режим |
+| Scenes | Сцены |
 
 ## Music
 
@@ -1271,6 +1248,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | The Portrait is already one of the Pictures. | Портрет уже есть среди картинок. |
 | The Display Screen cannot summon. | Экран стола не может вызывать персонажей. |
 | You can only summon your own character. | Вы можете вызвать только своего персонажа. |
+| Silhouette must be true or false. | Силуэт должен быть включён или выключен. |
+| Only the GM can make a silhouette. | Силуэт может сделать только ГМ. |
 | You can only dismiss your own character. | Вы можете убрать только своего персонажа. |
 | Only the GM or the Display can change a figure. | Менять фигуру могут только мастер и экран стола. |
 | You can only move your own character. | Вы можете двигать только своего персонажа. |
@@ -1473,6 +1452,35 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| New scene | Новая сцена |
+| Background: {name} | Фон: {name} |
+| Choose a background picture | Выберите фоновую картинку |
+| Rename scene | Переименовать сцену |
+| Replace | Заменить |
+| Choose a new background picture | Выберите новую фоновую картинку |
+| Battle map: {name} | Боевая карта: {name} |
+| Upload | Загрузить |
+| Choose the battle map picture | Выберите картинку боевой карты |
+| After uploading, switch to Battle and use Set grid to line the squares up with the map. | После загрузки переключитесь на «Бой» и настройте сетку, чтобы клетки совпали с картой. |
+| No scenes yet. | Сцен пока нет. |
+| Active | Активна |
+| Deactivate | Выключить |
+| Activate | Включить |
+| Background | Фон |
+| Battle map (set) | Боевая карта (есть) |
+| Battle map | Боевая карта |
+| Delete scene | Удалить сцену |
+| Delete {name} and everyone standing on it? This cannot be undone. | Удалить сцену {name} и всех, кто на ней стоит? Это нельзя отменить. |
+| A quick, sheet-less extra for the story. It only needs a name and a picture. | Быстрый статист для сюжета без листа. Нужны только имя и картинка. |
+| A prop or terrain (a crate, a tree, a wall) rather than a creature | Предмет или местность (ящик, дерево, стена), а не существо |
+| Token size on the battle map | Размер фишки на боевой карте |
+| Picture: {name} | Картинка: {name} |
+| Choose a first picture (optional) | Выберите первую картинку (по желанию) |
+| hidden | скрыт |
+| on map | на карте |
+| on stage | на сцене |
+| Remove token | Убрать фишку |
+| Place token | Поставить фишку |
 | Remove Portrait | Убрать портрет |
 | A scheme can have at most {n} stones. | В схеме может быть не больше {n} камней. |
 | Swap Card | Сменить карту |

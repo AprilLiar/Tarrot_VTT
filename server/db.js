@@ -54,14 +54,24 @@ const COLUMNS = [
   { table: 'battle_tokens', column: 'height', ddl: 'height INTEGER NOT NULL DEFAULT 0' },
   { table: 'temp_npcs', column: 'is_prop', ddl: 'is_prop INTEGER NOT NULL DEFAULT 0' },
   { table: 'temp_npcs', column: 'size', ddl: 'size INTEGER NOT NULL DEFAULT 1' },
+  // The size of a figure on the Scene belongs to its picture (every figure using the picture, in any scene, is that big). Before this column
+  // the size was kept on each figure: a picture takes the size of the latest figure that used it, the others start at 1.
+  {
+    table: 'pictures',
+    column: 'scale',
+    ddl: 'scale REAL NOT NULL DEFAULT 1',
+    after: 'UPDATE pictures SET scale = COALESCE((SELECT s.scale FROM stage_summons s WHERE s.picture_id = pictures.id ORDER BY s.id DESC LIMIT 1), 1)',
+  },
+  { table: 'stage_summons', column: 'silhouette', ddl: 'silhouette INTEGER NOT NULL DEFAULT 0' },
 ];
 
 export async function initSchema(db) {
   await db.batch(SCHEMA, 'write');
-  for (const { table, column, ddl } of COLUMNS) {
+  for (const { table, column, ddl, after } of COLUMNS) {
     const info = await db.execute(`PRAGMA table_info(${table})`);
     if (!info.rows.some((r) => r.name === column)) {
       await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+      if (after) await db.execute(after); // only when the column has just been added
     }
   }
 }

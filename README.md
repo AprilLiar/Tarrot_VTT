@@ -683,8 +683,14 @@ Light-novel style: a fullscreen background with character art standing along the
   comes to the front. Positions are the middle of the figure's feet as fractions of the **background
   picture** (which is scaled to cover the screen), so the spot sticks to the picture. **Reset spot**
   (Cast drawer, or Token Settings) takes the spot away so the figure returns to its entry slot; use
-  it when a figure has been dragged out of reach. The GM sets each figure's size (0.3 to 2) in Token
-  Settings.
+  it when a figure has been dragged out of reach. A figure keeps its size wherever it stands: it is
+  **not squeezed smaller near the right end** of the picture (it is as wide as its picture, not as wide as the room
+  left beside it). The GM sets a figure's size (0.3 to 2) in Token Settings, see **Size belongs to the picture**.
+- **Size belongs to the picture (decided):** the size of a figure on the Scene is **one value kept on its picture** (`pictures.scale`, 1 by default), not on the
+  figure. Setting it in Token Settings changes **every figure that shows that picture**, in any scene, and a figure summoned later (or after a Remove) with that picture
+  is that big at once. Each picture has its own size: another picture of the same character, or another character, is not affected, and changing a figure's
+  picture on the stage shows the size of the new one. Only the size is shared (not the spot, Hide or anything else). Battle tokens are sized by the grid and are not
+  affected. A database from before this took each picture's size from the latest figure that used it (the others start at 1).
 - **Who is on the stage:** real characters (PC and NPC) and lightweight **temp NPCs**. A temp NPC
   is just a name and pictures, kept in its own folder tree, for narrative extras.
 - **Pictures:** each character or temp NPC has one collection of pictures (up to 20), used as Scene
@@ -703,6 +709,18 @@ Light-novel style: a fullscreen background with character art standing along the
   Picture named **Portrait** (named in the language of whoever pressed). It adds it **once per Portrait image**: when the Portrait is already one of the Pictures a second
   press only says so (a changed Portrait is a new image and can be copied again); with no Portrait the button is disabled. The Picture shares the Portrait's image, so
   deleting either one leaves the other; an image is deleted only when no Portrait, Picture or scene uses it. Replacing a Portrait never touches the Pictures.
+- **Summon dialog (decided):** in the **Cast list** (Scene mode) the **Summon** button of a character or temp NPC is **always active**. It opens a dialog with the
+  character's pictures: tapping one **summons** the character with it, or, when the character is already on the stage, **swaps** the figure's picture for it (same spot,
+  same Hide; the size becomes that picture's own). The dialog is shown **also for a character with only one picture** (so the Silhouette switch is always within
+  reach). A character is taken off with the separate **Remove** button, shown only while it is on the stage (the token menu's Remove and Token Settings still work).
+  In **Battle mode** the same row keeps its single button (Place token / Remove token).
+- **Silhouette (decided):** the dialog has a **Silhouette** switch, **off every time it opens** (it is never remembered). Chosen on, the figure is summoned or swapped as a
+  silhouette: **the picture is drawn fully black** (its shape and transparency stay) and **the name plaque reads "???"** (no Tarot star), **for everyone, the GM included**.
+  The state **stays on the figure** (stored with it, so it survives a reload or restart and is shown on every screen) until it is changed: opening Summon again, leaving
+  the switch off and tapping a picture (the shown one too) **reveals** it. The server never sends the real name to anyone but the GM (the Display and players get "???"; the GM's
+  Cast list, Token Settings and menus keep the real name). Only the GM can make or lift a silhouette. The picture itself is still sent to the screens (it is only drawn black).
+- **Cast list while open (decided):** it does not dim or cover the stage beside it, so figures can still be dragged while it is open (the Scenes list still dims the
+  stage). On a phone the Cast list is **about 60% of the width**, leaving part of the stage visible.
 - **Summoning:** the GM can summon or dismiss anyone; a player can summon or dismiss only their own
   PC (from the sheet, on any device). Summons belong to a scene: each scene keeps its own cast, and
   the GM can only summon into the active scene.
@@ -1326,9 +1344,9 @@ Implemented:
 - `scene_folders`, `scenes(id, name, folder_id, scene_image_id, battle_image_id)` (the Battle
   image is used from Phase 5), `scene_state(id = 1, active_scene_id)`.
 - `temp_npc_folders`, `temp_npcs(id, name, folder_id)`.
-- `pictures(id, character_id | temp_npc_id, image_id, name, position)`: exactly one owner.
-- `stage_summons(id, scene_id, character_id | temp_npc_id, picture_id, position, scale, hidden, pos_x,
-  pos_y)`. A character or temp NPC appears once per scene. `pos_x`/`pos_y` (null until dragged) are
+- `pictures(id, character_id | temp_npc_id, image_id, name, position, scale)`: exactly one owner. `scale` (0.3 to 2, default 1) is the size of every Scene figure showing the picture.
+- `stage_summons(id, scene_id, character_id | temp_npc_id, picture_id, position, scale, hidden, silhouette, pos_x,
+  pos_y)` (`scale` is no longer read: the size comes from the picture). A character or temp NPC appears once per scene. `pos_x`/`pos_y` (null until dragged) are
   the figure's spot on the scene picture; `position` is the stacking order. Side (PCs left, everyone
   else right) only decides the entry slot.
 - Deleting a character, temp NPC, scene or picture removes what depended on it by code, and
@@ -1403,7 +1421,9 @@ Scenes and the stage (Phase 4a). Owners are `{ characterId }` or `{ tempNpcId }`
 - GM only: `scene:create` `{ name, folderId?, data? }`, `scene:rename`, `scene:move`,
   `scene:set_image` `{ id, data }`, `scene:delete`, `scene:activate` `{ id | null }`,
   `scene_folder:*` and `temp_npc_folder:*` (create, rename, move, delete), `temp_npc:*` (create,
-  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden? }` (GM and Display).
+  rename, move, delete), `stage:update` `{ id, pictureId?, scale?, hidden?, silhouette? }` (GM and Display; `scale` is saved on the figure's picture, after a `pictureId`
+  swap in the same call; `silhouette` is GM only). `stage:summon` also takes `silhouette?` (GM only). Summons in `stage` carry `silhouette`; for the Display and players a
+  silhouette's `name` is "???" and its `tarot` is false.
 - `picture:list`, `picture:add` `{ owner, name, data }`, `picture:rename`, `picture:delete`: the GM
   for anyone; a player for their own PC only. `pictures:updated` goes to the GM and the owner.
   `picture:copy_portrait` `{ characterId }` adds the character's Portrait as a Picture named "Portrait" (same permission; errors `no_portrait`, `already_there`).

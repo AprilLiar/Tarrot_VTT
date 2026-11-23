@@ -494,3 +494,121 @@ describe('Portraits', () => {
     expect((await g.call('picture:list', { characterId: aria })).pictures[0].name).toBe('Портрет');
   });
 });
+
+describe('the size of a figure belongs to its picture', () => {
+  it('every figure using the picture is that big, in any scene and in later summons; another picture has its own size', async () => {
+    const g = await gm();
+    const first = await setup(g);
+    const aria = await pcWithPicture(g, 'Aria');
+    const other = (await g.call('picture:add', { characterId: aria.id, name: 'Angry', data: png(1) })).id;
+    const bob = await pcWithPicture(g, 'Bob');
+    const sizeOf = async (owner) => (await g.call('stage:get')).stage.summons.find((s) => s.ownerId === owner).scale;
+
+    const on = (await g.call('stage:summon', { characterId: aria.id })).id;
+    expect(await sizeOf(aria.id)).toBe(1);
+    expect((await g.call('stage:update', { id: on, scale: 1.5 })).ok).toBe(true);
+    expect(await sizeOf(aria.id)).toBe(1.5);
+
+    // Taking the figure off and summoning it again, here and in another scene, keeps the size.
+    await g.call('stage:dismiss', { id: on });
+    await g.call('stage:summon', { characterId: aria.id, pictureId: aria.pic });
+    expect(await sizeOf(aria.id)).toBe(1.5);
+    const second = (await g.call('scene:create', { name: 'Forest', data: png() })).id;
+    await g.call('scene:activate', { id: second });
+    await g.call('stage:summon', { characterId: aria.id });
+    expect(await sizeOf(aria.id)).toBe(1.5);
+
+    // Resizing it in the other scene changes it in the first one too (one value for the picture).
+    const inForest = (await g.call('stage:get')).stage.summons[0].id;
+    await g.call('stage:update', { id: inForest, scale: 0.8 });
+    await g.call('scene:activate', { id: first });
+    expect(await sizeOf(aria.id)).toBe(0.8);
+
+    // Another picture of the same character, and another character, have their own sizes.
+    const figure = (await g.call('stage:get')).stage.summons[0].id;
+    await g.call('stage:update', { id: figure, pictureId: other });
+    expect(await sizeOf(aria.id)).toBe(1);
+    await g.call('stage:update', { id: figure, scale: 1.9 });
+    await g.call('stage:summon', { characterId: bob.id });
+    expect(await sizeOf(bob.id)).toBe(1);
+    await g.call('stage:update', { id: figure, pictureId: aria.pic });
+    expect(await sizeOf(aria.id)).toBe(0.8);
+    expect(await g.call('stage:update', { id: figure, scale: 9 })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await sizeOf(aria.id)).toBe(0.8);
+  });
+
+  it('a database from before this took each picture\'s size from the latest figure that used it', async () => {
+    const old = createDb({ url: 'file::memory:' });
+    await initSchema(old);
+    await old.execute("INSERT INTO characters (name, type) VALUES ('Aria', 'pc')");
+    await old.execute("INSERT INTO pictures (character_id, image_id) VALUES (1, 'a'), (1, 'b'), (1, 'c')");
+    await old.execute("INSERT INTO stage_summons (scene_id, character_id, picture_id, scale) VALUES (1, 1, 1, 1.2), (2, 1, 1, 1.7), (1, 1, 2, 0.6)");
+    await old.execute('ALTER TABLE pictures DROP COLUMN scale'); // as it was before
+    await initSchema(old);
+    const sizes = (await old.execute('SELECT id, scale FROM pictures ORDER BY id')).rows.map((r) => Number(r.scale));
+    expect(sizes).toEqual([1.7, 0.6, 1]); // the latest figure of picture 1, the only one of picture 2, none for picture 3
+    await initSchema(old); // starting again changes nothing
+    expect((await old.execute('SELECT scale FROM pictures ORDER BY id')).rows.map((r) => Number(r.scale))).toEqual(sizes);
+    old.close();
+  });
+});
+
+describe('Silhouette', () => {
+  it('is black with ??? for everyone but the GM, who still gets the real name; a player cannot make one', async () => {
+    const g = await gm();
+    await setup(g);
+    const aria = await pcWithPicture(g, 'Aria');
+    const orc = await npcWithPicture(g, 'Orc Warlord');
+    const d = await display();
+    const p = await player(aria.id);
+
+    const on = (await g.call('stage:summon', { characterId: orc.id, silhouette: true })).id;
+    const gmSees = (await g.call('stage:get')).stage.summons[0];
+    expect(gmSees).toMatchObject({ name: 'Orc Warlord', silhouette: true });
+    for (const who of [d, p]) {
+      const seen = (await who.call('stage:get')).stage.summons[0];
+      expect(seen).toMatchObject({ name: '???', silhouette: true });
+      expect(JSON.stringify(seen)).not.toContain('Orc Warlord');
+    }
+
+    // Nobody but the GM can switch it, on summoning or later.
+    expect(await p.call('stage:summon', { characterId: aria.id, silhouette: true })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await d.call('stage:update', { id: on, silhouette: false })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await g.call('stage:update', { id: on, silhouette: 'yes' })).toMatchObject({ ok: false, code: 'bad_value' });
+    expect(await g.call('stage:summon', { characterId: aria.id, silhouette: 1 })).toMatchObject({ ok: false, code: 'bad_value' });
+
+    // A player summons their own PC as always, with no silhouette.
+    expect((await p.call('stage:summon', { characterId: aria.id })).ok).toBe(true);
+    expect((await d.call('stage:get')).stage.summons.map((s) => s.name).sort()).toEqual(['???', 'Aria']);
+
+    // Revealing it brings the name back for everyone, and the figure keeps its place.
+    const told = stageWhere(d, (st) => st.summons.some((s) => s.name === 'Orc Warlord'));
+    expect((await g.call('stage:update', { id: on, silhouette: false })).ok).toBe(true);
+    expect((await told).summons.find((s) => s.id === on)).toMatchObject({ name: 'Orc Warlord', silhouette: false });
+  });
+
+  it('is kept when the picture is swapped, so the swap itself says whether it is still a silhouette', async () => {
+    const g = await gm();
+    await setup(g);
+    const orc = await npcWithPicture(g, 'Orc');
+    const second = (await g.call('picture:add', { characterId: orc.id, name: 'Angry', data: png(1) })).id;
+    const on = (await g.call('stage:summon', { characterId: orc.id, silhouette: true })).id;
+    await g.call('stage:update', { id: on, pictureId: second });
+    expect((await g.call('stage:get')).stage.summons[0]).toMatchObject({ pictureId: second, silhouette: true });
+    await g.call('stage:update', { id: on, pictureId: orc.pic, silhouette: false });
+    expect((await g.call('stage:get')).stage.summons[0]).toMatchObject({ pictureId: orc.pic, silhouette: false });
+  });
+
+  it('hides the Tarot star along with the name', async () => {
+    const g = await gm();
+    await setup(g);
+    const aria = await pcWithPicture(g, 'Aria');
+    const card = (await g.call('tarot:add', { characterId: aria.id, card: { name: 'Fool' } })).sheet.tarot.cards[0].id;
+    await g.call('tarot:select', { characterId: aria.id, id: card });
+    const on = (await g.call('stage:summon', { characterId: aria.id })).id;
+    const d = await display();
+    expect((await d.call('stage:get')).stage.summons[0].tarot).toBe(true);
+    await g.call('stage:update', { id: on, silhouette: true });
+    expect((await d.call('stage:get')).stage.summons[0].tarot).toBe(false);
+  });
+});

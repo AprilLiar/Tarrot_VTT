@@ -9,6 +9,8 @@ import { hasSelectedCard } from '../shared/manifest.js';
 // used both as Scene art and (Phase 5) as Battle tokens.
 
 export const MAX_PICTURES = 20;
+// What a silhouetted figure is called on every screen but the GM's (the GM's list and menus keep the real name).
+export const SILHOUETTE_NAME = '???';
 export const SCALE_MIN = 0.3;
 export const SCALE_MAX = 2;
 
@@ -375,8 +377,8 @@ export async function buildStage(db, { forGm }) {
   const scene = await getScene(db, sceneId).catch(() => null);
   if (!scene) return { scene: null, summons: [] };
   const r = await db.execute({
-    sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.scale, s.hidden, s.pos_x, s.pos_y,
-                 c.name AS cname, c.type AS ctype, c.sheet AS csheet, t.name AS tname, p.image_id AS image_id
+    sql: `SELECT s.id, s.character_id, s.temp_npc_id, s.picture_id, s.hidden, s.silhouette, s.pos_x, s.pos_y,
+                 c.name AS cname, c.type AS ctype, c.sheet AS csheet, t.name AS tname, p.image_id AS image_id, p.scale AS pscale
           FROM stage_summons s
           LEFT JOIN characters c ON c.id = s.character_id
           LEFT JOIN temp_npcs t ON t.id = s.temp_npc_id
@@ -391,21 +393,27 @@ export async function buildStage(db, { forGm }) {
       const side = sideOf(row);
       return { row, side, slot: seen[side]++ };
     })
-    .map(({ row, side, slot }) => ({
-      id: Number(row.id),
-      ownerKind: row.character_id != null ? 'character' : 'temp_npc',
-      ownerId: n(row.character_id ?? row.temp_npc_id),
-      name: row.cname ?? row.tname ?? '?',
-      side,
-      slot,
-      x: row.pos_x == null ? null : Number(row.pos_x),
-      y: row.pos_y == null ? null : Number(row.pos_y),
-      pictureId: n(row.picture_id),
-      imageId: row.image_id ?? null,
-      scale: Number(row.scale),
-      hidden: Number(row.hidden) === 1,
-      tarot: row.character_id != null && hasSelectedCard(row.csheet),
-    }))
+    .map(({ row, side, slot }) => {
+      const silhouette = Number(row.silhouette) === 1;
+      return {
+        id: Number(row.id),
+        ownerKind: row.character_id != null ? 'character' : 'temp_npc',
+        ownerId: n(row.character_id ?? row.temp_npc_id),
+        // A silhouette keeps its name from every screen but the GM's (which also draws it as ???).
+        name: silhouette && !forGm ? SILHOUETTE_NAME : (row.cname ?? row.tname ?? '?'),
+        side,
+        slot,
+        x: row.pos_x == null ? null : Number(row.pos_x),
+        y: row.pos_y == null ? null : Number(row.pos_y),
+        pictureId: n(row.picture_id),
+        imageId: row.image_id ?? null,
+        // The size is the picture's: every figure that uses this picture is as big.
+        scale: Number(row.pscale ?? 1),
+        hidden: Number(row.hidden) === 1,
+        silhouette,
+        tarot: row.character_id != null && hasSelectedCard(row.csheet) && !(silhouette && !forGm),
+      };
+    })
     .filter((s) => forGm || !s.hidden);
   return { scene: { id: scene.id, name: scene.name, imageId: scene.imageId }, summons };
 }
@@ -417,7 +425,7 @@ async function getSummon(db, id) {
   return r.rows[0];
 }
 
-export async function summon(db, owner, pictureId) {
+export async function summon(db, owner, pictureId, { silhouette = false } = {}) {
   const sceneId = await getActiveSceneId(db);
   if (sceneId == null) throw new AppError('no_scene', 'There is no active scene.');
   await requireOwner(db, owner);
@@ -438,8 +446,8 @@ export async function summon(db, owner, pictureId) {
     args: [sceneId],
   })).rows[0].p);
   const r = await db.execute({
-    sql: `INSERT INTO stage_summons (scene_id, ${ownerColumn(owner)}, picture_id, position) VALUES (?, ?, ?, ?)`,
-    args: [sceneId, owner.id, picture.id, pos],
+    sql: `INSERT INTO stage_summons (scene_id, ${ownerColumn(owner)}, picture_id, position, silhouette) VALUES (?, ?, ?, ?, ?)`,
+    args: [sceneId, owner.id, picture.id, pos, silhouette ? 1 : 0],
   });
   return Number(r.lastInsertRowid);
 }
@@ -473,7 +481,7 @@ export async function dismiss(db, id) {
   await db.execute({ sql: 'DELETE FROM stage_summons WHERE id = ?', args: [id] });
 }
 
-export async function updateSummon(db, id, { pictureId, scale, hidden }) {
+export async function updateSummon(db, id, { pictureId, scale, hidden, silhouette }) {
   const row = await getSummon(db, id);
   if (pictureId !== undefined) {
     const owner = await summonOwner(db, id);
@@ -485,7 +493,14 @@ export async function updateSummon(db, id, { pictureId, scale, hidden }) {
     if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < SCALE_MIN || scale > SCALE_MAX) {
       throw new AppError('bad_value', 'Size must be between {min} and {max}.', { min: SCALE_MIN, max: SCALE_MAX });
     }
-    await db.execute({ sql: 'UPDATE stage_summons SET scale = ? WHERE id = ?', args: [scale, id] });
+    // The size is kept on the picture the figure shows (after a swap of picture, on the new one).
+    const now = await getSummon(db, id);
+    if (now.picture_id == null) throw new AppError('no_picture', 'Add a picture first.');
+    await db.execute({ sql: 'UPDATE pictures SET scale = ? WHERE id = ?', args: [scale, Number(now.picture_id)] });
+  }
+  if (silhouette !== undefined) {
+    if (typeof silhouette !== 'boolean') throw new AppError('bad_value', 'Silhouette must be true or false.');
+    await db.execute({ sql: 'UPDATE stage_summons SET silhouette = ? WHERE id = ?', args: [silhouette ? 1 : 0, id] });
   }
   if (hidden !== undefined) {
     if (typeof hidden !== 'boolean') throw new AppError('bad_value', 'Hidden must be true or false.');

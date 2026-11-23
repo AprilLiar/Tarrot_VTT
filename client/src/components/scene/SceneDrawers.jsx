@@ -1,25 +1,27 @@
 import { useRef, useState } from 'react';
 import { call, useApp } from '../../AppContext.jsx';
-import { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
+import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { ActionDialog, FolderSelect, NameField } from '../folderUi.jsx';
-import { prepareImage, prepareImageInfo } from '../../lib/image.js';
+import { imageUrl, prepareImage, prepareImageInfo } from '../../lib/image.js';
 import { LibraryTree } from './LibraryTree.jsx';
-import { PicturesDialog, uploadPicture } from './Pictures.jsx';
+import { PicturesDialog, uploadPicture, usePictures } from './Pictures.jsx';
 import { useT } from '../../i18n.jsx';
 import { T } from '../../../../shared/localization.js';
 
 // GM-only side panels over the scene: Scenes (right) and Cast (left).
 
-function Drawer({ title, side, onClose, children, testId }) {
+// `modal` false (the Cast list): nothing dims or covers the stage beside the list, so figures can still be dragged while it is open; on a phone the
+// list takes about 60% of the width to leave some of the stage.
+function Drawer({ title, side, onClose, children, testId, modal = true }) {
   const t = useT();
   return (
     <>
-      <div className="absolute inset-0 z-40 bg-black/30" data-no-pan />
+      {modal && <div className="absolute inset-0 z-40 bg-black/30" data-no-pan />}
       <aside
         data-no-pan
         data-testid={testId}
         aria-label={title}
-        className={`absolute inset-y-0 z-50 flex w-full max-w-sm flex-col border-white/15 bg-[#14111d] shadow-xl ${
+        className={`absolute inset-y-0 z-50 flex max-w-sm flex-col border-white/15 bg-[#14111d] shadow-xl ${modal ? 'w-full' : 'w-3/5 min-w-[13.5rem] sm:w-full'} ${
           side === 'left' ? 'left-0 border-r' : 'right-0 border-l'
         }`}
       >
@@ -310,22 +312,11 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
     : stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
   const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
 
-  async function toggle() {
-    // In Battle mode the same list places tokens on the map instead of summoning to the stage.
-    if (battleMode) {
-      const r = await call(onStage ? 'battle:remove' : 'battle:add', onStage ? { id: onStage.id } : key);
-      if (!r.ok) {
-        toast(r.error);
-        if (r.code === 'no_picture') onPictures();
-      }
-      return;
-    }
-    if (onStage) {
-      const r = await call('stage:dismiss', { id: onStage.id });
-      if (!r.ok) toast(r.error);
-      return;
-    }
-    const r = await call('stage:summon', key);
+  const [choosing, setChoosing] = useState(false);
+
+  // In Battle mode the same list places tokens on the map instead of summoning to the stage.
+  async function toggleToken() {
+    const r = await call(onStage ? 'battle:remove' : 'battle:add', onStage ? { id: onStage.id } : key);
     if (!r.ok) {
       toast(r.error);
       if (r.code === 'no_picture') onPictures();
@@ -340,9 +331,30 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
         {onStage && <span className="text-xs opacity-60">{onStage.hidden ? t('hidden') : battleMode ? t('on map') : t('on stage')}</span>}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        <button className={onStage ? btn : btnPrimary} data-testid={onStage ? 'dismiss-cast' : 'summon-cast'} onClick={toggle}>
-          {battleMode ? (onStage ? t('Remove token') : t('Place token')) : onStage ? t('Dismiss') : t('Summon')}
-        </button>
+        {battleMode ? (
+          <button className={onStage ? btn : btnPrimary} data-testid={onStage ? 'dismiss-cast' : 'summon-cast'} onClick={toggleToken}>
+            {onStage ? t('Remove token') : t('Place token')}
+          </button>
+        ) : (
+          <>
+            {/* Always there: it opens the pictures to choose from, also to swap the picture of a figure already on the stage. */}
+            <button className={btnPrimary} data-testid="summon-cast" onClick={() => setChoosing(true)}>
+              {t('Summon')}
+            </button>
+            {onStage && (
+              <button
+                className={btn}
+                data-testid="dismiss-cast"
+                onClick={async () => {
+                  const r = await call('stage:dismiss', { id: onStage.id });
+                  if (!r.ok) toast(r.error);
+                }}
+              >
+                {t('Remove')}
+              </button>
+            )}
+          </>
+        )}
         <button className={btn} data-testid="cast-pictures" onClick={onPictures}>
           {t('Pictures')}
         </button>
@@ -360,7 +372,66 @@ function CastRow({ owner, name, badge, stage, onPictures, extra }) {
         )}
         {extra}
       </div>
+      {choosing && <SummonDialog owner={owner} name={name} onPictures={onPictures} onClose={() => setChoosing(false)} />}
     </div>
+  );
+}
+
+// Summon, or change the picture of a figure that is already on the stage: the pictures to choose from, and the Silhouette switch.
+// The switch is never remembered: it is off every time the dialog opens, so choosing a picture with it off also reveals a silhouette.
+function SummonDialog({ owner, name, onPictures, onClose }) {
+  const t = useT();
+  const { toast, stage } = useApp();
+  const key = owner.kind === 'character' ? { characterId: owner.id } : { tempNpcId: owner.id };
+  const pictures = usePictures(key);
+  const [silhouette, setSilhouette] = useState(false);
+  const onStage = stage.summons.find((s) => s.ownerKind === owner.kind && s.ownerId === owner.id);
+
+  async function choose(p) {
+    const r = onStage ? await call('stage:update', { id: onStage.id, pictureId: p.id, silhouette }) : await call('stage:summon', { ...key, pictureId: p.id, silhouette });
+    if (!r.ok) {
+      toast(r.error);
+      if (r.code === 'no_picture') onPictures();
+    }
+    onClose();
+  }
+
+  return (
+    <Dialog title={onStage ? t('Change picture: {name}', { name }) : t('Summon: {name}', { name })} onClose={onClose}>
+      <div className="flex flex-col gap-3" data-testid="summon-dialog">
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-0.5 h-5 w-5" data-testid="silhouette-toggle" checked={silhouette} onChange={(e) => setSilhouette(e.target.checked)} />
+          <span>
+            {t('Silhouette')}
+            <span className="block text-xs opacity-60">{t('Shows only a black shape and the name ???, to reveal the character later.')}</span>
+          </span>
+        </label>
+        <div>
+          <div className="mb-1 text-sm opacity-70">{t('Choose a picture')}</div>
+          {pictures === null && <p className="text-sm opacity-60">{t('Loading...')}</p>}
+          {pictures?.length === 0 && <p className="text-sm opacity-60">{t('No pictures yet. Add one with the Pictures button.')}</p>}
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {pictures?.map((p) => (
+              <button
+                key={p.id}
+                data-testid="summon-pick"
+                aria-label={p.name || t('Picture')}
+                aria-pressed={p.id === onStage?.pictureId}
+                className={`flex h-24 items-center justify-center overflow-hidden rounded bg-white/5 active:bg-white/15 ${p.id === onStage?.pictureId ? 'ring-2 ring-violet-500' : ''}`}
+                onClick={() => choose(p)}
+              >
+                <img src={imageUrl(p.imageId)} alt="" className="max-h-full max-w-full object-contain" />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button className={btn} data-testid="summon-cancel" onClick={onClose}>
+            {t('Close')}
+          </button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
@@ -425,10 +496,10 @@ export function CastDrawer({ onClose }) {
   const q = query.trim().toLowerCase();
   const characters = (roster?.characters ?? []).filter((c) => c.name.toLowerCase().includes(q));
 
-  if (!library) return <Drawer title={t('Cast')} side="left" onClose={onClose}>{t('Loading...')}</Drawer>;
+  if (!library) return <Drawer title={t('Cast')} side="left" onClose={onClose} modal={false}>{t('Loading...')}</Drawer>;
 
   return (
-    <Drawer title={t('Cast')} side="left" onClose={onClose} testId="cast-drawer">
+    <Drawer title={t('Cast')} side="left" onClose={onClose} testId="cast-drawer" modal={false}>
       <input className={`${input} mb-3`} placeholder={t('Search')} value={query} onChange={(e) => setQuery(e.target.value)} />
 
       <h3 className="mb-2 text-sm uppercase tracking-wide opacity-60">{t('Characters')}</h3>
