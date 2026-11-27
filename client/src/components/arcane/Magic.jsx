@@ -7,7 +7,7 @@ import { SchemeView } from './SchemeView.jsx';
 import { DamageIcon, ICON_KEYS } from './DamageIcon.jsx';
 import { EffectEditor, enhancementToForm, enhancementValid, formToEnhancement, formToWeapon, isNum, weaponToForm, weaponValid } from './editors.jsx';
 import { weaponSummary, enhancementSummary } from './summaries.js';
-import { KINDS, KIND_COLORS, MAX_CIRCLES, MAX_NOTE, MAX_STONE_COUNT, MAX_STONES_IN_SCHEME, STONES, circleOf, normalizeRows, normalizeScheme, stoneInfo, stonesNeeded, validateScheme } from '../../../../shared/spells.js';
+import { KINDS, KIND_COLORS, MAX_CIRCLES, MAX_NOTE, MAX_STONE_COUNT, MAX_STONES_IN_SCHEME, STONES, circleOf, normalizeRows, normalizeScheme, stoneInfo, stonesNeeded, validateScheme, totalCoverage } from '../../../../shared/spells.js';
 import * as D from '../../../../shared/rules-data.js';
 import { Lockable } from './Locks.jsx';
 import { RuneChain, RuneEditor, RuneRows } from './Runes.jsx';
@@ -55,15 +55,15 @@ function StoneChip({ sign, size = 44, ...rest }) {
   );
 }
 
-const SUBS = ['stones', 'editor', 'drafts', 'spells'];
+const SUBS = ['stones', 'editor', 'drafts', 'spells', 'learned'];
 
 export default function Magic({ s, draft, setDraft, work, setWork }) {
   const t = useT();
   const [sub, setSub] = useState('editor');
-  const names = { stones: t('Stones'), editor: t('Editor'), drafts: t('Spell Drafts'), spells: t('Created Spells') };
+  const names = { stones: t('Stones'), editor: t('Editor'), drafts: t('Spell Drafts'), spells: t('Created Spells'), learned: t('Learned Spells') };
   return (
     <div className="flex flex-col gap-3" data-testid="magic">
-      <div className="grid grid-cols-4 gap-1" role="tablist" aria-label={t('Magic')}>
+      <div className="grid grid-cols-5 gap-1" role="tablist" aria-label={t('Magic')}>
         {SUBS.map((id) => (
           <button key={id} role="tab" aria-selected={sub === id} data-testid={`magic-${id}`} className={`${btn} min-h-10 px-1 text-xs ${sub === id ? 'ring-2 ring-blue-400' : ''}`} onClick={() => setSub(id)}>
             {names[id]}
@@ -85,7 +85,8 @@ export default function Magic({ s, draft, setDraft, work, setWork }) {
           <Drafts s={s} setWork={setWork} goEditor={() => setSub('editor')} goSpells={() => setSub('spells')} />
         </Lockable>
       )}
-      {sub === 'spells' && <Spells s={s} draft={draft} setDraft={setDraft} />}
+      {sub === 'spells' && <Spells s={s} draft={draft} setDraft={setDraft} learnedTab={false} />}
+      {sub === 'learned' && <Spells s={s} draft={draft} setDraft={setDraft} learnedTab />}
     </div>
   );
 }
@@ -475,17 +476,27 @@ function CraftDialog({ s, draft, onClose, onCraft }) {
 
 // ---- Finished spells ------------------------------------------------------------------------------------------
 
-function Spells({ s, draft, setDraft }) {
+// Created Spells (`learnedTab` false: the spells that are objects, each also an Inventory item) or Learned Spells (tattooed, used at will).
+function Spells({ s, draft, setDraft, learnedTab }) {
   const t = useT();
   const { identity } = useApp();
   const gm = identity.role === 'gm';
   const [dialog, setDialog] = useState(null); // { spell } to edit, { spell: null } to grant
   const [remove, setRemove] = useState(null);
+  const [learning, setLearning] = useState(null);
   const chosenWeapon = draft.weapon;
+  const shown = s.sheet.spells.filter((sp) => !!sp.learned === learnedTab);
+  const coverage = totalCoverage(s.sheet.spells);
+  const mine = (sp) => sp.authorId === s.characterId || sp.authorSelf === true;
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {s.sheet.spells.length === 0 && <p className="col-span-full text-sm opacity-60">{t('No spells yet. Craft one from a draft.')}</p>}
-      {s.sheet.spells.map((sp) => {
+      {learnedTab && (
+        <p className="col-span-full text-sm" data-testid="coverage-total" data-coverage={coverage}>
+          {t('Spell tattoos cover {n}% of the body (at most 100%).', { n: coverage })}
+        </p>
+      )}
+      {shown.length === 0 && <p className="col-span-full text-sm opacity-60">{learnedTab ? t('No Learned Spells. The maker of a spell can learn it at full uses, from Created Spells.') : t('No spells yet. Craft one from a draft.')}</p>}
+      {shown.map((sp) => {
         const isWeapon = sp.effect.kind === 'weapon';
         const enhId = `spell:${sp.id}`;
         return (
@@ -500,10 +511,20 @@ function Spells({ s, draft, setDraft }) {
                       {t('Circle {n}', { n: sp.circles })}
                     </span>
                   )}{' '}
-                  {sp.tattoo && <span className="rounded bg-red-900/60 px-1.5 text-xs" data-testid="spell-tattoo">{t('Spell tattoo')}</span>}
+                  {sp.learned && (
+                    <span className="rounded bg-red-900/60 px-1.5 text-xs" data-testid="spell-coverage" data-coverage={sp.coverage}>
+                      {t('Coverage {n}%', { n: sp.coverage })}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs opacity-70">
-                  {sp.destroyed ? t('Destroyed') : sp.tattoo ? t('No uses') : t('Uses {cur}/{max}', { cur: sp.uses.current, max: sp.uses.max })} | {t('Stabilization {n}', { n: sp.stabilization })}
+                  {sp.learned
+                    ? t('At will; Blood Oxidization +{n} per cast', { n: sp.circles })
+                    : `${sp.destroyed ? t('Destroyed') : t('Uses {cur}/{max}', { cur: sp.uses.current, max: sp.uses.max })} | ${t('Stabilization {n}', { n: sp.stabilization })}`}
+                </div>
+                <div className="text-xs italic text-sky-300/80" data-testid="spell-signature">
+                  {sp.authorName ? t('Made by {name}', { name: sp.authorName }) : t('Unknown author')}
+                  {gm && sp.authorHidden && <span className="not-italic opacity-70"> ({t('hidden from players')})</span>}
                 </div>
               </div>
             </div>
@@ -525,22 +546,42 @@ function Spells({ s, draft, setDraft }) {
                     {(draft.counts[enhId] ?? 0) > 0 ? t('Chosen') : t('Add to attack')}
                   </button>
                 ))}
+              {!sp.learned && mine(sp) && (
+                <button
+                  className={btn}
+                  data-testid="spell-learn"
+                  disabled={sp.destroyed || sp.uses.current < sp.uses.max}
+                  title={sp.uses.current < sp.uses.max ? t('A spell can only be learned at full uses.') : undefined}
+                  onClick={() => setLearning(sp)}
+                >
+                  {t('Learn')}
+                </button>
+              )}
               {(!sp.destroyed || gm) && (
                 <button className={btn} data-testid="spell-edit" onClick={() => setDialog({ spell: sp })}>
                   {t('Edit')}
                 </button>
               )}
-              <button className={btnDanger} data-testid="spell-delete" onClick={() => setRemove(sp)}>
-                {t('Delete')}
-              </button>
+              {(!sp.learned || gm) && (
+                <button className={btnDanger} data-testid="spell-delete" onClick={() => setRemove(sp)}>
+                  {t('Delete')}
+                </button>
+              )}
             </div>
           </div>
         );
       })}
-      {gm && (
+      {gm && !learnedTab && (
         <button className={`${btn} col-span-full`} data-testid="spell-grant" onClick={() => setDialog({ spell: null })}>
           {t('Grant a spell')}
         </button>
+      )}
+      {learning && (
+        <FormDialog title={t('Learn {name}', { name: learning.name })} submitLabel={t('Learn')} onClose={() => setLearning(null)} run={() => call('spell:learn', { characterId: s.characterId, id: learning.id })}>
+          <p className="text-sm" data-testid="learn-text">
+            {t('The spell is used up and tattooed on you: from now on it is cast at will, and every cast adds {n} Blood Oxidization. The tattoo covers about {c}% of the body (give or take 1 to 5%); all tattoos together may cover at most 100%.', { n: learning.circles, c: learning.circles * 10 })}
+          </p>
+        </FormDialog>
       )}
       {dialog && <SpellDialog s={s} spell={dialog.spell} gm={gm} onClose={() => setDialog(null)} />}
       {remove && (
@@ -561,7 +602,8 @@ function SpellDialog({ s, spell, gm, onClose }) {
   const [kind, setKind] = useState(spell?.effect.kind ?? 'weapon');
   const [weapon, setWeapon] = useState(() => weaponToForm(spell?.effect.weapon ?? { base: 1, kind: 'fire', defence: 'physical', ap: 1, range: null, statuses: [], dice: [], unique: [] }));
   const [enh, setEnh] = useState(() => enhancementToForm(spell?.effect.kind === 'enhancement' ? spell.effect.enhancement : null, items));
-  const [tattoo, setTattoo] = useState(spell?.tattoo ?? false);
+  const [hidden, setHidden] = useState(spell?.authorHidden ?? false);
+  const learned = !!spell?.learned;
   const [max, setMax] = useState(String(spell?.uses.max ?? 1));
   const [cur, setCur] = useState(String(spell?.uses.current ?? 1));
   const [stab, setStab] = useState(String(spell?.stabilization ?? 10));
@@ -570,7 +612,7 @@ function SpellDialog({ s, spell, gm, onClose }) {
   function run() {
     const effect = kind === 'weapon' ? { kind, weapon: formToWeapon(weapon) } : { kind, enhancement: formToEnhancement({ ...enh, name: name.trim() }) };
     const base = { name: name.trim(), description, icon, effect };
-    const extra = gm ? { tattoo, uses: { max: Number(max), current: Math.min(Number(cur), Number(max)) }, stabilization: Number(stab) } : {};
+    const extra = gm ? { authorHidden: hidden, ...(learned ? {} : { uses: { max: Number(max), current: Math.min(Number(cur), Number(max)) }, stabilization: Number(stab) }) } : {};
     return spell ? call('spell:update', { characterId: s.characterId, id: spell.id, patch: { ...base, ...extra } }) : call('spell:grant', { characterId: s.characterId, spell: { ...base, ...extra } });
   }
 
@@ -599,10 +641,10 @@ function SpellDialog({ s, spell, gm, onClose }) {
         <div className="flex flex-col gap-2 rounded-lg border border-white/10 p-2">
           <div className="text-xs uppercase tracking-wide opacity-60">{t('Set by the GM')}</div>
           <label className="flex min-h-10 items-center gap-2 text-sm">
-            <input type="checkbox" className="h-5 w-5" data-testid="spell-tattoo-toggle" checked={tattoo} onChange={(e) => setTattoo(e.target.checked)} />
-            {t('Spell tattoo (no uses; durability is a Strength Save)')}
+            <input type="checkbox" className="h-5 w-5" data-testid="spell-hide-author" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+            {t('Hide who made it from the players')}
           </label>
-          {!tattoo && (
+          {!learned && (
             <div className="grid grid-cols-2 gap-2">
               <label className={label}>
                 {t('Uses left')}
@@ -614,10 +656,12 @@ function SpellDialog({ s, spell, gm, onClose }) {
               </label>
             </div>
           )}
-          <label className={label}>
-            {t('Stabilization')}
-            <input className={input} aria-label={t('Stabilization')} value={stab} onChange={(e) => setStab(e.target.value)} />
-          </label>
+          {!learned && (
+            <label className={label}>
+              {t('Stabilization')}
+              <input className={input} aria-label={t('Stabilization')} value={stab} onChange={(e) => setStab(e.target.value)} />
+            </label>
+          )}
         </div>
       )}
     </FormDialog>

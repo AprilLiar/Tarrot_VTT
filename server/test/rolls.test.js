@@ -178,7 +178,7 @@ describe('statuses apply automatically', () => {
 
   it('applies to skills through the stat they resolve to', () => {
     const sheet = withStatus({ 'stats.spirit': 3 }, { dazed: 1, impaired: 1 });
-    expect(buildRoll(sheet, { kind: 'skill', key: 'mental_resolve' }, fixed(10, 5)).advantage.net).toBe(-1);
+    expect(buildRoll(sheet, { kind: 'skill', key: 'soul_control' }, fixed(10, 5)).advantage.net).toBe(-1);
     expect(buildRoll(sheet, { kind: 'skill', key: 'speed' }, fixed(10, 5)).advantage.net).toBe(-1);
     expect(buildRoll(sheet, { kind: 'skill', key: 'astrology' }, fixed(10, 5)).advantage.net).toBe(-1);
   });

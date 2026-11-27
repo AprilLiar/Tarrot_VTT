@@ -211,7 +211,9 @@ describe('crafting', () => {
     expect(r.ok).toBe(true);
     const sheet = await sheetOf(g, id);
     expect(sheet.stones).toMatchObject({ virgo: 1, libra: 0, taurus: 0, aries: 0 });
-    expect(sheet.spells[0]).toMatchObject({ name: 'Fire Bolt', uses: { current: 5, max: 5 }, stabilization: 10, tattoo: false, destroyed: false });
+    expect(sheet.spells[0]).toMatchObject({ name: 'Fire Bolt', uses: { current: 5, max: 5 }, stabilization: 10, learned: false, destroyed: false, authorId: id });
+    // A Created Spell is also an Inventory item that mirrors it.
+    expect(sheet.items.find((i) => i.spellId === sheet.spells[0].id)).toMatchObject({ name: 'Fire Bolt', uses: { current: 5, max: 5 } });
     expect(sheet.spellDrafts).toHaveLength(1); // the draft stays
     const card = server.shared.chat.history().find((m) => m.type === 'roll');
     expect(card.roll.title).toBe('Spell crafting (Magic Roll)');
@@ -365,12 +367,12 @@ describe('finished spells', () => {
     const spell = (await grant(g, id)).sheet.spells[0];
     expect(spell).toMatchObject({ name: 'Ember', icon: 'fire', uses: { current: 2, max: 2 } });
     expect(await p.call('spell:grant', { characterId: id, spell: { name: 'X' } })).toMatchObject({ ok: false, code: 'forbidden' });
-    expect(await p.call('spell:update', { characterId: id, id: spell.id, patch: { tattoo: true } })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await p.call('spell:update', { characterId: id, id: spell.id, patch: { authorHidden: true } })).toMatchObject({ ok: false, code: 'forbidden' });
     expect(await p.call('spell:update', { characterId: id, id: spell.id, patch: { stabilization: 99 } })).toMatchObject({ ok: false, code: 'forbidden' });
     const r = await p.call('spell:update', { characterId: id, id: spell.id, patch: { name: 'Cinder', icon: 'cold', effect: { kind: 'enhancement', enhancement: { name: 'x', effect: { damage: 3 } } } } });
     expect(r.sheet.spells[0]).toMatchObject({ name: 'Cinder', icon: 'cold', effect: { kind: 'enhancement' } });
-    const t = await g.call('spell:update', { characterId: id, id: spell.id, patch: { tattoo: true } });
-    expect(t.sheet.spells[0]).toMatchObject({ tattoo: true, uses: { max: 1 } });
+    const t = await g.call('spell:update', { characterId: id, id: spell.id, patch: { authorHidden: true, learned: true } });
+    expect(t.sheet.spells[0]).toMatchObject({ authorHidden: true, learned: false });
     expect((await p.call('spell:remove', { characterId: id, id: spell.id })).sheet.spells).toHaveLength(0);
   });
 
@@ -430,19 +432,23 @@ describe('finished spells', () => {
     expect((await p.call('spell:remove', { characterId: id, id: spell.id })).ok).toBe(true);
   });
 
-  it('a Spell tattoo has no uses: a failed Strength Save adds Blood Oxidization instead', async () => {
+  it('a Learned Spell has no uses and no Stabilization roll: each cast adds Blood Oxidization equal to its Circles', async () => {
     const { g, p, id } = await fight();
-    const spell = (await grant(g, id, { tattoo: true, stabilization: 999 })).sheet.spells[0];
+    await g.call('sheet:set', { characterId: id, path: 'stats.strength', value: 7 });
+    const spell = (await grant(g, id, { learned: true, circles: 2 })).sheet.spells[0];
+    expect(spell).toMatchObject({ learned: true, coverage: 20 });
     for (let i = 0; i < 2; i++) {
       const seen = seenPending(g);
       await p.call('attack:roll', { characterId: id, weapon: { kind: 'spell', spellId: spell.id }, enhancements: [] });
       await apply(g, await seen);
-      await g.call('spell:update', { characterId: id, id: spell.id, patch: { stabilization: 999 } });
       await g.call('sheet:set', { characterId: id, path: 'ap.current', value: 4 });
     }
     const sheet = await sheetOf(g, id);
-    expect(sheet.statuses.blood_oxidization).toBe(2); // stacks
-    expect(sheet.spells[0]).toMatchObject({ tattoo: true, destroyed: false });
+    expect(sheet.statuses.blood_oxidization).toBe(4);
+    expect(sheet.spells[0]).toMatchObject({ learned: true, destroyed: false });
+    // A Learned Spell is not an object any more: no Inventory item.
+    expect(sheet.items.some((i) => i.spellId)).toBe(false);
+    expect(server.shared.chat.history().filter((m) => m.type === 'roll').some((m) => m.roll.against?.label === 'Stabilization')).toBe(false);
   });
 
   it('an Enhancement spell adds its effect to a weapon attack', async () => {
@@ -453,5 +459,64 @@ describe('finished spells', () => {
     const pending = await seen;
     expect(pending).toMatchObject({ weaponName: 'Unarmed Attack', ap: 2, base: 3, spells: [spell.id] });
     expect(pending.enhancements).toEqual([{ name: 'Ember', count: 1 }]);
+  });
+});
+
+describe('spell items, signatures and Learned Spells', () => {
+  const grant = (g, id, extra = {}) => g.call('spell:grant', { characterId: id, spell: { name: 'Ember', icon: 'fire', effect: { kind: 'weapon', weapon: { base: 4, kind: 'fire', ap: 1 } }, uses: { max: 2 }, ...extra } });
+
+  it('the item mirrors the spell; deleting either deletes both; giving it moves the spell with its signature', async () => {
+    const { g, p, id } = await setup();
+    const other = (await g.call('character:create', { name: 'Tov', type: 'pc' })).id;
+    const sheet = (await grant(g, id, { authorId: id, authorName: 'Mira' })).sheet;
+    const spell = sheet.spells[0];
+    const item = sheet.items.find((i) => i.spellId === spell.id);
+    expect(item).toMatchObject({ name: 'Ember', uses: { current: 2, max: 2 } });
+    // Renaming the item renames the spell; uses and Use belong to the spell.
+    const renamed = await p.call('sheet:list', { characterId: id, list: 'items', action: 'update', id: item.id, name: 'Ember Bolt' });
+    expect(renamed.sheet.spells[0].name).toBe('Ember Bolt');
+    expect(await p.call('sheet:list', { characterId: id, list: 'items', action: 'update', id: item.id, usesCurrent: 0 })).toMatchObject({ ok: false, code: 'spell_item' });
+    expect(await p.call('sheet:list', { characterId: id, list: 'items', action: 'use', id: item.id })).toMatchObject({ ok: false, code: 'spell_item' });
+    expect(await p.call('sheet:list', { characterId: id, list: 'items', action: 'copy', id: item.id })).toMatchObject({ ok: false, code: 'spell_item' });
+    await g.call('spell:update', { characterId: id, id: spell.id, patch: { uses: { current: 1 } } });
+    expect((await sheetOf(g, id)).items.find((i) => i.spellId === spell.id).uses.current).toBe(1);
+    // Given away: off this Arcane tab, onto the other one, signature kept.
+    await g.call('item:transfer', { fromId: id, toId: other, itemId: item.id });
+    expect((await sheetOf(g, id)).spells).toHaveLength(0);
+    const theirs = await sheetOf(g, other);
+    expect(theirs.spells[0]).toMatchObject({ name: 'Ember Bolt', authorId: id, authorName: 'Mira', uses: { current: 1 } });
+    // Deleting the item deletes the spell.
+    const theirItem = theirs.items.find((i) => i.spellId === theirs.spells[0].id);
+    const gone = await g.call('sheet:list', { characterId: other, list: 'items', action: 'remove', id: theirItem.id });
+    expect(gone.sheet.spells).toHaveLength(0);
+  });
+
+  it('the GM can hide a signature from players; only the author learns, at full uses, and the tattoo Coverage stays at 100% at most', async () => {
+    const { g, p, id } = await setup();
+    const other = (await g.call('character:create', { name: 'Tov', type: 'pc' })).id;
+    const mine = (await grant(g, id, { authorId: id, authorName: 'Mira', circles: 3 })).sheet.spells[0];
+    const theirs = (await grant(g, id, { authorId: other, authorName: 'Tov' })).sheet.spells[1];
+    await g.call('spell:update', { characterId: id, id: mine.id, patch: { authorHidden: true } });
+    const seen = (await p.call('sheet:get', { characterId: id })).sheet.spells[0];
+    expect(seen).toMatchObject({ authorName: '', authorId: null, authorSelf: true });
+    expect((await g.call('sheet:get', { characterId: id })).sheet.spells[0].authorName).toBe('Mira');
+
+    expect(await p.call('spell:learn', { characterId: id, id: theirs.id })).toMatchObject({ ok: false, code: 'not_author' });
+    await g.call('spell:update', { characterId: id, id: mine.id, patch: { uses: { current: 1 } } });
+    expect(await p.call('spell:learn', { characterId: id, id: mine.id })).toMatchObject({ ok: false, code: 'not_full' });
+    await g.call('spell:update', { characterId: id, id: mine.id, patch: { uses: { current: 2 } } });
+    const r = await p.call('spell:learn', { characterId: id, id: mine.id });
+    expect(r.ok).toBe(true);
+    const learned = (await sheetOf(g, id)).spells.find((x) => x.id === mine.id);
+    expect(learned.learned).toBe(true);
+    expect(Math.abs(learned.coverage - 30)).toBeGreaterThanOrEqual(1);
+    expect(Math.abs(learned.coverage - 30)).toBeLessThanOrEqual(5);
+    expect((await sheetOf(g, id)).items.some((i) => i.spellId === mine.id)).toBe(false);
+    expect(await p.call('spell:learn', { characterId: id, id: mine.id })).toMatchObject({ ok: false, code: 'learned' });
+
+    // Over 100% in all is refused.
+    await grant(g, id, { name: 'Big', learned: true, coverage: 70 });
+    const last = (await grant(g, id, { name: 'Small', authorId: id, authorName: 'Mira' })).sheet.spells.find((x) => x.name === 'Small');
+    expect(await p.call('spell:learn', { characterId: id, id: last.id })).toMatchObject({ ok: false, code: 'coverage' });
   });
 });

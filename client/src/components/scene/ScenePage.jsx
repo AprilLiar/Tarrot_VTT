@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PlayerSceneTools } from './PopOut.jsx';
 import { useFocusRequest } from '../../lib/searchFocus.js';
 import { StageView, call, useApp } from '../../AppContext.jsx';
 import { imageUrl } from '../../lib/image.js';
@@ -545,6 +546,7 @@ export default function ScenePage({ chrome = true, onExit }) {
       <SceneChrome chrome={chrome} onExit={onExit} />
       <HideUiButton />
       {chrome && identity.role === 'gm' && <GmTools />}
+      {identity.role === 'player' && view.mode !== 'battle' && <PlayerSceneTools />}
     </div>
   );
 }

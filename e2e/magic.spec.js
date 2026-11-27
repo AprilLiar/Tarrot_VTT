@@ -26,7 +26,7 @@ const arrow = async (page, from, to) => {
   await to.click();
 };
 
-test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, and a GM-granted Spell tattoo', async ({ browser }) => {
+test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, the spell item, and learning it', async ({ browser }) => {
   const name = `Mage-${uid()}`;
   const gmCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const gm = await gmCtx.newPage();
@@ -192,21 +192,41 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   await spell.getByTestId('spell-use').click();
   await expect(p.getByTestId('arcane-chosen')).toContainText('Fire Bolt');
 
-  // The GM grants a Spell tattoo from the character's own Magic tab.
+  // The crafted spell carries its maker's signature and is also an Inventory item with a blue glow.
+  await expect(spell.getByTestId('spell-signature')).toHaveText(`Made by ${name}`);
+  await p.getByTestId('view-sheet').click();
+  const item = p.locator('[data-testid="item"][data-spell="true"]').filter({ hasText: 'Fire Bolt' });
+  await expect(item).toContainText('5/5');
+  await expect(item.getByTestId('item-name')).toHaveClass(/spell-glow/);
+  await p.getByTestId('view-arcane').click();
+  await p.getByTestId('arcane-tab-magic').click();
+  await p.getByTestId('magic-spells').click();
+
+  // The GM hides the signature: the player sees "Unknown author" but, as its maker, can still learn it.
   await gm.getByTestId('character-row').filter({ hasText: name }).click();
   await gm.getByTestId('open-sheet').click();
   await gm.getByTestId('view-arcane').click();
   await gm.getByTestId('arcane-tab-magic').click();
   await gm.getByTestId('magic-spells').click();
-  await gm.getByTestId('spell-grant').click();
-  await gm.getByTestId('spell-edit-name').fill('Brand');
-  await gm.getByTestId('spell-tattoo-toggle').check();
-  await gm.getByTestId('icon-lightning').click();
-  await gm.getByRole('dialog').getByRole('button', { name: 'Grant', exact: true }).click();
-  const brand = p.getByTestId('spell').filter({ hasText: 'Brand' });
-  await expect(brand.getByTestId('spell-tattoo')).toBeVisible();
-  await expect(brand).toContainText('No uses');
-  await expect(brand.getByTestId('damage-icon')).toHaveAttribute('data-kind', 'lightning');
+  await gm.getByTestId('spell').filter({ hasText: 'Fire Bolt' }).getByTestId('spell-edit').click();
+  await gm.getByTestId('spell-hide-author').check();
+  await gm.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(spell.getByTestId('spell-signature')).toHaveText('Unknown author');
+  await expect(gm.getByTestId('spell').filter({ hasText: 'Fire Bolt' }).getByTestId('spell-signature')).toContainText(`Made by ${name}`);
+
+  // Learning it at full uses: it moves to Learned Spells with its tattoo Coverage, and the item is gone.
+  await spell.getByTestId('spell-learn').click();
+  await p.getByRole('dialog').getByRole('button', { name: 'Learn', exact: true }).click();
+  await p.getByTestId('magic-learned').click();
+  const learned = p.getByTestId('spell').filter({ hasText: 'Fire Bolt' });
+  await expect(learned.getByTestId('spell-coverage')).toBeVisible();
+  const coverage = Number(await learned.getByTestId('spell-coverage').getAttribute('data-coverage'));
+  expect(Math.abs(coverage - 10)).toBeGreaterThanOrEqual(1);
+  expect(Math.abs(coverage - 10)).toBeLessThanOrEqual(5);
+  await expect(learned).toContainText('Blood Oxidization +1 per cast');
+  await expect(p.getByTestId('coverage-total')).toHaveAttribute('data-coverage', String(coverage));
+  await p.getByTestId('view-sheet').click();
+  await expect(p.locator('[data-testid="item"][data-spell="true"]')).toHaveCount(0);
 
   await ctx.close();
   await gmCtx.close();

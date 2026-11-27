@@ -21,6 +21,8 @@ import { btn } from '../Dialog.jsx';
 import { useT } from '../../i18n.jsx';
 import { Counters } from './Counters.jsx';
 import { Relations } from './Relations.jsx';
+import { OxBar } from './OxBar.jsx';
+import { RestBar } from './RestBar.jsx';
 import { useFocusRequest } from '../../lib/searchFocus.js';
 
 const card = 'rounded-xl border border-white/10 bg-white/5 p-3';
@@ -180,7 +182,8 @@ export default function SheetPage({ characterId }) {
             <div className={`${tile} col-span-2`} data-testid="hp-block">
               <div className="text-xs opacity-60">{t('Hit Points')}</div>
               {/* The red HP bar with the numbers over it, and the faint blue Temp HP bar beside it, half as wide. */}
-              <div className="mt-1 grid grid-cols-[2fr_1fr] gap-2">
+              {/* HP, Rest Points and Blood Oxidization, each with a square for its button on the right (HP has none yet). */}
+              <div className="mt-1 grid grid-cols-[2fr_1fr_2.25rem] gap-2">
                 <div className="relative h-11 overflow-hidden rounded-lg bg-red-950/70" data-testid="hp-bar" data-fill={Math.round(hpFill * 100)}>
                   <div className="absolute inset-y-0 left-0 bg-red-600 transition-[width] duration-300" style={{ width: `${hpFill * 100}%` }} />
                   <div className="relative flex h-full items-center justify-center gap-1 text-xl font-semibold">
@@ -207,7 +210,10 @@ export default function SheetPage({ characterId }) {
                     </div>
                   </div>
                 </div>
+                <span aria-hidden="true" />
               </div>
+              <RestBar s={s} />
+              <OxBar s={s} />
               <HelpTrack dice={sheet.helpDice} onAdd={(sides) => list('helpDice', 'add', { sides })} onRemove={(index) => list('helpDice', 'remove', { index })} />
             </div>
             <div className={`${tile} relative overflow-hidden`}>

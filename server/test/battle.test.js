@@ -588,12 +588,12 @@ describe('the eraser', () => {
     expect((await stageOf(g)).battle.marks).toHaveLength(1);
   });
 
-  it('is limited to the GM and the Display and to sensible numbers', async () => {
+  it('is open to the GM, the Display and players, and takes only sensible numbers', async () => {
     const g = await gm();
     await battleScene(g);
     const a = await withPicture(g, 'Aria');
     const p = await player(a);
-    expect(await p.call('mark:erase', { x: 0.5, y: 0.5, r: 0.05 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await p.call('mark:erase', { x: 0.5, y: 0.5, r: 0.05 })).ok).toBe(true);
     expect(await g.call('mark:erase', { x: 2, y: 0.5, r: 0.05 })).toMatchObject({ ok: false, code: 'bad_value' });
     expect(await g.call('mark:erase', { x: 0.5, y: 0.5, r: 5 })).toMatchObject({ ok: false, code: 'bad_value' });
   });
@@ -627,7 +627,7 @@ describe('named areas and area targeting', () => {
     expect(await names(g)).toEqual(['arc 1']); // nothing left: the first again
   });
 
-  it('an area can be moved and turned by the GM and the Display, keeping its name; players cannot', async () => {
+  it('an area can be moved and turned by the GM, the Display and players, keeping its name', async () => {
     const g = await gm();
     const d = await display();
     await battleScene(g);
@@ -635,7 +635,7 @@ describe('named areas and area targeting', () => {
     const p = await player(a);
     await g.call('mark:add', area('arc', 3, 2, 3));
     const mark = (await stageOf(g)).battle.marks[0];
-    expect(await p.call('mark:update', { id: mark.id, x: 5 })).toMatchObject({ ok: false, code: 'forbidden' });
+    expect((await p.call('mark:update', { id: mark.id, x: 5 })).ok).toBe(true);
     expect((await g.call('mark:update', { id: mark.id, x: 5.3, y: 4, angle: 400 })).ok).toBe(true);
     expect((await stageOf(g)).battle.marks[0]).toMatchObject({ shape: 'arc', n: 1, size: 3, x: 5.5, y: 4, angle: 40 });
     expect((await d.call('mark:update', { id: mark.id, angle: -90 })).ok).toBe(true);
@@ -742,23 +742,23 @@ describe('drawings, templates and pings', () => {
   const stroke = { color: '#ff0000', width: 4, points: [[0.1, 0.1], [0.4, 0.4]] };
   const cone = { shape: 'cone', x: 3, y: 2, size: 4, angle: 90, color: '#00aaff' };
 
-  it('the GM and the Display can add, erase and clean; players cannot touch them', async () => {
+  it('the GM, the Display and players can add, erase and clean; the Display Screen and players ping too', async () => {
     const g = await gm();
     const d = await display();
     await battleScene(g);
     const a = await withPicture(g, 'Aria');
     const p = await player(a);
-    for (const who of [p]) {
-      expect(await who.call('mark:add', { kind: 'draw', data: stroke })).toMatchObject({ ok: false, code: 'forbidden' });
-      expect(await who.call('battle:ping', { x: 0.5, y: 0.5 })).toMatchObject({ ok: false, code: 'forbidden' });
-    }
+    const pinged = new Promise((resolve) => g.once('battle:pinged', resolve));
+    expect((await p.call('battle:ping', { x: 0.5, y: 0.5 })).ok).toBe(true);
+    expect(await pinged).toEqual({ x: 0.5, y: 0.5, by: 'player' });
+    const s0 = (await p.call('mark:add', { kind: 'draw', data: stroke })).id;
+    expect((await p.call('mark:remove', { id: s0 })).ok).toBe(true);
     const s1 = (await d.call('mark:add', { kind: 'draw', data: stroke })).id;
     const t1 = (await g.call('mark:add', { kind: 'template', data: cone })).id;
     const marks = (await stageOf(p)).battle.marks;
     expect(marks.map((m) => m.kind)).toEqual(['draw', 'template']);
     expect(marks[1]).toMatchObject({ shape: 'cone', angle: 90 });
     expect((await d.call('mark:remove', { id: s1 })).ok).toBe(true);
-    expect(await p.call('mark:clear', {})).toMatchObject({ ok: false, code: 'forbidden' });
     expect((await d.call('mark:clear', { kind: 'draw' })).ok).toBe(true);
     expect((await g.call('mark:clear', { kind: 'template' })).ok).toBe(true);
     expect((await stageOf(g)).battle.marks).toHaveLength(0);

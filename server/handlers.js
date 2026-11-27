@@ -1,3 +1,5 @@
+import { takeRest, restSpendMax } from '../shared/rest.js';
+import { oxState, oxOf, bleedProblem, BLEED_HP, BLEED_AP, OX_STATUS } from '../shared/oxidization.js';
 import { cleanCrop } from '../shared/crop.js';
 import { randomUUID, randomInt } from 'node:crypto';
 import * as roster from './roster.js';
@@ -86,14 +88,34 @@ export function registerHandlers(io, socket, db, shared) {
   sheets.watchSheetChanges((id, prev) => {
     const seenSheets = (shared.fxSheets ??= new Map());
     if (!seenSheets.has(id)) seenSheets.set(id, { hp: { ...prev.hp }, statuses: { ...prev.statuses } });
+    const ox = (shared.oxStates ??= new Map());
+    if (!ox.has(id)) ox.set(id, oxState(prev));
   });
+  // Blood Oxidization over the limit (a coma) or over double it (death) is told in the chat when it happens, and so is waking up.
+  const OX_LINES = {
+    coma: T('{name} falls into a deep coma: Blood Oxidization is over the limit.'),
+    dead: T('{name} dissolves in acid: Blood Oxidization is over double the limit.'),
+    ok: T('{name} wakes from the coma.'),
+  };
+  async function oxChanged(characterId, sheet) {
+    const states = (shared.oxStates ??= new Map());
+    const was = states.get(characterId) ?? 'ok';
+    const now = oxState(sheet);
+    states.set(characterId, now);
+    if (was === now || (now === 'coma' && was === 'dead')) return;
+    const c = await roster.getCharacter(db, characterId);
+    if (!c) return;
+    const message = chat.add({ type: 'text', author: { role: 'gm', name: T('Blood Oxidization') }, ...chatLine({ key: OX_LINES[now], params: { name: c.name } }) });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+  }
   const emitSheet = async (characterId, sheet) => {
     // Board animations: what changed on the sheet since it was last sent (HP lost or healed, statuses gained or lost).
     const seenSheets = (shared.fxSheets ??= new Map());
     for (const f of sheetFx(characterId, seenSheets.get(characterId), sheet)) fx.send(f);
     seenSheets.set(characterId, { hp: { ...sheet.hp }, statuses: { ...sheet.statuses } });
+    await oxChanged(characterId, sheet);
     io.to(GM_ROOM).emit('sheet:updated', { characterId, sheet });
-    io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db)) });
+    io.to(charRoom(characterId)).emit('sheet:updated', { characterId, sheet: redactSheet(sheet, await lockStore.listLocks(db), characterId) });
     // The statuses are shown on the character's token (and a character at 0 HP is drawn down), so the stage is sent again when they change.
     const seen = (shared.statusSeen ??= new Map());
     const json = JSON.stringify(sheet);
@@ -136,7 +158,7 @@ export function registerHandlers(io, socket, db, shared) {
           return reply({ ok: false, code: 'forbidden', error: say('Choose who you are first.') });
         }
         const result = (await fn(payload ?? {})) ?? {};
-        if (result.sheet && isPlayer()) result.sheet = redactSheet(result.sheet, await lockStore.listLocks(db));
+        if (result.sheet && isPlayer()) result.sheet = redactSheet(result.sheet, await lockStore.listLocks(db), identity().characterId);
         if (broadcast) await broadcastRoster();
         reply({ ok: true, ...result });
       } catch (err) {
@@ -463,6 +485,58 @@ export function registerHandlers(io, socket, db, shared) {
     shared,
     fx,
     rooms: { GM_ROOM, VIEW_ROOM, CHAT_ROOM, charRoom },
+  });
+
+  // ---- Blood Oxidization: letting blood (shared/oxidization.js) ----------------------
+  // 1 Ox off for 3 HP, never down to 0 HP; in combat (the character is in the order) it costs 1 AP.
+  on('ox:bleed', { needsIdentity: true }, async ({ characterId }) => {
+    const c = await requireControl(characterId);
+    const inCombat = !!shared.combat?.order.some((e) => e.ownerKind === 'character' && e.ownerId === c.id);
+    const sheet = await sheets.updateSheet(db, c.id, (s) => {
+      const problem = bleedProblem(s, { inCombat });
+      if (problem === 'no_ox') throw new AppError('no_ox', 'There is no Blood Oxidization to let out.');
+      if (problem === 'low_hp') throw new AppError('low_hp', 'Letting blood would take HP to 0 or below.');
+      if (problem === 'no_ap') throw new AppError('no_ap', 'Letting blood in combat costs {n} AP.', { n: BLEED_AP });
+      const next = structuredClone(s);
+      next.hp.current -= BLEED_HP;
+      next.statuses[OX_STATUS] -= 1;
+      if (!next.statuses[OX_STATUS]) delete next.statuses[OX_STATUS];
+      if (inCombat) next.ap.current -= BLEED_AP;
+      return sheets.normalizeSheet(next);
+    });
+    await emitSheet(c.id, sheet);
+    const message = chat.add({
+      type: 'text',
+      author: { role: 'gm', name: T('Blood Oxidization') },
+      ...chatLine({ key: T('{name} lets blood: {hp} HP for 1 Blood Oxidization ({ox} left).'), params: { name: c.name, hp: BLEED_HP, ox: oxOf(sheet) } }),
+    });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+    return { sheet };
+  });
+
+  // ---- Rests (shared/rest.js) ---------------------------------------------------------
+  on('rest:take', { needsIdentity: true }, async ({ characterId, kind, spend }) => {
+    const c = await requireControl(characterId);
+    if (shared.combat?.order.some((e) => e.ownerKind === 'character' && e.ownerId === c.id)) throw new AppError('in_combat', 'No resting in combat.');
+    let done;
+    const sheet = await sheets.updateSheet(db, c.id, (s) => {
+      const r = takeRest(s, kind, spend);
+      if (r.problem === 'bad_kind') throw new AppError('bad_value', 'Choose a Short Rest or a Long Rest.');
+      if (r.problem === 'bad_spend') throw new AppError('bad_value', 'You can spend from 0 to {n} Rest Points now.', { n: restSpendMax(s) });
+      done = r;
+      const next = structuredClone(s);
+      next.hp.current = r.hp;
+      next.rest.current = r.rp;
+      return sheets.normalizeSheet(next);
+    });
+    await emitSheet(c.id, sheet);
+    const key =
+      kind === 'long'
+        ? T('{name} takes a Long Rest: {n} Rest Points spent for {n} HP, and 1 Rest Point back at the end ({rp} left).')
+        : T('{name} takes a Short Rest: {n} Rest Points spent for {n} HP ({rp} left).');
+    const message = chat.add({ type: 'text', author: { role: 'gm', name: T('Rest') }, ...chatLine({ key, params: { name: c.name, n: spend, rp: done.rp } }) });
+    io.to(CHAT_ROOM).emit('chat:message', message);
+    return { sheet };
   });
 
   // ---- Search (see server/search.js) ----------------------------------------------

@@ -30,17 +30,17 @@ export const EXPERIENCE_MAX = 10;
 
 // scaling: { prime: true } = highest of all stats; { stats: [...] } = highest of the listed stats.
 export const SKILLS = [
+  // Each mixed-stat skill sits beside the skills of its colour: Body Movement under Awareness, Likability under Soul Control.
   { key: 'awareness', label: 'Awareness', scaling: { prime: true } },
+  { key: 'body_movement', label: 'Body Movement', scaling: { stats: ['strength', 'dexterity'] } },
   { key: 'weight_manipulation', label: 'Weight Manipulation', scaling: { stats: ['strength'] } },
   { key: 'stamina', label: 'Stamina', scaling: { stats: ['strength'] } },
   { key: 'speed', label: 'Speed', scaling: { stats: ['dexterity'] } },
   { key: 'fine_motor_skills', label: 'Fine Motor Skills', scaling: { stats: ['dexterity'] } },
-  { key: 'mental_resolve', label: 'Mental Resolve', scaling: { stats: ['spirit'] } },
   { key: 'soul_control', label: 'Soul Control', scaling: { stats: ['spirit'] } },
+  { key: 'likability', label: 'Likability', scaling: { stats: ['spirit', 'intelligence'] } },
   { key: 'astrology', label: 'Astrology', scaling: { stats: ['intelligence'] } },
   { key: 'symbolism', label: 'Symbolism', scaling: { stats: ['intelligence'] } },
-  { key: 'body_movement', label: 'Body Movement', scaling: { stats: ['strength', 'dexterity'] } },
-  { key: 'likability', label: 'Likability', scaling: { stats: ['spirit', 'intelligence'] } },
 ];
 export const SKILL_TIER_MAX = 10;
 
@@ -70,7 +70,7 @@ export const TEXT_MAX = 2000;
 // All DC20 Foundry statuses, remapped to Tarrot stats. Automation comes later:
 // for now a status is a name, a stack count where it stacks, and rule text.
 export const STATUSES = [
-  { key: "blood_oxidization", name: "Blood Oxidization", stackable: true, text: "The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated." },
+  { key: "blood_oxidization", name: "Blood Oxidization", stackable: true, text: "The blood becomes acidic (from casting Learned Spells). 1: Disadvantage on Checks. 2: also Slowed and Disadvantage on Attacks. 3 or more: Disadvantage X-1 on both. Over the Oxidization Limit (Strength, at least 1): a deep coma. Over double the limit: death." },
   { key: "bleeding", name: "Bleeding", stackable: true, text: "X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated)." },
   { key: "blinded", name: "Blinded", stackable: false, text: "Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage." },
   { key: "burning", name: "Burning", stackable: true, text: "X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack." },

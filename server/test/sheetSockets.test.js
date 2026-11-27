@@ -331,6 +331,34 @@ describe('rolls and chat', () => {
     expect(ring).toMatchObject({ kind: 'item', characterId: aria, owner: 'Zorya' });
   });
 
+  it('Blood Oxidization: a coma and death are told in the chat; letting blood takes 3 HP per Ox', async () => {
+    const g = await gm();
+    await g.call('chat:clear');
+    const id = await pc(g, 'Vera');
+    const a = await player(id);
+    await g.call('sheet:set', { characterId: id, path: 'stats.strength', value: 1 });
+    await g.call('sheet:set', { characterId: id, path: 'hp.max', value: 10 });
+    await g.call('sheet:set', { characterId: id, path: 'hp.current', value: 7 });
+    expect(await a.call('ox:bleed', { characterId: id })).toMatchObject({ ok: false, code: 'no_ox' });
+    await g.call('sheet:set', { characterId: id, path: 'statuses.blood_oxidization', value: 2 });
+    await g.call('sheet:set', { characterId: id, path: 'statuses.blood_oxidization', value: 3 });
+    const r = await a.call('ox:bleed', { characterId: id });
+    expect(r.sheet.hp.current).toBe(4);
+    expect(r.sheet.statuses.blood_oxidization).toBe(2);
+    expect(r.sheet.statuses.unconscious).toBe(1);
+    await a.call('ox:bleed', { characterId: id });
+    const done = await a.call('ox:bleed', { characterId: id });
+    expect(done).toMatchObject({ ok: false, code: 'low_hp' });
+    const lines = (await g.call('chat:get')).messages.map((m) => m.text);
+    expect(lines).toEqual([
+      'Vera falls into a deep coma: Blood Oxidization is over the limit.',
+      'Vera dissolves in acid: Blood Oxidization is over double the limit.',
+      'Vera lets blood: 3 HP for 1 Blood Oxidization (2 left).',
+      'Vera wakes from the coma.',
+      'Vera lets blood: 3 HP for 1 Blood Oxidization (1 left).',
+    ]);
+  });
+
   it('refuses chat from a socket with no identity', async () => {
     const anon = await client();
     expect(await anon.call('chat:send', { text: 'hi' })).toMatchObject({ ok: false, code: 'forbidden' });

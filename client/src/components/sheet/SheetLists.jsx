@@ -291,11 +291,15 @@ function ItemCard({ s, item }) {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState(null); // 'edit' | 'send' | 'delete'
   const empty = item.uses.current === 0;
+  // A Created Spell's item (see the README, "Spell items"): its name glows blue; it changes with its spell, on the Arcane tab.
+  const spell = !!item.spellId;
 
   return (
-    <div className={`${card} ${item.weapon ? '!border-amber-400/40 !bg-amber-500/10' : ''}`} data-search-id={`item:${item.id}`} data-testid="item" data-weapon={item.weapon ? 'true' : 'false'}>
+    <div className={`${card} ${item.weapon ? '!border-amber-400/40 !bg-amber-500/10' : ''}`} data-search-id={`item:${item.id}`} data-testid="item" data-weapon={item.weapon ? 'true' : 'false'} data-spell={spell ? 'true' : 'false'}>
       <button className="flex w-full items-center gap-2 text-left" onClick={() => setOpen(!open)}>
-        <span className={`min-w-0 flex-1 truncate font-medium ${empty ? 'opacity-50' : ''}`}>{item.name}</span>
+        <span className={`min-w-0 flex-1 truncate font-medium ${spell ? 'spell-glow' : ''} ${empty ? 'opacity-50' : ''}`} data-testid="item-name">
+          {item.name}
+        </span>
         {item.weapon && <span className="shrink-0 rounded bg-amber-500/30 px-1.5 text-xs">{t('Weapon')}</span>}
         {item.state && <StateTag state={item.state} />}
         <span className="shrink-0 text-sm opacity-70">
@@ -306,6 +310,8 @@ function ItemCard({ s, item }) {
       {open && (
         <div className="mt-2 flex flex-col gap-2">
           {item.description && <p className="whitespace-pre-wrap text-sm opacity-80">{item.description}</p>}
+          {spell && <p className="text-xs text-sky-300/80">{t('A Created Spell: it is cast and changed on the Arcane tab. Giving it away gives the spell; deleting it deletes the spell.')}</p>}
+          {!spell && (
           <div className="flex items-center gap-2 text-sm">
             <button
               className={btnPrimary}
@@ -326,7 +332,8 @@ function ItemCard({ s, item }) {
               />
             </div>
           </div>
-          {item.states.length > 0 && (
+          )}
+          {!spell && item.states.length > 0 && (
             <label className="flex items-center gap-2 text-sm">
               {t('State')}
               <select
@@ -344,12 +351,16 @@ function ItemCard({ s, item }) {
             </label>
           )}
           <div className="flex flex-wrap gap-2">
-            <button className={btn} onClick={() => setDialog('edit')}>
-              {t('Edit')}
-            </button>
-            <button className={btn} data-testid="copy-item" onClick={() => s.list('items', 'copy', { id: item.id })}>
-              {t('Copy')}
-            </button>
+            {!spell && (
+              <>
+                <button className={btn} onClick={() => setDialog('edit')}>
+                  {t('Edit')}
+                </button>
+                <button className={btn} data-testid="copy-item" onClick={() => s.list('items', 'copy', { id: item.id })}>
+                  {t('Copy')}
+                </button>
+              </>
+            )}
             <button className={btn} data-testid="send-item" onClick={() => setDialog('send')}>
               {t('Send')}
             </button>

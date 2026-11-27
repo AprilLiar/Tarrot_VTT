@@ -201,6 +201,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Editor | Редактор |
 | Spell Drafts | Черновики заклинаний |
 | Created Spells | Созданные заклинания |
+| Learned Spells | Выученные заклинания |
 | Magic | Магия |
 | How many of each Spell Stone this character has. Crafting a spell spends them; drafting does not. | Сколько камней каждого вида у этого персонажа. Создание заклинания тратит их, черновик — нет. |
 | {name} stones | Камни: {name} |
@@ -245,23 +246,32 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Notes | Заметки |
 | Crafting spends these stones of all {n} Circles at once and makes a Magic roll for each Circle, in order, in the chat (only for the GM to see how skilled you are). | Создание тратит эти камни всех {n} Кругов сразу и делает бросок Магии для каждого Круга по порядку в чате (только чтобы ГМ видел, насколько вы искусны). |
 | Crafting spends these stones and makes a Magic roll in the chat (only for the GM to see how skilled you are). | Создание тратит эти камни и делает бросок Магии в чате (только чтобы ГМ увидел ваше мастерство). |
+| Spell tattoos cover {n}% of the body (at most 100%). | Татуировки заклинаний покрывают {n}% тела (не больше 100%). |
+| No Learned Spells. The maker of a spell can learn it at full uses, from Created Spells. | Выученных заклинаний нет. Создатель заклинания может выучить его при полных зарядах, в «Созданных заклинаниях». |
 | No spells yet. Craft one from a draft. | Заклинаний пока нет. Создайте одно из черновика. |
-| Spell tattoo | Татуировка-заклинание |
+| Coverage {n}% | Покрытие {n}% |
+| At will; Blood Oxidization +{n} per cast | По желанию; окисление крови +{n} за применение |
 | Destroyed | Уничтожено |
-| No uses | Без использований |
 | Uses {cur}/{max} | Использования {cur}/{max} |
 | Stabilization {n} | Стабилизация {n} |
+| Made by {name} | Создатель: {name} |
+| Unknown author | Неизвестный создатель |
+| hidden from players | скрыто от игроков |
 | Enhancement | Усиление |
 | Chosen as weapon | Выбрано как оружие |
 | Use as weapon | Использовать как оружие |
 | Add to attack | Добавить к атаке |
+| A spell can only be learned at full uses. | Заклинание можно выучить только при полных зарядах. |
+| Learn | Выучить |
 | Grant a spell | Выдать заклинание |
+| Learn {name} | Выучить {name} |
+| The spell is used up and tattooed on you: from now on it is cast at will, and every cast adds {n} Blood Oxidization. The tattoo covers about {c}% of the body (give or take 1 to 5%); all tattoos together may cover at most 100%. | Заклинание расходуется и набивается на вас татуировкой: теперь оно применяется по желанию, и каждое применение добавляет {n} окисления крови. Татуировка покрывает около {c}% тела (плюс-минус 1–5%); все татуировки вместе могут покрывать не больше 100%. |
 | Delete spell | Удалить заклинание |
 | Edit spell | Изменить заклинание |
 | Grant | Выдать |
 | Icon | Значок |
 | Set by the GM | Задаёт ГМ |
-| Spell tattoo (no uses; durability is a Strength Save) | Татуировка-заклинание (без использований; прочность — спасбросок Силы) |
+| Hide who made it from the players | Скрыть создателя от игроков |
 | Uses left | Осталось использований |
 | Max uses | Макс. использований |
 | Stabilization | Стабилизация |
@@ -455,7 +465,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
-| Scene notes and cutscene cards, GM Rewind, board animations, a crop editor, an accent colour, a Dice Tray and pictures in the chat, counters, an Events board, a Relationships board and Search. | Заметки сцены и заставки, перемотка мастера, анимации на карте, кадрирование, цвет акцента, лоток для кубиков и картинки в чате, счётчики, доска событий, доска отношений и поиск. |
+| Blood Oxidization as a meter with its penalties and Let blood, Rest Points with Short and Long Rests, spells as Inventory items with signatures, Learned Spells with tattoo Coverage, a pop-out sheet and map tools for players, and the skills reordered without Mental Resolve. | Окисление крови как шкала со штрафами и кровопусканием, очки отдыха с коротким и долгим отдыхом, заклинания как предметы инвентаря с подписью, выученные заклинания с покрытием татуировок, отдельный лист персонажа и инструменты карты для игроков, а навыки переставлены и без «Ментальной стойкости». |
 
 ## Characters and roster (GM)
 
@@ -535,6 +545,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | What happens (optional) | Что происходит (необязательно) |
 | Secret from the player | Тайна от игрока |
 | Delete for good | Удалить навсегда |
+| Dead: dissolved in acid. | Мёртв: растворился в кислоте. |
+| Over the limit: a deep coma. | Сверх предела: глубокая кома. |
+| Slowed; Disadvantage {n} on Checks and Attacks. | Замедление; помеха {n} на проверки и атаки. |
+| Disadvantage on Checks. | Помеха на проверки. |
+| No Blood Oxidization. | Окисления крови нет. |
+| Blood Oxidization | Окисление крови |
+| Let blood | Пустить кровь |
+| Let blood: lose {hp} HP to remove 1 Blood Oxidization (1 AP in combat). Not allowed when it would take HP to 0 or below. | Пустить кровь: потерять {hp} ОЗ, чтобы снять 1 окисление крови (1 ОД в бою). Нельзя, если ОЗ упадут до 0 или ниже. |
 | Relationships | Отношения |
 | Add a card | Добавить карточку |
 | Connect | Связать |
@@ -544,6 +562,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | A made-up person | Выдуманный человек |
 | Remove from the board | Убрать с доски |
 | e.g. trusts, owes, hunts | например: доверяет, должен, охотится |
+| Rest Points | Очки отдыха |
+| Rest | Отдых |
+| No resting in combat. | В бою отдыхать нельзя. |
+| Rest: a Short Rest or a Long Rest. | Отдых: короткий или долгий. |
+| Short Rest | Короткий отдых |
+| Long Rest | Долгий отдых |
+| Rest Points to spend (1 RP heals 1 HP) | Сколько очков отдыха потратить (1 ОО лечит 1 ОЗ) |
+| Heals {n} HP; 1 Rest Point comes back at the end of the Long Rest. | Лечит {n} ОЗ; в конце долгого отдыха возвращается 1 очко отдыха. |
+| Heals {n} HP. | Лечит {n} ОЗ. |
 | Consumption | Поглощение |
 | Resistance ({n}) | Сопротивление ({n}) |
 | Resistance (Half) | Сопротивление (половина) |
@@ -587,6 +614,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Send offer | Отправить предложение |
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
 | (empty) | (пусто) |
+| A Created Spell: it is cast and changed on the Arcane tab. Giving it away gives the spell; deleting it deletes the spell. | Созданное заклинание: применяется и меняется на вкладке «Аркана». Отдать предмет — отдать заклинание; удалить его — удалить заклинание. |
 | {name} uses | Использования: {name} |
 | State | Состояние |
 | (none) | (нет) |
@@ -811,6 +839,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Add pictures | Добавить картинки |
 | Copy from Portrait | Копировать из портрета |
 | Rename picture | Переименовать картинку |
+| Pop out the character sheet | Открыть лист персонажа отдельно |
+| Pop out the character sheet (a new tab) | Открыть лист персонажа отдельно (новая вкладка) |
 | Undo: {what} | Отменить: {what} |
 | Nothing to rewind. | Нечего отменять. |
 | Rewind ({n}) | Назад ({n}) |
@@ -971,6 +1001,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Awareness | Внимательность |
 | Mastery: Awareness | Мастерство: Внимательность |
 | Awareness (Skill Roll) | Внимательность (проверка навыка) |
+| Body Movement | Движение тела |
+| Mastery: Body Movement | Мастерство: Движение тела |
+| Body Movement (Skill Roll) | Движение тела (проверка навыка) |
 | Weight Manipulation | Управление весом |
 | Mastery: Weight Manipulation | Мастерство: Управление весом |
 | Weight Manipulation (Skill Roll) | Управление весом (проверка навыка) |
@@ -983,24 +1016,18 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Fine Motor Skills | Мелкая моторика |
 | Mastery: Fine Motor Skills | Мастерство: Мелкая моторика |
 | Fine Motor Skills (Skill Roll) | Мелкая моторика (проверка навыка) |
-| Mental Resolve | Ментальная стойкость |
-| Mastery: Mental Resolve | Мастерство: Ментальная стойкость |
-| Mental Resolve (Skill Roll) | Ментальная стойкость (проверка навыка) |
 | Soul Control | Контроль души |
 | Mastery: Soul Control | Мастерство: Контроль души |
 | Soul Control (Skill Roll) | Контроль души (проверка навыка) |
+| Likability | Обаяние |
+| Mastery: Likability | Мастерство: Обаяние |
+| Likability (Skill Roll) | Обаяние (проверка навыка) |
 | Astrology | Астрология |
 | Mastery: Astrology | Мастерство: Астрология |
 | Astrology (Skill Roll) | Астрология (проверка навыка) |
 | Symbolism | Символизм |
 | Mastery: Symbolism | Мастерство: Символизм |
 | Symbolism (Skill Roll) | Символизм (проверка навыка) |
-| Body Movement | Движение тела |
-| Mastery: Body Movement | Мастерство: Движение тела |
-| Body Movement (Skill Roll) | Движение тела (проверка навыка) |
-| Likability | Обаяние |
-| Mastery: Likability | Мастерство: Обаяние |
-| Likability (Skill Roll) | Обаяние (проверка навыка) |
 | Cold | Холод |
 | Acid | Кислота |
 | Poison | Яд |
@@ -1016,8 +1043,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Hit | Попадание |
 | Heavy Hit | Сильное попадание |
 | Brutal Hit | Жестокое попадание |
-| Blood Oxidization | Окисление крови |
-| The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. | Кровь становится гораздо более кислотной (из-за проваленного спасброска Силы против татуировки-заклинания). Не автоматизировано. |
+| The blood becomes acidic (from casting Learned Spells). 1: Disadvantage on Checks. 2: also Slowed and Disadvantage on Attacks. 3 or more: Disadvantage X-1 on both. Over the Oxidization Limit (Strength, at least 1): a deep coma. Over double the limit: death. | Кровь становится кислотной (от заклинаний, выученных наизусть). 1: помеха на проверки. 2: ещё замедление и помеха на атаки. 3 и больше: помеха X-1 на то и другое. Сверх предела окисления (Сила, не меньше 1): глубокая кома. Сверх двойного предела: смерть. |
 | Bleeding | Кровотечение |
 | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). | X чистого урона в начале хода. Снимается только лечением или полезным предметом за 1 ОД (только формулировка; использование предметов не автоматизировано). |
 | Blinded | Ослеплён |
@@ -1239,8 +1265,8 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | {label} {status} as a cost. | {label} {status} как плату. |
 | {label} {n} uses of {item}. | {label} {n} исп. предмета {item}. |
 | {label} 1 (natural 1). | {label} 1 (натуральная 1). |
+| {spell} burns in the blood of {name}: Blood Oxidization +{add} ({n}). | {spell} жжёт кровь {name}: окисление крови +{add} ({n}). |
 | {spell} holds: Stabilization rises to {n}. | {spell} держится: Стабилизация растёт до {n}. |
-| {spell} bites {name}: Blood Oxidization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
 | {spell} falters and is destroyed. | {spell} даёт сбой и уничтожается. |
 | {spell} falters: Stabilization resets to {n} and it loses a use ({left} left). | {spell} даёт сбой: Стабилизация сбрасывается до {n}, теряется одно использование (осталось {left}). |
 | {source}: {name}. {text} | {source}: {name}. {text} |
@@ -1353,6 +1379,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That folder no longer exists. | Этой папки больше нет. |
 | A folder cannot be moved inside itself. | Папку нельзя переместить внутрь самой себя. |
 | Move or delete what is inside this folder first. | Сначала переместите или удалите содержимое папки. |
+| {name} falls into a deep coma: Blood Oxidization is over the limit. | {name} впадает в глубокую кому: окисление крови сверх предела. |
+| {name} dissolves in acid: Blood Oxidization is over double the limit. | {name} растворяется в кислоте: окисление крови сверх двойного предела. |
+| {name} wakes from the coma. | {name} выходит из комы. |
+| {name} lets blood: {hp} HP for 1 Blood Oxidization ({ox} left). | {name} пускает кровь: {hp} ОЗ за 1 окисление крови (осталось {ox}). |
+| {name} takes a Long Rest: {n} Rest Points spent for {n} HP, and 1 Rest Point back at the end ({rp} left). | {name} отдыхает долго: {n} очков отдыха потрачено на {n} ОЗ, и 1 очко отдыха вернулось в конце (осталось {rp}). |
+| {name} takes a Short Rest: {n} Rest Points spent for {n} HP ({rp} left). | {name} отдыхает коротко: {n} очков отдыха потрачено на {n} ОЗ (осталось {rp}). |
 | {name} reached {gate} on {counter}: {text} | {name} достигает Врат «{gate}» на счётчике «{counter}»: {text} |
 | {name} reached {gate} on {counter}. | {name} достигает Врат «{gate}» на счётчике «{counter}». |
 | The Display Screen has no chat. | У экрана стола нет чата. |
@@ -1370,6 +1402,11 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | This status has no Save, so it cannot be Repeated. | У этого статуса нет спасброска, поэтому он не может быть повторяющимся. |
 | A Repeated status needs a DC for its Save. | Повторяющемуся статусу нужна Сл для спасброска. |
 | That Save is no longer waiting. | Этот спасбросок больше не ожидается. |
+| There is no Blood Oxidization to let out. | Нет окисления крови, которое можно выпустить. |
+| Letting blood would take HP to 0 or below. | Кровопускание опустит ОЗ до 0 или ниже. |
+| Letting blood in combat costs {n} AP. | Кровопускание в бою стоит {n} ОД. |
+| Choose a Short Rest or a Long Rest. | Выберите короткий или долгий отдых. |
+| You can spend from 0 to {n} Rest Points now. | Сейчас можно потратить от 0 до {n} очков отдыха. |
 | Choose a picture to crop. | Выберите картинку для кадрирования. |
 | Those Help Dice are not available. | Эти кубики помощи недоступны. |
 | No image was sent. | Изображение не было отправлено. |
@@ -1480,9 +1517,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Too many features. | Слишком много особенностей. |
 | Unknown action. | Неизвестное действие. |
 | Too many items. | Слишком много предметов. |
+| A spell item changes with its spell, on the Arcane tab. | Предмет-заклинание меняется вместе с заклинанием, на вкладке «Аркана». |
 | Invalid states. | Неверные состояния. |
 | Invalid state. | Неверное состояние. |
+| A spell is cast from the Arcane tab. | Заклинание применяется с вкладки «Аркана». |
 | No uses left. | Использований не осталось. |
+| A spell item cannot be copied. | Предмет-заклинание нельзя скопировать. |
 | That attack cannot be saved as a preset. | Эту атаку нельзя сохранить как пресет. |
 | Too many presets. | Слишком много пресетов. |
 | A character holds at most {max} Help Dice. | У персонажа не больше {max} кубиков помощи. |
@@ -1504,8 +1544,13 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | You need {need} {stone} stones and have {have}. | Нужно камней ({stone}): {need}, у вас {have}. |
 | Only the GM can change that. | Это может менять только ГМ. |
 | A destroyed spell cannot be changed. | Уничтоженное заклинание изменить нельзя. |
+| That spell is already learned. | Это заклинание уже выучено. |
+| Only the one who made a spell can learn it. | Выучить заклинание может только его создатель. |
+| The tattoo would cover {n}% of the body, over 100%. | Татуировка покрыла бы {n}% тела, больше 100%. |
 | Crafts | Создаёт |
+| Learns | Выучивает |
 | {label} {spell}. | {label} {spell}. |
+| {label} {spell}: a tattoo covering {n}% of the body. | {label} {spell}: татуировка покрывает {n}% тела. |
 | That Stance no longer exists. | Этой Стойки больше нет. |
 | Unknown sign. | Неизвестный знак. |
 | Too many Stances. | Слишком много Стоек. |
@@ -1626,6 +1671,14 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 
 | English | Russian |
 | --- | --- |
+| Mental Resolve | Ментальная стойкость |
+| Mastery: Mental Resolve | Мастерство: Ментальная стойкость |
+| Mental Resolve (Skill Roll) | Ментальная стойкость (проверка навыка) |
+| Spell tattoo | Татуировка-заклинание |
+| No uses | Без использований |
+| Spell tattoo (no uses; durability is a Strength Save) | Татуировка-заклинание (без использований; прочность — спасбросок Силы) |
+| {spell} bites {name}: Blood Oxidization {n}. | {spell} жжёт {name}: Окисление крови {n}. |
+| The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. | Кровь становится гораздо более кислотной (из-за проваленного спасброска Силы против татуировки-заклинания). Не автоматизировано. |
 | Props cannot fight. | Объекты не могут сражаться. |
 | This scene has no battle map yet. Open Scenes, choose the scene and add a Battle map. | У этой сцены пока нет боевой карты. Откройте «Сцены», выберите сцену и добавьте боевую карту. |
 | Reset spot | Сбросить место |

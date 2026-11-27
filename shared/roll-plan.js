@@ -2,6 +2,7 @@ import * as D from './rules-data.js';
 import { resolveStat, statusEffects } from './status-effects.js';
 import { rollMods } from './effects.js';
 import { T } from './localization.js';
+import { oxLevels } from './oxidization.js';
 
 // Works out what a roll will be, before any die is thrown: its title, every
 // bonus with its source, and how many d20 are rolled. The server uses it to make
@@ -97,6 +98,9 @@ export function planRoll(sheet, request) {
   const bonusDice = [...(Array.isArray(request.dice) ? request.dice : []), ...em.dice];
 
   const sources = [...fx.levels, ...em.levels.map(({ label, levels }) => ({ label, levels })), ...(request.against?.levels ?? [])];
+  // Blood Oxidization weighs on Checks and Attacks (shared/oxidization.js), Magic rolls included.
+  const ox = oxLevels(sheet, request);
+  if (ox) sources.push({ label: `Blood Oxidization ${sheet.statuses.blood_oxidization}`, levels: ox });
   if (manual !== 0) sources.push({ label: T('Manual'), levels: manual });
   const net = Math.max(-MAX_NET_LEVELS, Math.min(MAX_NET_LEVELS, sources.reduce((sum, s) => sum + s.levels, 0)));
   const mode = net > 0 ? 'advantage' : net < 0 ? 'disadvantage' : 'normal';

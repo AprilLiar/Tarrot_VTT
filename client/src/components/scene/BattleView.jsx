@@ -20,6 +20,7 @@ import { TarotStar } from '../TarotStar.jsx';
 import { areaName } from '../../lib/areaName.js';
 import { membersOf } from '../../../../shared/templates.js';
 import { BattleFx } from './BattleFx.jsx';
+import { PopOutButton } from './PopOut.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -215,11 +216,14 @@ export default function BattleView() {
   const t = useT();
   const { identity, stage, toast } = useApp();
   const isGm = identity.role === 'gm';
-  const tools = isGm || identity.role === 'display';
+  const isPlayer = identity.role === 'player';
+  // The GM and the Display run the whole map; players (watching on a desktop) share their map tools (see the README, "Player tools").
+  const staff = isGm || identity.role === 'display';
+  const tools = staff || isPlayer;
   // A player drags and opens the menu for their own character only; the GM and the Display for everyone.
-  const isOwn = (tk) => identity.role === 'player' && tk.ownerKind === 'character' && tk.ownerId === identity.characterId;
-  const canDragToken = (tk) => tools || isOwn(tk);
-  const canOpenMenu = (tk) => tools || isOwn(tk);
+  const isOwn = (tk) => isPlayer && tk.ownerKind === 'character' && tk.ownerId === identity.characterId;
+  const canDragToken = (tk) => staff || isOwn(tk);
+  const canOpenMenu = (tk) => staff || isOwn(tk);
   const battle = stage.battle;
   const scene = stage.scene;
   const { ref, view, bind, zoomBy, reset } = useZoomPan();
@@ -894,9 +898,12 @@ export default function BattleView() {
                 {label}
               </button>
             ))}
-            <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={battle.showGrid} data-testid="toggle-grid" onClick={() => call('scene:show_grid', { id: scene.id, show: !battle.showGrid })}>
-              {battle.showGrid ? t('Grid on') : t('Grid off')}
-            </button>
+            {staff && (
+              <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" aria-pressed={battle.showGrid} data-testid="toggle-grid" onClick={() => call('scene:show_grid', { id: scene.id, show: !battle.showGrid })}>
+                {battle.showGrid ? t('Grid on') : t('Grid off')}
+              </button>
+            )}
+            {isPlayer && <PopOutButton />}
             {isGm && (
               <button className="min-h-9 rounded-lg bg-white/10 px-3 text-sm" data-testid="open-grid" onClick={() => setGridOpen(!gridOpen)}>
                 {t('Set grid')}
@@ -1042,7 +1049,7 @@ export default function BattleView() {
           below={isGm && menuToken.ownerKind === 'character' && menuToken.statuses.length > 0 && <TokenConditions token={menuToken} />}
           options={
             // The GM and the Display get every circle; a player only Set Height, for their own character.
-            tools
+            staff
               ? [
                   {
                     key: 'settings',

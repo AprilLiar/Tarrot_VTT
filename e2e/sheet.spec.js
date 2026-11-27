@@ -341,3 +341,41 @@ test('counters: the GM adds one with Gates, the player fills it, a Gate reached 
   await p.context.close();
   await gm.context.close();
 });
+
+test('vitals: Rest Points under HP with a rest menu, and Blood Oxidization with Let blood', async ({ browser }) => {
+  const name = `Rester-${uid()}`;
+  const gm = await gmPage(browser);
+  await createPc(gm.page, name);
+  const p = await playerPage(browser, name);
+  await setNumber(p.page, 'stat-value-strength', 3);
+  await setNumber(p.page, 'hp-max', 10);
+  await setNumber(p.page, 'hp-current', 8);
+  const rest = p.page.getByTestId('rest-block');
+  await expect(rest).toHaveAttribute('data-max', '3');
+  await setNumber(p.page, 'rest-current', 3);
+
+  // A Long Rest spends 2 RP for 2 HP, then gives 1 back.
+  await p.page.getByTestId('rest-open').click();
+  await p.page.getByTestId('rest-kind-long').click();
+  await expect(p.page.getByTestId('rest-spend-value')).toHaveText('2');
+  await p.page.getByRole('dialog').getByRole('button', { name: 'Rest', exact: true }).click();
+  await expect(p.page.getByTestId('hp-current')).toHaveValue('10');
+  await expect(rest).toHaveAttribute('data-current', '2');
+
+  // Blood Oxidization: no button at 0; with 2 Ox the character is Slowed; letting blood takes 3 HP for 1 Ox.
+  const ox = p.page.getByTestId('ox-block');
+  await expect(ox).toHaveAttribute('data-limit', '3');
+  await expect(p.page.getByTestId('ox-bleed')).toHaveCount(0);
+  await p.page.getByTestId('add-status').click();
+  await p.page.getByPlaceholder('Search').fill('Blood');
+  await p.page.getByTestId('status-option').filter({ hasText: 'Blood Oxidization' }).click();
+  await p.page.getByTestId('status-add-stacks').fill('2');
+  await p.page.getByRole('dialog').getByRole('button', { name: 'Add status', exact: true }).click();
+  await expect(ox).toHaveAttribute('data-ox', '2');
+  await expect(p.page.getByTestId('ox-effect')).toHaveText('Slowed; Disadvantage 1 on Checks and Attacks.');
+  await p.page.getByTestId('ox-bleed').click();
+  await expect(ox).toHaveAttribute('data-ox', '1');
+  await expect(p.page.getByTestId('hp-current')).toHaveValue('7');
+  await p.context.close();
+  await gm.context.close();
+});

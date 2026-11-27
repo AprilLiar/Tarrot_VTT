@@ -231,3 +231,6 @@ html[data-hide-ui='true'] .ui-chrome {
   0%, 40% { box-shadow: 0 0 0 3px var(--color-violet-400); }
   100% { box-shadow: 0 0 0 3px transparent; }
 }
+
+/* The name of a Created Spell's Inventory item: a blue glow, used for nothing else. */
+.spell-glow { color: #bae6fd; text-shadow: 0 0 6px #38bdf8, 0 0 14px #0ea5e9; }

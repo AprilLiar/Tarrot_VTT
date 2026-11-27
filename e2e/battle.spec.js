@@ -387,7 +387,7 @@ test('tools: a static tool bar with options beside it; drawing, eraser, Clean, a
   await gmCtx.close();
 });
 
-test('desktop players watch the map without tools', async ({ browser }) => {
+test('desktop players have the map tools (not the grid ones) and a pop-out button that opens their sheet alone in a new tab', async ({ browser }) => {
   const pc = `Watcher-${uid()}`;
   const gmCtx = await desktop(browser);
   const gm = await open(gmCtx, 'pick-gm');
@@ -402,7 +402,29 @@ test('desktop players watch the map without tools', async ({ browser }) => {
   await p.getByTestId('nav-scene').click();
   await expect(p.getByTestId('battle-map')).toBeVisible();
   await expect(token(p, pc)).toBeVisible();
-  await expect(p.getByTestId('battle-tools')).toHaveCount(0);
+  const tools = p.getByTestId('battle-tools');
+  await expect(tools).toBeVisible();
+  await expect(tools.getByTestId('tool-draw')).toBeVisible();
+  await expect(tools.getByTestId('toggle-grid')).toHaveCount(0);
+  await expect(tools.getByTestId('open-grid')).toHaveCount(0);
+
+  // A player's ping reaches the GM.
+  await tools.getByTestId('tool-ping').click();
+  const map = await p.getByTestId('battle-map').boundingBox();
+  await p.mouse.click(map.x + map.width / 2, map.y + map.height / 2);
+  await expect(gm.locator('.battle-ping')).toHaveCount(1);
+
+  // Pop-out: a new tab with the sheet alone (no top bar, no chat), live.
+  const [tab] = await Promise.all([ctx.waitForEvent('page'), tools.getByTestId('pop-out').click()]);
+  await expect(tab.getByTestId('popout')).toBeVisible();
+  await expect(tab.getByTestId('sheet-name')).toHaveText(pc);
+  await expect(tab.getByTestId('whoami')).toHaveCount(0);
+  await expect(tab.getByTestId('chat-toggle')).toHaveCount(0);
+
+  // In Scene mode the player's tool bar holds the pop-out button.
+  await gm.getByTestId('nav-scene').click();
+  await gm.getByTestId('mode-scene').click();
+  await expect(p.getByTestId('player-tools').getByTestId('pop-out')).toBeVisible();
 
   await ctx.close();
   await gmCtx.close();

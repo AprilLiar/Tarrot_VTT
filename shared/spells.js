@@ -210,9 +210,11 @@ export function normalizeEffect(raw, id) {
 export function normalizeSpell(raw, id) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const circles = Number.isInteger(r.circles) ? Math.min(MAX_CIRCLES, Math.max(1, r.circles)) : 1;
-  const tattoo = r.tattoo === true;
-  const maxUses = tattoo ? 1 : Math.min(D.ITEM_USES_MAX, Math.max(1, Number.isInteger(r.uses?.max) ? r.uses.max : 1));
-  const destroyed = !tattoo && r.destroyed === true;
+  // A Learned Spell is tattooed on its caster: used at will (no uses, no Stabilization roll; every cast adds Blood Oxidization equal to its
+  // Circles). Spells tagged as a Spell tattoo before Learned Spells existed are Learned Spells.
+  const learned = r.learned === true || r.tattoo === true;
+  const maxUses = learned ? 1 : Math.min(D.ITEM_USES_MAX, Math.max(1, Number.isInteger(r.uses?.max) ? r.uses.max : 1));
+  const destroyed = !learned && r.destroyed === true;
   return {
     id: typeof r.id === 'string' && r.id ? r.id : id,
     name: text(r.name, D.NAME_MAX).trim() || 'Spell',
@@ -226,12 +228,37 @@ export function normalizeSpell(raw, id) {
     draftId: typeof r.draftId === 'string' && r.draftId ? r.draftId : null,
     runes: normalizeRows(r.runes, circles),
     stabilization: Math.min(999, Math.max(0, Number.isInteger(r.stabilization) ? r.stabilization : STABILIZATION_START)),
-    tattoo,
     destroyed,
+    learned,
+    // How much of the body the tattoo covers, in % (rolled when it is learned, see coverageFor); 0 for a spell that is not learned.
+    coverage: learned ? Math.min(100, Math.max(0, Number.isInteger(r.coverage) ? r.coverage : circles * COVERAGE_PER_CIRCLE)) : 0,
+    // The signature: who made the spell (a character id and its name then), kept whoever holds it; the GM can hide it from the players.
+    authorId: Number.isInteger(r.authorId) ? r.authorId : null,
+    authorName: text(r.authorName, D.NAME_MAX).trim(),
+    authorHidden: r.authorHidden === true,
   };
 }
 
-export const usable = (spell) => !spell.destroyed && (spell.tattoo || spell.uses.current > 0);
+export const usable = (spell) => !spell.destroyed && (spell.learned || spell.uses.current > 0);
+
+// Learning a spell (see the README, "Learned Spells"): only its author, only at full uses; the tattoo covers Circles x 10% of the body, give
+// or take 1 to 5% (rolled), and all of a character's tattoos together may not cover more than 100%.
+export const COVERAGE_PER_CIRCLE = 10;
+export const COVERAGE_MAX = 100;
+export function coverageFor(circles, rng = Math.random) {
+  const offset = 1 + Math.floor(rng() * 5);
+  const sign = rng() < 0.5 ? -1 : 1;
+  return Math.max(1, Math.min(COVERAGE_MAX, circles * COVERAGE_PER_CIRCLE + sign * offset));
+}
+export const totalCoverage = (spells) => spells.filter((sp) => sp.learned).reduce((n, sp) => n + sp.coverage, 0);
+
+// Why a character cannot learn a spell now, or null.
+export function learnProblem(spell, characterId) {
+  if (spell.learned) return 'learned';
+  if (spell.authorId == null || spell.authorId !== characterId) return 'not_author';
+  if (spell.destroyed || spell.uses.current < spell.uses.max) return 'not_full';
+  return null;
+}
 
 // Terms the data adds to LOCALIZATION.md (the sign names, the kinds and what each stone does).
 export function spellTermKeys() {

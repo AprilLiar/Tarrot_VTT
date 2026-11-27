@@ -707,46 +707,47 @@ export function registerSceneHandlers(ctx) {
   });
 
 
-  // Drawings and spell templates: the GM and the Display can add them; anyone of them can
-  // remove one; only the GM can clear them all. Pings are never stored.
+  // Drawings, areas, the eraser, Clean and pings: the GM, the Display and the players (who watch the map on a desktop) share these
+  // tools. Pings are never stored.
+  const mapTools = () => isGm() || isDisplay() || isPlayer();
   on('mark:add', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can draw.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can draw.');
     const id = await battle.addMark(db, p.kind, p.data);
     await broadcastStage();
     return { id };
   });
   // "Move" in the Area tool: an area is dragged to another place and/or turned (x, y in squares, angle in degrees).
   on('mark:update', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can move areas.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can move areas.');
     const patch = {};
     for (const key of ['x', 'y', 'angle']) if (p[key] !== undefined) patch[key] = p[key];
     await battle.updateTemplate(db, p.id, patch);
     await broadcastStage();
   });
   on('mark:remove', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
     await battle.removeMark(db, p.id);
     for (const picks of areaPicks.values()) picks.delete(p.id);
     await broadcastStage();
   });
   // "Clean" in the Draw and Area tools: the GM and the Display can wipe every drawing or area.
   on('mark:clear', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can clean the map.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can clean the map.');
     await battle.clearMarks(db, p.kind);
     if (p.kind !== 'draw') areaPicks.clear();
     await broadcastStage();
   });
   // The eraser: rubs out the parts of drawings within a small circle (x, y in picture fractions).
   on('mark:erase', { needsIdentity: true }, async (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can erase.');
     const changed = await battle.eraseMarksAt(db, p);
     if (changed) await broadcastStage();
   });
   on('battle:ping', { needsIdentity: true }, (p) => {
-    if (!isGm() && !isDisplay()) throw new AppError('forbidden', 'Only the GM or the Display can ping.');
+    if (!mapTools()) throw new AppError('forbidden', 'Only the GM or the Display can ping.');
     const ok = (v) => typeof v === 'number' && v >= 0 && v <= 1;
     if (!ok(p.x) || !ok(p.y)) throw new AppError('bad_value', 'Ping the map.');
-    const payload = { x: p.x, y: p.y, by: isGm() ? 'gm' : 'display' };
+    const payload = { x: p.x, y: p.y, by: isGm() ? 'gm' : isDisplay() ? 'display' : 'player' };
     io.to(GM_ROOM).to(VIEW_ROOM).emit('battle:pinged', payload);
   });
 

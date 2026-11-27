@@ -236,24 +236,25 @@ export async function applyAttack(db, pending, clean, { emitSheet, journal, save
     if (clean.ap > 0) own.rows.unshift({ key: '{label} {n}.', params: { label: { t: 'AP spent', c: 'ap' }, n: num(clean.ap, 'ap') } });
     if (clean.exposed) own.rows.push({ key: '{label} 1 (natural 1).', params: { label: { t: 'Gains Exposed', c: 'status' } } });
   }
-  // Every spell used loses a little durability: a Magic roll against its Stabilization (a Spell tattoo
-  // uses a Strength Save instead). The spell itself worked either way.
+  // Every Created Spell used loses a little durability: a Magic roll against its Stabilization. The spell itself worked either way.
+  // A Learned Spell has no durability: casting it adds Blood Oxidization equal to its Circles (shared/oxidization.js).
   if (pending.characterId != null && (pending.spells ?? []).length) {
     const sheet = await journal.update(db, pending.characterId, (s) => {
       const next = structuredClone(s);
       for (const id of pending.spells) {
         const sp = next.spells.find((x) => x.id === id);
         if (!sp || !usable(sp)) continue;
-        const roll = sp.tattoo ? buildRoll(next, { kind: 'save', key: 'strength' }) : buildRoll(next, { kind: 'mastery', key: 'magic' });
+        if (sp.learned) {
+          next.statuses = { ...next.statuses, [TATTOO_STATUS]: (next.statuses?.[TATTOO_STATUS] ?? 0) + sp.circles };
+          own.rows.push({ key: '{spell} burns in the blood of {name}: Blood Oxidization +{add} ({n}).', params: { spell: kw(sp.name, 'spell'), name: attackerName, add: num(sp.circles, 'status'), n: num(next.statuses[TATTOO_STATUS], 'status') } });
+          continue;
+        }
+        const roll = buildRoll(next, { kind: 'mastery', key: 'magic' });
         roll.against = { label: 'Stabilization', targets: [{ name: sp.name, value: sp.stabilization }] };
         rolls.push({ roll, name: attackerName, characterId: pending.characterId });
         if (roll.total >= sp.stabilization) {
           sp.stabilization += STABILIZATION_STEP;
           own.rows.push({ key: '{spell} holds: Stabilization rises to {n}.', params: { spell: kw(sp.name, 'spell'), n: num(sp.stabilization, 'num') } });
-        } else if (sp.tattoo) {
-          sp.stabilization = STABILIZATION_START;
-          next.statuses = { ...next.statuses, [TATTOO_STATUS]: (next.statuses?.[TATTOO_STATUS] ?? 0) + 1 };
-          own.rows.push({ key: '{spell} bites {name}: Blood Oxidization {n}.', params: { spell: kw(sp.name, 'spell'), name: attackerName, n: num(next.statuses[TATTOO_STATUS], 'status') } });
         } else {
           sp.stabilization = STABILIZATION_START;
           sp.uses.current = Math.max(0, sp.uses.current - 1);

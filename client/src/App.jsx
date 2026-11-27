@@ -62,7 +62,14 @@ function Screen() {
     );
   }
 
-  // A player sees their own sheet, and the scene on a desktop screen.
+  // A player sees their own sheet, and the scene on a desktop screen. The pop-out tab (/popout) is the sheet alone: no top bar, no chat.
+  if (identity.role === 'player' && window.location.pathname === '/popout') {
+    return (
+      <main className="min-h-full p-3" data-testid="popout">
+        <SheetPage characterId={identity.characterId} />
+      </main>
+    );
+  }
   if (identity.role === 'player') {
     return (
       <Shell>

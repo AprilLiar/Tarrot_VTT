@@ -6,7 +6,7 @@ import { listLocks, lockedError } from './locks.js';
 import { magicLocked, stonesLocked, combinationsLocked } from '../shared/locks.js';
 import { createJournal } from './journal.js';
 import { T } from '../shared/localization.js';
-import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, normalizeEffect, MAX_SPELLS, STABILIZATION_START } from '../shared/spells.js';
+import { validateScheme, stonesNeeded, usesFor, stoneInfo, normalizeSpell, normalizeEffect, MAX_SPELLS, STABILIZATION_START, learnProblem, coverageFor, totalCoverage, COVERAGE_MAX } from '../shared/spells.js';
 
 // The roll card of each Circle of a spell with several Circles (the titles are texts to translate, so they are spelled out).
 const CIRCLE_TITLES = [
@@ -26,7 +26,8 @@ const CIRCLE_TITLES = [
 //  - spell:craft   { characterId, draftId }  turns a legal draft into a spell: spends the stones and posts a
 //                  Magic roll (against nothing, for the GM to judge the crafter's skill).
 //  - spell:update  { characterId, id, patch } the owner changes name, description, icon and effect; the GM also
-//                  uses, Stabilization and the Spell tattoo tag.
+//                  uses, Stabilization and whether the signature is hidden from players (`authorHidden`).
+//  - spell:learn   { characterId, id }  its author learns a spell at full uses: it becomes a Learned Spell (tattoo Coverage rolled).
 //  - spell:grant   (GM) { characterId, spell }   gives a character a finished spell.
 //  - spell:remove  { characterId, id }
 export function registerSpellHandlers(ctx) {
@@ -63,7 +64,7 @@ export function registerSpellHandlers(ctx) {
       }
       const uses = usesFor(draft.scheme);
       const id = randomUUID();
-      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, circles: draft.scheme.circles, draftId: draft.id, runes: draft.runes }, id), id };
+      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, circles: draft.scheme.circles, draftId: draft.id, runes: draft.runes, authorId: c.id, authorName: c.name }, id), id };
       next.spells.push(spell);
       return sheets.normalizeSheet(next);
     });
@@ -90,8 +91,10 @@ export function registerSpellHandlers(ctx) {
     if (!isGm() && magicLocked(await listLocks(db))) throw lockedError();
     const patch = p.patch && typeof p.patch === 'object' ? p.patch : {};
     const gm = isGm();
-    const gmOnly = ['uses', 'stabilization', 'tattoo'];
+    const gmOnly = ['uses', 'stabilization', 'authorHidden'];
     if (!gm && gmOnly.some((k) => patch[k] !== undefined)) throw new AppError('forbidden', 'Only the GM can change that.');
+    // The signature, learning and the tattoo are never typed in.
+    for (const k of ['learned', 'tattoo', 'coverage', 'authorId', 'authorName', 'circles', 'draftId']) delete patch[k];
     const sheet = await sheets.updateSheet(db, c.id, (s) => {
       const next = structuredClone(s);
       const sp = find(next, p.id);
@@ -105,6 +108,34 @@ export function registerSpellHandlers(ctx) {
       return sheets.normalizeSheet(next);
     });
     emitSheet(c.id, sheet);
+    return { sheet };
+  });
+
+  on('spell:learn', { needsIdentity: true }, async (p) => {
+    const c = await requireControl(p.characterId);
+    if (!isGm() && magicLocked(await listLocks(db))) throw lockedError();
+    let learned;
+    const journal = createJournal();
+    const sheet = await journal.update(db, c.id, (s) => {
+      const next = structuredClone(s);
+      const sp = find(next, p.id);
+      const problem = learnProblem(sp, c.id);
+      if (problem === 'learned') throw new AppError('learned', 'That spell is already learned.');
+      if (problem === 'not_author') throw new AppError('not_author', 'Only the one who made a spell can learn it.');
+      if (problem === 'not_full') throw new AppError('not_full', 'A spell can only be learned at full uses.');
+      const coverage = coverageFor(sp.circles);
+      const total = totalCoverage(next.spells) + coverage;
+      if (total > COVERAGE_MAX) throw new AppError('coverage', 'The tattoo would cover {n}% of the body, over 100%.', { n: total });
+      Object.assign(sp, { learned: true, coverage, destroyed: false });
+      learned = sp;
+      return sheets.normalizeSheet(next);
+    });
+    emitSheet(c.id, sheet);
+    effects.post({
+      kind: 'craft',
+      blocks: [{ name: c.name, rows: [{ key: '{label} {spell}: a tattoo covering {n}% of the body.', params: { label: { t: 'Learns', c: 'spell' }, spell: { v: learned.name, c: 'spell' }, n: learned.coverage } }] }],
+      journal,
+    });
     return { sheet };
   });
 

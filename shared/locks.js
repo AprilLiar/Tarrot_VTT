@@ -19,15 +19,21 @@ export const tarotLocked = (locks) => has(locks, 'tab:manifest') || has(locks, '
 export const manifestationsLocked = (locks) => has(locks, 'tab:manifest') || has(locks, 'manifestations');
 
 // The sheet as a player may see it: what is locked is emptied (the client shows a blurred picture instead).
-export function redactSheet(sheet, locks) {
-  if (!locks.length) return sheet;
+// `holderId`: the character whose sheet it is. A spell signature the GM hid is emptied (the player still learns whether they made it
+// themselves, `authorSelf`, which decides whether they may learn it).
+export function redactSheet(sheet, locks, holderId = null) {
+  const hidden = (sheet.spells ?? []).some((sp) => sp.authorHidden);
+  if (!locks.length && !hidden) return sheet;
   const out = { ...sheet };
+  if (hidden) {
+    out.spells = sheet.spells.map((sp) => (sp.authorHidden ? { ...sp, authorId: null, authorName: '', authorSelf: holderId != null && sp.authorId === holderId } : sp));
+  }
   if (stonesLocked(locks)) out.stones = Object.fromEntries(Object.keys(sheet.stones).map((k) => [k, 0]));
   if (combinationsLocked(locks)) out.spellDrafts = [];
   if (fineTuningLocked(locks)) {
     const noRows = (circles) => Array.from({ length: circles ?? 1 }, () => []);
     if (!combinationsLocked(locks)) out.spellDrafts = sheet.spellDrafts.map((d) => ({ ...d, runes: noRows(d.scheme?.circles) }));
-    out.spells = sheet.spells.map((sp) => ({ ...sp, runes: noRows(sp.circles) }));
+    out.spells = out.spells.map((sp) => ({ ...sp, runes: noRows(sp.circles) }));
   }
   if (magicLocked(locks)) out.spells = [];
   if (tarotLocked(locks)) out.tarot = { cards: [], active: null };

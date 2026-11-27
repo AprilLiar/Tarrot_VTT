@@ -210,16 +210,18 @@ with Intelligence 2 rolls d20 + 2 + 3). Any skill can hold any tier. (decided)
 | Skill | Scaling stat |
 |---|---|
 | Awareness | Prime (the highest of all stats) |
+| Body Movement | Max of Strength or Dexterity |
 | Weight Manipulation | Strength |
 | Stamina | Strength |
 | Speed | Dexterity |
 | Fine Motor Skills | Dexterity |
-| Mental Resolve | Spirit |
 | Soul Control | Spirit |
+| Likability | Max of Spirit or Intelligence |
 | Astrology | Intelligence |
 | Symbolism | Intelligence |
-| Body Movement | Max of Strength or Dexterity |
-| Likability | Max of Spirit or Intelligence |
+
+The order is the sheet's order (decided): Body Movement sits under Awareness and Likability under Soul Control, beside the skills of
+their colour. **Mental Resolve was removed** as a skill (a tier a sheet held in it is dropped).
 
 ### Hit severity and damage
 Damage is not rolled. It is calculated from the Hit Severity: attack total minus the target's
@@ -259,6 +261,31 @@ HP first** and only the overkill reaches HP (attacks, Enhancement damage costs, 
 healing never touches it). **Temp HP cannot stack**: gaining Temp HP keeps the larger of what you had and what you
 gain (5 Temp HP and gaining 7 gives 7; 5 and gaining 2 stays 5). The GM or the owner can also set the number by hand.
 The chat says when Temp HP absorbs damage ("Temp HP absorbs N").
+
+**Rest Points and rests (decided):** a character has **Rest Points (RP)** up to its **Strength score** (at least 1), full at first; the
+GM or the owner can type the number. Only two rests exist: a **Short Rest** spends RP to heal, **1 RP for 1 HP** (never past the maximum
+HP); a **Long Rest** does the same and **gives back 1 RP at its end** (never past the maximum). Nothing else happens on its own (the GM
+handles the rest). A rest is taken by the character's player or the GM, **not during combat** (while the character is in a running
+combat the button is greyed out). The chat says what the rest did. Raising Strength does not refill RP.
+
+**Vitals layout (decided):** three bars from top to bottom: **HP** (with Temp HP), **Rest Points** (teal, `current / max`) and **Blood
+Oxidization** (`Ox / limit`, red when over the limit, with a line saying what it does now). Each row has a **small square** on the right
+for its button: Rest Points opens the **rest menu** (Short or Long, how many RP to spend, what it heals); Blood Oxidization's is **Let
+blood** (shown only from 1 Ox; its tooltip says what it does and for how much); HP has none yet.
+
+### Blood Oxidization (decided)
+Blood Oxidization is a stackable status and also a meter on the sheet: its stacks are the character's **Oxidization (Ox)**. Casting a
+**Learned Spell** adds Ox equal to the spell's Circles. The **Oxidization Limit** is the **Strength score** (at least 1).
+- **1 Ox:** Disadvantage on **Checks**: Skill rolls, Attribute rolls (not Luck, which stays pure), **Magic rolls** and **Stance rolls**
+  (not Saves, not Manifest rolls). This is the one thing that changes a Magic roll (statuses never do).
+- **2 Ox:** also **Slowed** (put on by itself, taken off by itself when Ox drops below 2; Slowed the character had anyway is left
+  alone) and **Disadvantage on Attacks**.
+- **3 Ox and more:** Disadvantage **Ox - 1** on Checks and on Attacks (3 Ox: 2 levels; 4 Ox: 3 levels; within the usual cap of 10).
+- **Over the limit:** a deep **coma**: Unconscious, put on and taken off by itself; the chat says "<name> falls into a deep coma" and,
+  when Ox drops back, "<name> wakes from the coma". **Over double the limit:** the character **dies, dissolving in acid** (a chat line;
+  the sheet shows Dead). The GM decides what happens next.
+- **Letting blood:** the square button beside the meter removes **1 Ox for 3 HP** per press; it is refused when it would take HP to 0
+  or below, and **in combat it costs 1 AP** (while the character is in a running combat). A chat line says it.
 
 ### Help Dice
 A general mechanic (decided). Every character has a **track of up to 5 Help Dice**, each a d4, d6, d8, d10 or d12,
@@ -313,7 +340,7 @@ Spirit. "Using an item" in rule text is wording only: items in the base rules ca
 
 | Status | Stacks | Draft rule |
 |---|---|---|
-| Blood Oxidization | yes | The blood becomes much more acidic (from a failed Strength Save against a Spell tattoo). Not automated. |
+| Blood Oxidization | yes | The blood becomes acidic (from casting Learned Spells). 1: Disadvantage on Checks. 2: also Slowed and Disadvantage on Attacks. 3 or more: Disadvantage X-1 on both. Over the Oxidization Limit (Strength, at least 1): a deep coma. Over double the limit: death. |
 | Bleeding | yes | X true damage at turn start. Removed only by healing, or by using a helpful item for 1 AP (wording only; item use is not automated). |
 | Blinded | no | Cannot see; terrain is difficult unless guided. Auto-fail Awareness (sight). Attacks have Disadvantage; attackers have Advantage. |
 | Burning | yes | X fire damage at turn start. Ends when doused. A nearby creature can spend 1 AP to remove 1 stack. |
@@ -377,7 +404,7 @@ it) against a **Difficulty Class**. The Save **passes when its total equals or b
 20 or 1): a pass means the status does not land, a failure means it does. Where a status is set up (attack card, Spontaneous
 Action, the status lists of weapons and Enhancements) there are two DC options: **Automatic** (the default: 8 + the attacker's
 Experience Modifier + the attacker's Prime, its highest stat) or **Manual** (a number, 1 to 99). The statuses a character puts
-on **itself** (an Enhancement's cost, Exposed from a natural 1, Blood Oxidization from a Spell tattoo) and statuses **added by
+on **itself** (an Enhancement's cost, Exposed from a natural 1, Blood Oxidization from a Learned Spell) and statuses **added by
 hand on a sheet** need **no Save**.
 - **Non-player characters** (NPC sheets) always roll at once, with no AP, and the result is applied or not.
 - **Players** get a **prompt** on their own device: the status, the Save, the DC, the modifiers the character already has
@@ -858,7 +885,9 @@ Decided:
     noticeable cyan glow; it disappears when the area is created (or cancelled).
   - **Erase:** click any drawing or area to remove it whole.
   - Drawings and areas are shared and stay until removed. Clean is available to the GM and the
-    Display alike (a decision of mine: they share the same tools).
+    Display alike (a decision of mine: they share the same tools). **Player tools (decided):** desktop players watching the map have
+    the same tool bar on the left (Move for their own token, Draw, Ping, Ruler, Area, Erase, Clean), but not the grid buttons (Grid on/off,
+    Set grid); the bar also holds the **pop-out** button (see Pop-out).
 - **Ruler:** with the grid on it counts squares with diagonals alternating 1 and 2 (its ends are squares); with the grid off its ends are the
   exact points pressed and it shows the straight-line distance, rounded to a whole Space.
 - **Movement (phone D-pad):** each sheet has **Movement** (squares per AP, default 5, 0 to 99).
@@ -1146,10 +1175,9 @@ spells. A spell has: name, description, **Scheme**, **Spell Fine Tuning**.
   fills it in, the GM can edit), **Uses Remaining** (1/1, 5/5 if Taurus was used) and **Stabilization**
   (10 at first). Using a spell rolls a Magic roll against Stabilization: success +3 Stabilization,
   failure resets it to 10 and removes 1 use; at 0 uses the spell is destroyed (shown greyed out, readable,
-  only deletable). The spell itself always works; the roll only decides durability. A GM-only toggle
-  adds a **Spell tattoo** tag: no uses, still Stabilization, and the durability check is a Strength Save
-  against it; success still adds +3, failure removes no uses but adds 1 stack of the new status
-  **Blood Oxidization** (stackable (X) status; the blood becomes much more acidic, no automation).
+  only deletable). The spell itself always works; the roll only decides durability. A Created Spell is a real object: see
+  **Spell items**, **Signature** and **Learned Spells** below. (The old GM "Spell tattoo" toggle is gone: tattooed spells are now Learned
+  Spells, and spells tagged as tattoos before became Learned Spells.)
 
 **Spell Circles (decided).** A spell has **1 to 9 Circles**. Every spell that exists or could be made before Circles is a **Circle 1** spell.
 A new Circle is built on the whole spell below it: **the Release of the previous Circle is the special Base** of the new one, so the new Circle carries the
@@ -1265,13 +1293,30 @@ Stones, Spell Combinations, Spell Fine Tuning.
   spends the stones of all of them and posts one such roll per Circle, in order (see Spell Circles).
 - **Created spells:** name, description, damage type **icon** (twelve plain placeholder glyphs drawn in the app, to be
   swapped for real art), effect (Weapon or Enhancement, edited by the owner; the GM also sets uses, Stabilization
-  and the **Spell tattoo** tag), uses, Stabilization. A weapon spell is chosen with "Use as weapon" (it rolls the
+  and whether the signature is hidden), uses, Stabilization. A weapon spell is chosen with "Use as weapon" (it rolls the
   **Magic Mastery**: d20 + Magic + Experience) and an Enhancement spell with "Add to attack". A destroyed spell is
   greyed out and can only be deleted (the GM can also edit it).
 - **Durability at Apply:** when the GM applies an attack that used a spell, the attacker makes a Magic roll against
   its Stabilization (posted as a roll card): success +3; failure resets it to 10 and removes 1 use, and at 0 uses
-  the spell is destroyed. A **Spell tattoo** has no uses: it uses a Strength Save; success +3; failure resets
-  Stabilization and adds 1 stack of the new status **Blood Oxidization** (stackable, not automated).
+  the spell is destroyed. A **Learned Spell** makes no roll: each cast adds Blood Oxidization equal to its Circles.
+
+**Spell items, signatures and Learned Spells (decided):**
+- **Spell items:** every Created Spell is also an **Inventory item**, made with it: its name glows **blue** (a glow used for nothing
+  else) and it **mirrors the spell** (the item's uses are the spell's Uses Remaining; renaming the item renames the spell; uses, Use,
+  Edit and Copy belong to the spell, on the Arcane tab). The two are **tied both ways**: deleting the item deletes the spell and the
+  other way round; a destroyed spell's item stays, greyed, until either is deleted. **Giving the item** (Send between players with
+  accept, or the GM's instant move) gives the spell: it leaves the giver's Arcane tab and appears on the receiver's, signature kept. A
+  Learned Spell has no item (it is no longer an object).
+- **Signature:** a crafted spell keeps who made it (the character and its name then), shown on the spell as "Made by <name>", whoever
+  holds it. The GM can **hide it from the players** per spell (Edit, "Hide who made it from the players"): every player, the holder
+  included, then sees "Unknown author"; the GM always sees it. A spell the GM grants has no author unless the GM gives one.
+- **Learning:** the character who made a spell can **learn** it from Created Spells (a Learn button), only **at full uses**: the spell
+  (and its item) is used up and becomes a **Learned Spell**, in its own sub-tab of Magic (**Learned Spells**, after Created Spells). A
+  Learned Spell is cast **at will** (no uses, no Stabilization roll), but each cast adds **Blood Oxidization equal to its Circles**
+  (see Blood Oxidization). It needs a **tattoo**: its **Coverage** (the share of the body it covers) is rolled when it is learned:
+  **Circles x 10%, plus or minus 1 to 5%** (the offset and its sign are random). All of a character's tattoos together may cover **at
+  most 100%**: learning is refused when it would go over. The Learned Spells tab shows each spell's Coverage and the total. Only the
+  GM deletes a Learned Spell.
 
 **How the Stances tab is built (answers and my defaults):**
 - **List:** twelve entries, one per sign: a big glyph in the base Stance's colour, the name and a "vibe" text. The
@@ -1432,6 +1477,10 @@ Added in 0.2.0 (Features from Custom-VTT):
 - `rel_nodes(id, pc_id, character_id | null, name, note, x, y)` (a card; `character_id` null for a made-up person) and
   `rel_edges(id, pc_id, from_id, to_id, label, color, note)`.
 - `chat_images(id)`: the images posted in the chat (deleted with their messages and at start).
+
+Added in 0.2.1: the sheet JSON gains `rest { current }` (Rest Points) and `oxApplied` (the statuses Blood Oxidization put on by itself);
+an item gains `spellId` (the Created Spell it is, or null); a spell gains `learned`, `coverage`, `authorId`, `authorName` and
+`authorHidden` (`tattoo` is read once and becomes `learned`).
 - Server memory only: the Rewind steps (`shared.rewind`) and the last sheet sent per character (`shared.fxSheets`, for animations).
 
 Planned (not final): character-local spells.
@@ -1633,8 +1682,19 @@ Added in 0.2.0 (all with the usual ack):
 - `search` `{ q }` -> `{ results: [{ kind, id, name, characterId?, owner?, library? }] }`.
 - Settings gain `accent` (`#rrggbb`).
 
+Added in 0.2.1: `ox:bleed` `{ characterId }` (lets blood); `rest:take` `{ characterId, kind: 'short' | 'long', spend }`;
+`spell:learn` `{ characterId, id }`; `spell:update` takes `authorHidden` (GM) instead of `tattoo`. A player's sheet has a hidden
+signature emptied, with `authorSelf` saying whether they made it. Players may now use `mark:add`, `mark:update`, `mark:remove`,
+`mark:clear`, `mark:erase` and `battle:ping` (ping `by: 'player'`).
+
 HTTP: `GET /api/pcs` returns `[{ id, name, portraitImageId, portraitCrop }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
+
+### Pop-out (decided, implemented)
+A desktop player has a **pop-out** button (a box with an arrow leaving it) in the tool bar on the left of the Scene page: in Battle mode
+it is the last button of the map's tool bar; in Scene mode it sits alone in a small bar in the same place. It opens a **new browser tab**
+(`/popout`) showing **only the character sheet**, whole (Sheet, Arcane and Relations tabs), live and editable, with no top bar and no
+chat, so it can stay beside the map.
 
 ### Features from Custom-VTT (reviewed with the user, decided; all the "Yes" ones implemented in 0.2.0)
 The user's other project (`AprilLiar/Custom-VTT`, "Dogfight") was gone through feature by feature (its Panic at the Dojo rules left

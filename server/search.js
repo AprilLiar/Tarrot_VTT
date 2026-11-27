@@ -23,7 +23,7 @@ export async function search(db, { q, gm, characterId }) {
   for (const c of characters) {
     if (hit(c.name)) out.push({ kind: 'character', id: c.id, name: c.name, characterId: c.id, owner: c.name, type: c.type });
     let sheet = await sheets.getSheet(db, c.id);
-    if (!gm) sheet = redactSheet(sheet, locks);
+    if (!gm) sheet = redactSheet(sheet, locks, c.id);
     for (const it of sheet.items ?? []) if (hit(it.name)) out.push({ kind: 'item', id: it.id, name: it.name, characterId: c.id, owner: c.name });
     for (const sp of sheet.spells ?? []) if (hit(sp.name)) out.push({ kind: 'spell', id: sp.id, name: sp.name, characterId: c.id, owner: c.name });
     for (const card of sheet.tarot?.cards ?? []) if ((gm || !card.hidden) && hit(card.name)) out.push({ kind: 'tarot', id: card.id, name: card.name, characterId: c.id, owner: c.name });

@@ -5,6 +5,8 @@ import { AppError } from './errors.js';
 import { normalizeWeapon, normalizeEnhancement, normalizeEffectRefs, defaultUnarmed, MAX_ENHANCEMENTS } from '../shared/arcane.js';
 import { normalizeTarot, normalizeManifestation, MAX_MANIFESTATIONS } from '../shared/manifest.js';
 import { normalizeHelp, HELP_SIDES, MAX_HELP } from '../shared/help.js';
+import { oxStatuses } from '../shared/oxidization.js';
+import { restMax } from '../shared/rest.js';
 import { reconcileGroups, DURATIONS, MINUTE_ROUNDS, statusInfo } from '../shared/statuses.js';
 import { normalizeInstances, normalizeDefinition, statMods, MAX_EFFECTS_LIBRARY } from '../shared/effects.js';
 import { SIGNS, MAX_STONE_COUNT, MAX_SPELLS, normalizeDraft, normalizeSpell, normalizeRows } from '../shared/spells.js';
@@ -71,6 +73,8 @@ function normalizeItem(raw) {
     weapon: r.weapon && typeof r.weapon === 'object' ? normalizeWeapon(r.weapon) : null,
     // Effects (shared/effects.js) the item puts on its user when it is used.
     effects: normalizeEffectRefs(r.effects).map((e) => ({ id: e.id, to: 'self' })),
+    // The Created Spell this item is (see syncSpellItems), or null for an ordinary item.
+    spellId: typeof r.spellId === 'string' && r.spellId ? r.spellId : null,
   };
 }
 
@@ -105,6 +109,8 @@ function normalizeGroups(raw) {
 export function defaultSheet() {
   return normalizeSheet({});
 }
+
+const OX_DERIVED = ['slowed', 'unconscious'];
 
 export function normalizeSheet(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -152,6 +158,8 @@ export function normalizeSheet(raw) {
   for (const sign of SIGNS) sheet.stones[sign] = clampInt(r.stones?.[sign], 0, MAX_STONE_COUNT, 0);
   sheet.ap.current = clampInt(r.ap?.current, 0, apMax(sheet), apMax(sheet));
   for (const s of D.STATS) sheet.stats[s] = clampInt(r.stats?.[s], D.STAT_MIN, D.STAT_MAX, 0);
+  // Rest Points (shared/rest.js): up to the Strength score, at least 1; full at first.
+  sheet.rest = { current: clampInt(r.rest?.current, 0, restMax(sheet), restMax(sheet)) };
   for (const s of D.SAVE_STATS) sheet.xDefence[s] = clampInt(r.xDefence?.[s], -20, 20, 0);
   for (const m of D.MASTERIES) {
     sheet.masteries[m] = clampInt(r.masteries?.[m], D.MASTERY_MIN, D.MASTERY_MAX, D.MASTERY_MIN);
@@ -167,10 +175,48 @@ export function normalizeSheet(raw) {
     const n = clampInt(rawStatuses[st.key], 0, 99, 0);
     if (n > 0) sheet.statuses[st.key] = st.stackable ? n : 1;
   }
+  // Blood Oxidization puts on Slowed (from 2 Ox) and Unconscious (over the limit) by itself, and takes off again only what it put on
+  // (`oxApplied`; a status the character already had is left alone).
+  const applied = new Set((Array.isArray(r.oxApplied) ? r.oxApplied : []).filter((k) => OX_DERIVED.includes(k)));
+  const want = oxStatuses(sheet);
+  for (const k of OX_DERIVED) {
+    if (want.includes(k) && !sheet.statuses[k]) {
+      sheet.statuses[k] = 1;
+      applied.add(k);
+    } else if (!want.includes(k) && applied.has(k)) {
+      delete sheet.statuses[k];
+      applied.delete(k);
+    } else if (!sheet.statuses[k]) applied.delete(k);
+  }
+  sheet.oxApplied = [...applied];
   // The stacks, split by how they last. Whatever the totals hold that the groups do not is Long (a manual change, an
   // older sheet); whatever the groups hold that the totals lack is taken away, Long first.
   sheet.statusGroups = reconcileGroups(sheet.statuses, normalizeGroups(r.statusGroups), randomUUID);
+  syncSpellItems(sheet);
   return sheet;
+}
+
+// A Created Spell is a real object, so every one (not a Learned Spell) has an Inventory item that IS it: the item shows the spell's name,
+// description and uses (the spell is the one that is kept; the item follows it). A spell without its item gets one at the end of the
+// list; an item whose spell is gone (deleted or learned) goes too.
+function syncSpellItems(sheet) {
+  const spells = new Map(sheet.spells.filter((sp) => !sp.learned).map((sp) => [sp.id, sp]));
+  const seen = new Set();
+  sheet.items = sheet.items.filter((it) => {
+    if (!it.spellId) return true;
+    if (!spells.has(it.spellId) || seen.has(it.spellId)) return false;
+    seen.add(it.spellId);
+    return true;
+  });
+  for (const sp of spells.values()) {
+    // The id follows from the spell's, so a sheet read (and not saved) shows the same item every time.
+    if (!seen.has(sp.id)) sheet.items.push({ id: `spell-${sp.id}`, spellId: sp.id });
+  }
+  for (const it of sheet.items) {
+    if (!it.spellId) continue;
+    const sp = spells.get(it.spellId);
+    Object.assign(it, { name: sp.name, description: sp.description, uses: { ...sp.uses }, states: [], state: '', weapon: null, effects: [] });
+  }
 }
 
 function intIn(value, min, max, what) {
@@ -203,6 +249,10 @@ export function applySet(sheet, path, value, character) {
       else if (b === 'max') next.hp.max = intIn(value, 0, 9999, T('Max HP'));
       else if (b === 'temp') next.hp.temp = intIn(value, 0, 9999, T('Temp HP'));
       else throw bad('Unknown field.', 'bad_path');
+      break;
+    case 'rest':
+      if (b !== 'current') throw bad('Unknown field.', 'bad_path');
+      next.rest.current = intIn(value, 0, restMax(next), T('Rest Points'));
       break;
     case 'defence':
       unknownKey(['physical', 'mental']);
@@ -318,6 +368,15 @@ export function applyList(sheet, list, action, p = {}) {
       });
     } else if (action === 'update') {
       const it = arr[find(arr, p.id)];
+      if (it.spellId) {
+        // A spell's item is the spell (see syncSpellItems): its name and description change the spell; the rest is the spell's own.
+        const sp = next.spells.find((x) => x.id === it.spellId);
+        const other = ['usesMax', 'usesCurrent', 'states', 'state', 'weapon', 'effects'].some((k) => p[k] !== undefined);
+        if (other) throw bad('A spell item changes with its spell, on the Arcane tab.', 'spell_item');
+        if (sp && p.name !== undefined) sp.name = name(p.name);
+        if (sp && p.description !== undefined) sp.description = desc(p.description);
+        return normalizeSheet(next);
+      }
       if (p.name !== undefined) it.name = name(p.name);
       if (p.description !== undefined) it.description = desc(p.description);
       if (p.usesMax !== undefined) {
@@ -337,14 +396,18 @@ export function applyList(sheet, list, action, p = {}) {
       if (p.effects !== undefined) it.effects = normalizeEffectRefs(p.effects).map((e) => ({ id: e.id, to: 'self' }));
     } else if (action === 'use') {
       const it = arr[find(arr, p.id)];
+      if (it.spellId) throw bad('A spell is cast from the Arcane tab.', 'spell_item');
       if (it.uses.current <= 0) throw bad('No uses left.', 'no_uses');
       it.uses.current -= 1;
     } else if (action === 'copy') {
       if (arr.length >= MAX_ITEMS) throw bad('Too many items.', 'limit');
       const i = find(arr, p.id);
+      if (arr[i].spellId) throw bad('A spell item cannot be copied.', 'spell_item');
       arr.splice(i + 1, 0, { ...structuredClone(arr[i]), id: randomUUID() });
     } else if (action === 'remove') {
-      arr.splice(find(arr, p.id), 1);
+      const [gone] = arr.splice(find(arr, p.id), 1);
+      // Deleting a spell's item deletes the spell.
+      if (gone.spellId) next.spells = next.spells.filter((x) => x.id !== gone.spellId);
     } else throw bad('Unknown action.', 'bad_action');
     return normalizeSheet(next);
   }
@@ -439,13 +502,24 @@ export function applyList(sheet, list, action, p = {}) {
 export function takeItem(sheet, itemId) {
   const next = structuredClone(sheet);
   const [item] = next.items.splice(find(next.items, itemId), 1);
+  // A spell's item takes its spell along (off this Arcane tab, onto the receiver's).
+  if (item.spellId) {
+    item.spell = next.spells.find((x) => x.id === item.spellId) ?? null;
+    next.spells = next.spells.filter((x) => x.id !== item.spellId);
+  }
   return { sheet: normalizeSheet(next), item };
 }
 
 export function giveItem(sheet, item) {
   const next = structuredClone(sheet);
   if (next.items.length >= MAX_ITEMS) throw bad('Too many items.', 'limit');
-  next.items.push({ ...structuredClone(item), id: randomUUID() });
+  const { spell, ...rest } = structuredClone(item);
+  if (spell) {
+    if (next.spells.length >= MAX_SPELLS) throw bad('Too many spells.', 'limit');
+    const id = randomUUID();
+    next.spells.push({ ...spell, id });
+    next.items.push({ ...rest, id: randomUUID(), spellId: id });
+  } else next.items.push({ ...rest, id: randomUUID(), spellId: null });
   return normalizeSheet(next);
 }
 

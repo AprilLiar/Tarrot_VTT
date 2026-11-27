@@ -25,7 +25,8 @@ const EFFECTS = [
   { status: 'restrained', kinds: ['save'], stats: ['dexterity'], levels: -1 },
   { status: 'exhaustion', kinds: ['attribute', 'save', 'skill'], masteries: ['stances', 'manifestation'], modifier: -1, scales: true },
   // Combat Mastery rolls: Impaired and Hindered weigh on Stance rolls (the physical ones), Dazed on Manifest rolls
-  // (the mental ones). Nothing changes a Magic roll, and Exhaustion reaches the Stance and Manifest rolls but not Magic.
+  // (the mental ones). No status here changes a Magic roll, and Exhaustion reaches the Stance and Manifest rolls but not Magic; only Blood
+  // Oxidization does (shared/oxidization.js, applied in shared/roll-plan.js).
   { status: 'impaired', kinds: [], masteries: ['stances'], levels: -1, scales: true },
   { status: 'hindered', kinds: [], masteries: ['stances'], levels: -1, scales: true },
   { status: 'dazed', kinds: [], masteries: ['manifestation'], levels: -1, scales: true },
