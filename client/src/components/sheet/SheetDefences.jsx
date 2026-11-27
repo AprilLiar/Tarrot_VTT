@@ -153,7 +153,7 @@ export function Resistances({ s }) {
 
 // ---- Statuses ---------------------------------------------------------------
 
-function AddStatusDialog({ s, onClose }) {
+export function AddStatusDialog({ s, onClose }) {
   const t = useT();
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState(null); // the status picked, to be set up

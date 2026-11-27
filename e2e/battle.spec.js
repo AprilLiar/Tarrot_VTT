@@ -1363,3 +1363,52 @@ async function cutOut(page) {
   });
   return { name: 'cut.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') };
 }
+
+test('a double-click on a token or a combat row opens the combat card: the GM any character, a player only their own', async ({ browser }) => {
+  const pc = `Carded-${uid()}`;
+  const npc = `Brute-${uid()}`;
+  const gmCtx = await desktop(browser);
+  const gm = await open(gmCtx, 'pick-gm');
+  await createCharacter(gm, pc, 'PC');
+  await createCharacter(gm, npc, 'NPC');
+  await battleScene(gm, `Cards-${uid()}`);
+  await placeToken(gm, pc);
+  await placeToken(gm, npc);
+
+  // The GM opens the NPC's card from its token and changes its HP there.
+  await token(gm, npc).dblclick();
+  const card = gm.getByTestId('combat-card');
+  await expect(card.getByTestId('combat-card-name')).toHaveText(npc);
+  await expect(card.getByTestId('card-stats')).toBeVisible();
+  await expect(card.getByTestId('card-masteries')).toBeVisible();
+  await expect(card.getByTestId('rest-block')).toBeVisible();
+  await expect(card.getByTestId('ox-block')).toBeVisible();
+  await card.getByTestId('card-hp-current').fill('-3');
+  await card.getByTestId('card-hp-current').press('Enter');
+  await card.getByTestId('combat-card-close').click();
+  await expect(card).toHaveCount(0);
+  await token(gm, npc).dblclick();
+  await expect(card.getByTestId('card-hp-current')).toHaveValue('-3');
+  await card.getByTestId('combat-card-close').click();
+
+  // From the combat order too.
+  await gm.getByTestId('combat-start').click();
+  await gm.getByTestId('combat-entry').filter({ hasText: pc }).dblclick();
+  await expect(card.getByTestId('combat-card-name')).toHaveText(pc);
+  await card.getByTestId('combat-card-close').click();
+  await gm.getByTestId('combat-end').click().catch(() => {});
+
+  // A player: their own token opens it, someone else's does not.
+  const ctx = await desktop(browser);
+  const p = await ctx.newPage();
+  await p.goto('/');
+  await p.getByTestId('pick-pc').filter({ hasText: pc }).click();
+  await p.getByTestId('nav-scene').click();
+  await token(p, npc).dblclick();
+  await expect(p.getByTestId('combat-card')).toHaveCount(0);
+  await token(p, pc).dblclick();
+  await expect(p.getByTestId('combat-card').getByTestId('combat-card-name')).toHaveText(pc);
+
+  await ctx.close();
+  await gmCtx.close();
+});

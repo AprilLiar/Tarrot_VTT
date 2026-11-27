@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SpellItemInfo } from './SpellItemInfo.jsx';
 import { call, useApp } from '../../AppContext.jsx';
 import Dialog, { btn, btnDanger, btnPrimary, input } from '../Dialog.jsx';
 import { NumField } from './fields.jsx';
@@ -309,7 +310,8 @@ function ItemCard({ s, item }) {
       </button>
       {open && (
         <div className="mt-2 flex flex-col gap-2">
-          {item.description && <p className="whitespace-pre-wrap text-sm opacity-80">{item.description}</p>}
+          {!spell && item.description && <p className="whitespace-pre-wrap text-sm opacity-80">{item.description}</p>}
+          {spell && <SpellItemInfo s={s} spellId={item.spellId} />}
           {spell && <p className="text-xs text-sky-300/80">{t('A Created Spell: it is cast and changed on the Arcane tab. Giving it away gives the spell; deleting it deletes the spell.')}</p>}
           {!spell && (
           <div className="flex items-center gap-2 text-sm">

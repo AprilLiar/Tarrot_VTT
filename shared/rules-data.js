@@ -30,11 +30,11 @@ export const EXPERIENCE_MAX = 10;
 
 // scaling: { prime: true } = highest of all stats; { stats: [...] } = highest of the listed stats.
 export const SKILLS = [
-  // Each mixed-stat skill sits beside the skills of its colour: Body Movement under Awareness, Likability under Soul Control.
+  // Each mixed-stat skill sits beside the skills of its colour: Body Movement between Stamina and Speed, Likability under Soul Control.
   { key: 'awareness', label: 'Awareness', scaling: { prime: true } },
-  { key: 'body_movement', label: 'Body Movement', scaling: { stats: ['strength', 'dexterity'] } },
   { key: 'weight_manipulation', label: 'Weight Manipulation', scaling: { stats: ['strength'] } },
   { key: 'stamina', label: 'Stamina', scaling: { stats: ['strength'] } },
+  { key: 'body_movement', label: 'Body Movement', scaling: { stats: ['strength', 'dexterity'] } },
   { key: 'speed', label: 'Speed', scaling: { stats: ['dexterity'] } },
   { key: 'fine_motor_skills', label: 'Fine Motor Skills', scaling: { stats: ['dexterity'] } },
   { key: 'soul_control', label: 'Soul Control', scaling: { stats: ['spirit'] } },

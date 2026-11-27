@@ -21,6 +21,7 @@ import { areaName } from '../../lib/areaName.js';
 import { membersOf } from '../../../../shared/templates.js';
 import { BattleFx } from './BattleFx.jsx';
 import { PopOutButton } from './PopOut.jsx';
+import { mayOpenCard, openCombatCard } from '../sheet/CombatCard.jsx';
 
 // Battle mode: the battle picture with a square grid, tokens, and (for the GM and the
 // Display) drawing, pings, a ruler and spell templates. Players on a desktop only watch.
@@ -211,6 +212,8 @@ function Ping({ ping, unit }) {
     <circle cx={ping.x} cy={ping.y} r={unit * 0.6} fill="none" stroke="#fbbf24" strokeWidth={unit * 0.15} className="battle-ping" />
   );
 }
+
+const DOUBLE_TAP_MS = 400;
 
 export default function BattleView() {
   const t = useT();
@@ -519,10 +522,23 @@ export default function BattleView() {
     const f = toFractions(e);
     setDrag({ id: tk.id, u: f.u, v: f.v });
   }
+  // A second tap on the same token within DOUBLE_TAP_MS opens its combat card (the browser's own double-click is lost to the token's
+  // pointer capture, and phones have none).
+  const lastTap = useRef(null);
   async function tokenUp(e, tk) {
     const d = dragState.current;
     dragState.current = null;
     if (!d || d.id !== tk.id) return;
+    if (!d.moved) {
+      const now = Date.now();
+      const twice = lastTap.current && lastTap.current.id === tk.id && now - lastTap.current.at < DOUBLE_TAP_MS;
+      lastTap.current = twice ? null : { id: tk.id, at: now };
+      if (twice && tk.ownerKind === 'character' && mayOpenCard(identity, tk.ownerId)) {
+        setMenu(null);
+        openCombatCard(tk.ownerId);
+        return;
+      }
+    }
     if (d.moved && canDragToken(tk)) {
       const f = toFractions(e);
       setDrag(null);
@@ -1046,6 +1062,15 @@ export default function BattleView() {
           anchor={menu.anchor}
           containerRef={ref}
           onClose={() => setMenu(null)}
+          onAnchorPress={() => {
+            const tk = menuToken;
+            const quick = lastTap.current && lastTap.current.id === tk.id && Date.now() - lastTap.current.at < DOUBLE_TAP_MS;
+            if (!quick || tk.ownerKind !== 'character' || !mayOpenCard(identity, tk.ownerId)) return false;
+            lastTap.current = null;
+            setMenu(null);
+            openCombatCard(tk.ownerId);
+            return true;
+          }}
           below={isGm && menuToken.ownerKind === 'character' && menuToken.statuses.length > 0 && <TokenConditions token={menuToken} />}
           options={
             // The GM and the Display get every circle; a player only Set Height, for their own character.

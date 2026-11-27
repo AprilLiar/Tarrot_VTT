@@ -1,4 +1,5 @@
 import { CroppedImage } from '../Crop.jsx';
+import { mayOpenCard, openCombatCard } from '../sheet/CombatCard.jsx';
 import { useState } from 'react';
 import { RewindButton } from './Rewind.jsx';
 import { call, useApp } from '../../AppContext.jsx';
@@ -67,6 +68,7 @@ export function CombatBar({ battle }) {
               key={e.tokenId}
               data-testid="combat-entry"
               data-name={e.name}
+              onDoubleClick={() => e.ownerKind === 'character' && mayOpenCard(identity, e.ownerId) && openCombatCard(e.ownerId)}
               data-active={active}
               className={`flex items-center gap-2 rounded-lg p-1 ${active ? 'bg-amber-500/30 ring-2 ring-amber-400' : 'bg-white/5'}`}
             >

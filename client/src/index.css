@@ -234,3 +234,7 @@ html[data-hide-ui='true'] .ui-chrome {
 
 /* The name of a Created Spell's Inventory item: a blue glow, used for nothing else. */
 .spell-glow { color: #bae6fd; text-shadow: 0 0 6px #38bdf8, 0 0 14px #0ea5e9; }
+
+/* A scene note's hover bubble fades in. */
+.note-bubble { animation: note-bubble 0.15s ease-out; }
+@keyframes note-bubble { from { opacity: 0; transform: translate(-50%, -4px); } to { opacity: 1; transform: translate(-50%, 0); } }

@@ -465,7 +465,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | That file is not an image this browser can read. | Этот файл не является изображением, которое может прочитать браузер. |
 | Choose an image file. | Выберите файл изображения. |
 | That image is too large even after resizing. Try a smaller one. | Изображение слишком большое даже после уменьшения. Попробуйте меньшее. |
-| Blood Oxidization as a meter with its penalties and Let blood, Rest Points with Short and Long Rests, spells as Inventory items with signatures, Learned Spells with tattoo Coverage, a pop-out sheet and map tools for players, and the skills reordered without Mental Resolve. | Окисление крови как шкала со штрафами и кровопусканием, очки отдыха с коротким и долгим отдыхом, заклинания как предметы инвентаря с подписью, выученные заклинания с покрытием татуировок, отдельный лист персонажа и инструменты карты для игроков, а навыки переставлены и без «Ментальной стойкости». |
+| A combat card on a double-click of a token or a combat row, scene notes readable in a bubble on hover, spell items that show the spell and its tree of stones, and Body Movement moved between Stamina and Speed. | Боевая карточка по двойному щелчку на жетоне или строке боя, заметки сцены читаются в облачке при наведении, предметы-заклинания показывают заклинание и его дерево камней, а «Движение тела» стоит между «Выносливостью» и «Скоростью». |
 
 ## Characters and roster (GM)
 
@@ -509,6 +509,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Uploading... | Загрузка... |
 | Copy | Копировать |
 | Choose a picture | Выберите картинку |
+| (empty) | (пусто) |
 | Battle | Бой |
 | AP: {current} of {max} | ОД: {current} из {max} |
 | Set AP to {n} | Установить ОД: {n} |
@@ -533,6 +534,21 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Spend {aps} AP for {movement} Movement? | Потратить ОД ({aps}) ради движения ({movement})? |
 | Yes | Да |
 | Height (Spaces in the air, shown above the token) | Высота (клеток над землёй, показывается над фишкой) |
+| Combat card | Боевая карточка |
+| Loading sheet... | Загрузка листа... |
+| Full sheet | Полный лист |
+| Current HP | Текущие ОЗ |
+| Temp | Врем. |
+| Phys. Def. | Физ. защ. |
+| Ment. Def. | Мент. защ. |
+| Movement | Движение |
+| Size | Размер |
+| Prime | Главная |
+| Def {n} | Защ. {n} |
+| Statuses | Состояния |
+| No statuses. | Состояний нет. |
+| Decrease {name} | Уменьшить: {name} |
+| Resistances | Сопротивления |
 | Counters | Счётчики |
 | secret | тайный |
 | No counters yet. | Счётчиков пока нет. |
@@ -584,16 +600,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Consumption: takes 0 and heals half of the raw damage | Поглощение: урон 0 и лечение на половину исходного урона |
 | Flat (X) modifiers apply first, then Half or Double. Clear everything to remove the row. | Сначала применяется число (X), затем половина или двойной. Снимите всё, чтобы убрать строку. |
 | Remove this row | Убрать эту строку |
-| Resistances | Сопротивления |
 | No resistances. | Сопротивлений нет. |
 | Add or edit resistance | Добавить или изменить сопротивление |
 | Add status | Добавить состояние |
 | DC of the Repeated Save | Сл повторяющегося спасброска |
 | A status added by hand needs no Save. | Статус, добавленный вручную, не требует спасброска. |
 | No matching statuses. | Подходящих состояний нет. |
-| Statuses | Состояния |
-| No statuses. | Состояний нет. |
-| Decrease {name} | Уменьшить: {name} |
 | Increase {name} | Увеличить: {name} |
 | DC {n} | Сл {n} |
 | Toggle full text of {name} | Показать или скрыть полный текст: {name} |
@@ -613,7 +625,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Offer {name} | Предложить: {name} |
 | Send offer | Отправить предложение |
 | The other player must accept before the item moves. | Другой игрок должен принять предмет, прежде чем он перейдёт. |
-| (empty) | (пусто) |
 | A Created Spell: it is cast and changed on the Arcane tab. Giving it away gives the spell; deleting it deletes the spell. | Созданное заклинание: применяется и меняется на вкладке «Аркана». Отдать предмет — отдать заклинание; удалить его — удалить заклинание. |
 | {name} uses | Использования: {name} |
 | State | Состояние |
@@ -622,10 +633,6 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Inventory | Инвентарь |
 | Add item | Добавить предмет |
 | With Effects: {n} | С эффектами: {n} |
-| Could not load the sheet. | Не удалось загрузить лист. |
-| That change was not saved. | Изменение не сохранено. |
-| The roll failed. | Бросок не удался. |
-| Loading sheet... | Загрузка листа... |
 | Back to roster | Назад к списку |
 | View | Вид |
 | Relations | Связи |
@@ -633,15 +640,12 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Action Points | Очки действий |
 | Minion | Приспешник |
 | Hit Points | Очки здоровья |
-| Current HP | Текущие ОЗ |
 | Max HP | Макс. ОЗ |
 | Temp HP: takes damage before HP. It does not stack. | Врем. ОЗ принимают урон раньше ОЗ и не суммируются. |
 | Physical Defence | Физическая защита |
 | Mental Defence | Ментальная защита |
 | Movement (squares per AP) | Движение (клеток за ОД) |
-| Movement | Движение |
 | Size (token) | Размер (фишка) |
-| Size | Размер |
 | Experience Modifier | Модификатор опыта |
 | Stats | Характеристики |
 | On a phone, tapping opens the roll options. With a mouse, click rolls at once and right-click opens the options. Statuses apply automatically. | На телефоне нажатие открывает параметры броска. С мышью щелчок бросает сразу, а правый щелчок открывает параметры. Состояния применяются автоматически. |
@@ -671,6 +675,7 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Leave the stage | Уйти со сцены |
 | Add a picture below first. | Сначала добавьте картинку ниже. |
 | Join the stage | Выйти на сцену |
+| Spell Stones tree | Дерево камней заклинания |
 | Targeting: Individual or Area | Выбор целей: по одному или областью |
 | Individual | По одному |
 | Targets (tap again to deselect) | Цели (нажмите ещё раз, чтобы снять выбор) |
@@ -686,6 +691,9 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | lowest | наименьший |
 | Extra Advantage levels (negative for Disadvantage) | Дополнительные уровни преимущества (отрицательные — помеха) |
 | Use a whole number from -99 to 99. | Введите целое число от -99 до 99. |
+| Could not load the sheet. | Не удалось загрузить лист. |
+| That change was not saved. | Изменение не сохранено. |
+| The roll failed. | Бросок не удался. |
 
 ## Chat and rolls
 
@@ -1001,15 +1009,15 @@ built with it, and the server reads it when it starts, so a fix made here goes l
 | Awareness | Внимательность |
 | Mastery: Awareness | Мастерство: Внимательность |
 | Awareness (Skill Roll) | Внимательность (проверка навыка) |
-| Body Movement | Движение тела |
-| Mastery: Body Movement | Мастерство: Движение тела |
-| Body Movement (Skill Roll) | Движение тела (проверка навыка) |
 | Weight Manipulation | Управление весом |
 | Mastery: Weight Manipulation | Мастерство: Управление весом |
 | Weight Manipulation (Skill Roll) | Управление весом (проверка навыка) |
 | Stamina | Выносливость |
 | Mastery: Stamina | Мастерство: Выносливость |
 | Stamina (Skill Roll) | Выносливость (проверка навыка) |
+| Body Movement | Движение тела |
+| Mastery: Body Movement | Мастерство: Движение тела |
+| Body Movement (Skill Roll) | Движение тела (проверка навыка) |
 | Speed | Скорость |
 | Mastery: Speed | Мастерство: Скорость |
 | Speed (Skill Roll) | Скорость (проверка навыка) |

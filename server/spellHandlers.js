@@ -64,7 +64,7 @@ export function registerSpellHandlers(ctx) {
       }
       const uses = usesFor(draft.scheme);
       const id = randomUUID();
-      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, circles: draft.scheme.circles, draftId: draft.id, runes: draft.runes, authorId: c.id, authorName: c.name }, id), id };
+      spell = { ...normalizeSpell({ name: draft.name, description: draft.description, uses: { current: uses, max: uses }, stabilization: STABILIZATION_START, circles: draft.scheme.circles, draftId: draft.id, scheme: draft.scheme, runes: draft.runes, authorId: c.id, authorName: c.name }, id), id };
       next.spells.push(spell);
       return sheets.normalizeSheet(next);
     });
@@ -94,7 +94,7 @@ export function registerSpellHandlers(ctx) {
     const gmOnly = ['uses', 'stabilization', 'authorHidden'];
     if (!gm && gmOnly.some((k) => patch[k] !== undefined)) throw new AppError('forbidden', 'Only the GM can change that.');
     // The signature, learning and the tattoo are never typed in.
-    for (const k of ['learned', 'tattoo', 'coverage', 'authorId', 'authorName', 'circles', 'draftId']) delete patch[k];
+    for (const k of ['learned', 'tattoo', 'coverage', 'authorId', 'authorName', 'circles', 'draftId', 'scheme']) delete patch[k];
     const sheet = await sheets.updateSheet(db, c.id, (s) => {
       const next = structuredClone(s);
       const sp = find(next, p.id);

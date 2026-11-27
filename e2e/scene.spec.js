@@ -358,3 +358,44 @@ test('the Cast drawer keeps characters in folders that start collapsed; names si
   expect(plaque.y + plaque.height).toBeLessThanOrEqual(picture.y + 1);
   await context.close();
 });
+
+test('scene notes: a note and a card are made from the row; hovering a note shows its whole text in a bubble; a card is shown to everyone', async ({ browser }) => {
+  const gm = await gmPage(browser);
+  const g = gm.page;
+  await createAndActivateScene(g, `Notes-${uid()}`);
+  await g.getByTestId('scene-note-add').click();
+  await g.getByTestId('note-kind-note').click();
+  await g.getByTestId('note-body').fill('The innkeeper lies.\nHe hides the key.');
+  await g.getByTestId('note-save').click();
+  await expect(g.getByTestId('scene-note')).toHaveCount(1);
+
+  // Hover: a speech bubble under the note with all of it; it goes when the pointer leaves.
+  const bubble = g.getByTestId('note-bubble');
+  await expect(bubble).toBeHidden();
+  await g.getByTestId('scene-note').first().hover();
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('The innkeeper lies.');
+  await expect(bubble).toContainText('He hides the key.');
+  const note = await g.getByTestId('scene-note').first().boundingBox();
+  const box = await bubble.boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(note.y + note.height - 6); // under the note (it slides in by a few pixels)
+  await g.mouse.move(5, 700);
+  await expect(bubble).toBeHidden();
+
+  // A card: its title and second line; Show to everyone plays it on the Display.
+  const tvCtx = await desktop(browser);
+  const tv = await open(tvCtx, 'pick-display');
+  await g.getByTestId('scene-note-add').click();
+  await g.getByTestId('note-kind-card').click();
+  await g.getByTestId('note-title').fill('Chapter Two');
+  await g.getByTestId('note-subtitle').fill('The Long Night');
+  await g.getByTestId('note-save').click();
+  await g.getByTestId('scene-note').nth(1).hover();
+  await expect(g.getByTestId('note-bubble')).toContainText('Chapter Two');
+  await g.getByTestId('scene-note').nth(1).click();
+  await g.getByTestId('note-show').click();
+  await expect(tv.getByTestId('card-cutscene')).toContainText('Chapter Two');
+
+  await tvCtx.close();
+  await gm.context.close();
+});

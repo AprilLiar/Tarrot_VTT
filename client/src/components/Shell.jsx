@@ -12,6 +12,7 @@ import { useT } from '../i18n.jsx';
 import { SettingsBody } from './Settings.jsx';
 import { useState } from 'react';
 import { SearchBox } from './SearchBox.jsx';
+import { CombatCardHost } from './sheet/CombatCard.jsx';
 
 // Top bar shown once an identity is chosen: who you are, connection state,
 // and the way back to the picker. Also hosts the chat, toasts and incoming
@@ -102,6 +103,7 @@ export default function Shell({ children }) {
       )}
 
       <ChatPanel />
+      <CombatCardHost />
       <TarotInfo />
       {isGm && <AttackInbox />}
       <SaveInbox />

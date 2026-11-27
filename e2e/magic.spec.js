@@ -198,6 +198,16 @@ test('Magic: stones, a scheme with an arrow table and a note, drafts, crafting, 
   const item = p.locator('[data-testid="item"][data-spell="true"]').filter({ hasText: 'Fire Bolt' });
   await expect(item).toContainText('5/5');
   await expect(item.getByTestId('item-name')).toHaveClass(/spell-glow/);
+  // Opening it shows the spell: Circles, uses, signature, effect, runes, and its tree of stones in a small window.
+  await item.getByTestId('item-name').click();
+  const info = item.getByTestId('spell-item-info');
+  await expect(info.getByTestId('spell-item-circles')).toHaveText('Circle 1');
+  await expect(info.getByTestId('spell-item-signature')).toHaveText(`Made by ${name}`);
+  await expect(info.getByTestId('spell-item-runes').getByTestId('rune')).toHaveCount(3);
+  await info.getByTestId('spell-item-tree').click();
+  await expect(p.getByTestId('spell-tree').getByTestId('scheme-stone').first()).toBeVisible();
+  await p.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await expect(p.getByTestId('spell-tree')).toHaveCount(0);
   await p.getByTestId('view-arcane').click();
   await p.getByTestId('arcane-tab-magic').click();
   await p.getByTestId('magic-spells').click();

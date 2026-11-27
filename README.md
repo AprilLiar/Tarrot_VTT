@@ -210,9 +210,9 @@ with Intelligence 2 rolls d20 + 2 + 3). Any skill can hold any tier. (decided)
 | Skill | Scaling stat |
 |---|---|
 | Awareness | Prime (the highest of all stats) |
-| Body Movement | Max of Strength or Dexterity |
 | Weight Manipulation | Strength |
 | Stamina | Strength |
+| Body Movement | Max of Strength or Dexterity |
 | Speed | Dexterity |
 | Fine Motor Skills | Dexterity |
 | Soul Control | Spirit |
@@ -220,8 +220,8 @@ with Intelligence 2 rolls d20 + 2 + 3). Any skill can hold any tier. (decided)
 | Astrology | Intelligence |
 | Symbolism | Intelligence |
 
-The order is the sheet's order (decided): Body Movement sits under Awareness and Likability under Soul Control, beside the skills of
-their colour. **Mental Resolve was removed** as a skill (a tier a sheet held in it is dropped).
+The order is the sheet's order (decided): Body Movement sits between Stamina and Speed (between its two stats' skills) and Likability
+under Soul Control. **Mental Resolve was removed** as a skill (a tier a sheet held in it is dropped).
 
 ### Hit severity and damage
 Damage is not rolled. It is calculated from the Hit Severity: attack total minus the target's
@@ -1306,7 +1306,10 @@ Stones, Spell Combinations, Spell Fine Tuning.
   Edit and Copy belong to the spell, on the Arcane tab). The two are **tied both ways**: deleting the item deletes the spell and the
   other way round; a destroyed spell's item stays, greyed, until either is deleted. **Giving the item** (Send between players with
   accept, or the GM's instant move) gives the spell: it leaves the giver's Arcane tab and appears on the receiver's, signature kept. A
-  Learned Spell has no item (it is no longer an object).
+  Learned Spell has no item (it is no longer an object). **Opening the item** shows the spell compactly (so it does not take over the
+  sheet): its icon, Circles, uses and Stabilization, the signature, the description, its effect, the runes of each Circle in a row, and a
+  **Spell Stones tree** button that shows the tree of stones in a small window. A crafted spell keeps a copy of its tree (`scheme`), so it
+  goes with the spell when given away; a spell crafted before that shows its draft's tree while the draft exists, a granted one none.
 - **Signature:** a crafted spell keeps who made it (the character and its name then), shown on the spell as "Made by <name>", whoever
   holds it. The GM can **hide it from the players** per spell (Edit, "Hide who made it from the players"): every player, the holder
   included, then sees "Unknown author"; the GM always sees it. A spell the GM grants has no author unless the GM gives one.
@@ -1470,13 +1473,17 @@ Battle (Phase 5a):
 Added in 0.2.0 (Features from Custom-VTT):
 - `characters` gains `token_image_id` (a custom Battle token), `portrait_crop` and `token_crop` (JSON `{ x, y, zoom }` or null, see
   Crop editor); `battle_tokens` gains `excluded` (left out of combat).
-- `scene_notes(id, scene_id, position 1-9, kind 'note' | 'card', title, body)`.
+- `scene_notes(id, scene_id, position 1-9, kind 'note' | 'card', title, body)`. With a mouse over a note's round button its whole text
+  (a Card: its title and second line) shows in a small comic-style speech bubble under it, so it is read without opening it; a touch
+  screen has no hover (a tap opens it).
 - `counters(id, character_id, name, pips 2-20, value, gates JSON [{ pip, name, text, secret }])`.
 - `event_lanes(id, name, position, visibility 'all' | 'gm')` and `event_notes(id, lane_id, position, text, color, author_role,
   author_character_id, author_name)`.
 - `rel_nodes(id, pc_id, character_id | null, name, note, x, y)` (a card; `character_id` null for a made-up person) and
   `rel_edges(id, pc_id, from_id, to_id, label, color, note)`.
 - `chat_images(id)`: the images posted in the chat (deleted with their messages and at start).
+
+Added in 0.2.2: a spell gains `scheme` (a copy of its tree of stones).
 
 Added in 0.2.1: the sheet JSON gains `rest { current }` (Rest Points) and `oxApplied` (the statuses Blood Oxidization put on by itself);
 an item gains `spellId` (the Created Spell it is, or null); a spell gains `learned`, `coverage`, `authorId`, `authorName` and
@@ -1690,6 +1697,16 @@ signature emptied, with `authorSelf` saying whether they made it. Players may no
 HTTP: `GET /api/pcs` returns `[{ id, name, portraitImageId, portraitCrop }]` (PCs only) for the picker. `GET /api/images/:id`
 serves an image with a one-year immutable cache header.
 
+### Combat card (decided, implemented)
+A **double-click** (or a quick double tap) on a character's **battle token** or its **row in the combat order** opens a small **combat
+card**: the GM opens anyone's, a player only their own character's (the Display none). It is the character's fight at a glance, editable
+just as on the full sheet, with smaller icons and short labels: the Portrait and name (with **Full sheet** and Close), **AP** cubes, **HP**
+and **Temp HP**, **Rest Points** (with the rest button) and **Blood Oxidization** (with Let blood), **Physical and Mental Defence**,
+**Movement**, **Size** and the **Prime** stat, **Help Dice**, the **stats** with their X Defence and a Roll and Save button each, the three
+**Combat Masteries** with Roll, **statuses** as small chips (icon, name and stacks; - takes a stack off, x removes it; + Status adds one),
+the running **Effects** with how long they last, and **Resistances**. Skills, items and the Arcane tab stay on the full sheet. On a token
+the first tap still opens the token menu; the second tap within 0.4 s opens the card instead.
+
 ### Pop-out (decided, implemented)
 A desktop player has a **pop-out** button (a box with an arrow leaving it) in the tool bar on the left of the Scene page: in Battle mode
 it is the last button of the map's tool bar; in Scene mode it sits alone in a small bar in the same place. It opens a **new browser tab**
@@ -1755,7 +1772,8 @@ Custom-VTT review"; a detail marked "chosen while building" there was not asked 
 - **Patch note:** the picker shows the version and one sentence (`client/src/lib/patchNotes.js`, English key with its Russian row). Every
   push to main bumps the patch number in both `package.json` files and their lockfiles and rewrites the sentence
   (`server/test/patchNotes.test.js` checks the versions match).
-- **Scene notes and Cards:** GM only, up to 9 per scene, the same 9 in Scene and Battle mode. A row of small round numbered buttons sits
+- **Scene notes and Cards:** (a mouse over a note shows its whole text in a speech bubble under it, see the data model) GM only, up to 9
+  per scene, the same 9 in Scene and Battle mode. A row of small round numbered buttons sits
   under the Scene / Battle switch (notes outlined, Cards amber); a dotted + adds the next. A note's dialog has a **Note / Card** toggle: a
   Note is a text; a Card has a **title** and an optional **second line**, and **Show to everyone** (saves, then plays it). A played Card
   covers every screen (GM, players, Display) with a 90% black layer, the title big and the second line smaller, fading in, holding and

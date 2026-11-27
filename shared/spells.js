@@ -226,6 +226,9 @@ export function normalizeSpell(raw, id) {
     // the rows of the draft the spell was crafted from (kept in step with them, for the Circles the spell has).
     circles,
     draftId: typeof r.draftId === 'string' && r.draftId ? r.draftId : null,
+    // The tree of Spell Stones it was crafted from (a copy, so it goes with the spell when it is given away); null for a spell crafted
+    // before the copy was kept (its draft's tree is shown while the draft is still there) or granted by the GM.
+    scheme: r.scheme && typeof r.scheme === 'object' ? normalizeScheme(r.scheme) : null,
     runes: normalizeRows(r.runes, circles),
     stabilization: Math.min(999, Math.max(0, Number.isInteger(r.stabilization) ? r.stabilization : STABILIZATION_START)),
     destroyed,

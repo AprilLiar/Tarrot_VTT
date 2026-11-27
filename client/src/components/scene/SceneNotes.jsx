@@ -25,6 +25,59 @@ function useNotes(sceneId) {
 
 // The GM's notes on the active scene (see the README): numbered round buttons in a row under the Scene / Battle switch, and while there are
 // fewer than 9 a dotted + to make the next one. A note is plain text; a Card (filled button) can be shown to everyone as a cutscene card.
+// A note's round button. With a mouse over it (or over its bubble), the note shows its whole text in a speech bubble under it, so it can be
+// read without opening it. A touch screen has no hover: a tap opens the note as before.
+function NoteButton({ note: n, onOpen }) {
+  const t = useT();
+  const [hover, setHover] = useState(false);
+  const enter = (e) => e.pointerType === 'mouse' && setHover(true);
+  return (
+    <span className="relative" onPointerEnter={enter} onPointerLeave={() => setHover(false)}>
+      <button
+        className={`${round} ${n.kind === 'card' ? 'bg-amber-400 text-black' : 'border border-white/60 bg-black/50'}`}
+        data-testid="scene-note"
+        data-kind={n.kind}
+        aria-label={n.kind === 'card' ? t('Card {n}', { n: n.number }) : t('Note {n}', { n: n.number })}
+        onClick={() => {
+          setHover(false);
+          onOpen();
+        }}
+      >
+        {n.number}
+      </button>
+      {hover && <NoteBubble note={n} />}
+    </span>
+  );
+}
+
+// The bubble: a small comic-book speech bubble under the note, its tail pointing up at it.
+function NoteBubble({ note }) {
+  const t = useT();
+  const empty = note.kind === 'card' ? !note.title && !note.body : !note.body.trim();
+  return (
+    <div
+      className="note-bubble absolute left-1/2 top-full z-40 w-64 -translate-x-1/2 pt-3"
+      data-testid="note-bubble"
+    >
+      <div className="relative rounded-2xl border-2 border-black bg-white px-3 py-2 text-left text-sm text-black shadow-[3px_3px_0_rgba(0,0,0,0.6)]">
+        <span className="absolute -top-[9px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-l-2 border-t-2 border-black bg-white" aria-hidden="true" />
+        <div className="relative max-h-72 overflow-y-auto whitespace-pre-wrap break-words">
+          {empty ? (
+            <span className="italic opacity-60">{t('(empty)')}</span>
+          ) : note.kind === 'card' ? (
+            <>
+              <div className="font-bold">{note.title}</div>
+              {note.body && <div className="opacity-80">{note.body}</div>}
+            </>
+          ) : (
+            note.body
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // This row is the only place notes are made and managed.
 export function SceneNotes({ sceneId }) {
   const t = useT();
@@ -34,16 +87,7 @@ export function SceneNotes({ sceneId }) {
   return (
     <div className="flex flex-wrap justify-center gap-1" data-testid="scene-notes">
       {notes.map((n) => (
-        <button
-          key={n.id}
-          className={`${round} ${n.kind === 'card' ? 'bg-amber-400 text-black' : 'border border-white/60 bg-black/50'}`}
-          data-testid="scene-note"
-          data-kind={n.kind}
-          aria-label={n.kind === 'card' ? t('Card {n}', { n: n.number }) : t('Note {n}', { n: n.number })}
-          onClick={() => setOpen(n)}
-        >
-          {n.number}
-        </button>
+        <NoteButton key={n.id} note={n} onOpen={() => setOpen(n)} />
       ))}
       {notes.length < MAX_NOTES && (
         <button className={`${round} border-2 border-dashed border-white/60 bg-black/30`} data-testid="scene-note-add" aria-label={t('New note')} onClick={() => setOpen('new')}>

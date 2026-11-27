@@ -4,6 +4,6 @@ import { T } from '../../../shared/localization.js';
 // package.json files and their lockfiles carry the same) and rewrites `note`: one sentence on what that push changed, with its Russian row
 // in LOCALIZATION.md. server/test/patchNotes.test.js checks that the versions match.
 export const PATCH = {
-  version: '0.2.1',
-  note: T('Blood Oxidization as a meter with its penalties and Let blood, Rest Points with Short and Long Rests, spells as Inventory items with signatures, Learned Spells with tattoo Coverage, a pop-out sheet and map tools for players, and the skills reordered without Mental Resolve.'),
+  version: '0.2.2',
+  note: T('A combat card on a double-click of a token or a combat row, scene notes readable in a bubble on hover, spell items that show the spell and its tree of stones, and Body Movement moved between Stamina and Speed.'),
 };

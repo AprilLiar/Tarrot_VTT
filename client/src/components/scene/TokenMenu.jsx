@@ -9,7 +9,9 @@ const circle =
 // token, up to two per side, each column centred on the middle of the token, so nothing hangs below it.
 // `options`: [{ key, label, testId, onClick }]. With an odd number the extra one goes on the right.
 // `below`: anything shown centred under the token (the conditions of a battle token).
-export function TokenMenu({ anchor, containerRef, options, onClose, below = null }) {
+// `onAnchorPress`: a press on the backdrop right over the token the menu belongs to (the second tap of a double-tap); return true to keep
+// the menu from simply closing.
+export function TokenMenu({ anchor, containerRef, options, onClose, below = null, onAnchorPress = null }) {
   const [pos, setPos] = useState(null);
   const left = options.slice(0, Math.floor(options.length / 2));
   const right = options.slice(left.length);
@@ -50,7 +52,16 @@ export function TokenMenu({ anchor, containerRef, options, onClose, below = null
 
   return (
     <>
-      <div className="absolute inset-0 z-30" data-testid="token-menu-backdrop" onPointerDown={onClose} />
+      <div
+        className="absolute inset-0 z-30"
+        data-testid="token-menu-backdrop"
+        onPointerDown={(e) => {
+          const b = anchor?.getBoundingClientRect?.();
+          const over = b && e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom;
+          if (over && onAnchorPress?.()) return;
+          onClose();
+        }}
+      />
       <div data-testid="token-menu">
         {column(left, pos.leftX, pos.leftTop, 'token-menu-left')}
         {column(right, pos.rightX, pos.rightTop, 'token-menu-right')}
